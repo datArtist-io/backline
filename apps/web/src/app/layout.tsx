@@ -4,7 +4,7 @@ import { Hanken_Grotesk, Unbounded } from "next/font/google";
 import "./globals.css";
 import { BRAND } from "@/lib/brand";
 
-const display = Unbounded({ subsets: ["latin"], variable: "--font-display", weight: ["400", "500"] });
+const display = Unbounded({ subsets: ["latin"], variable: "--font-display", weight: ["300", "400", "500"] });
 const body = Hanken_Grotesk({ subsets: ["latin"], variable: "--font-body" });
 
 export const metadata: Metadata = {

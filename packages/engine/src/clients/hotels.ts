@@ -1,5 +1,5 @@
 // Live hotel availability and reservations through a booking provider. The provider handles
-// payment on its own secure page: the agent never sees or stores card details.
+// payment: the agent never sees or stores card details.
 
 /** One bookable room rate at one hotel, for specific dates and guests. */
 export type HotelOffer = {
@@ -66,6 +66,8 @@ export interface HotelProvider {
   search(q: HotelSearch): Promise<HotelOffer[]>;
   /** Hold a rate and get the secure checkout details for it. */
   hold(offerId: string, guest: GuestDetails | null, signal?: AbortSignal): Promise<HeldRate>;
+  /** Pay for a held rate with the account's own payment method and confirm it, when the provider supports it. */
+  pay?(holdId: string, guest: GuestDetails, signal?: AbortSignal): Promise<Booking>;
   /** Confirm a held rate once the guest has paid on the provider's page. */
   confirm(holdId: string, guest: GuestDetails, payment: { transactionId: string }, signal?: AbortSignal): Promise<Booking>;
 }

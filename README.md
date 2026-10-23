@@ -23,11 +23,11 @@ Taste comes first. Before anything is searched, Backline reads the person's tast
 - **Live research:** current prices, opening times and events from the web, with sources.
 - **Take it with you:** add the whole plan to your calendar (.ics), export a PDF, a Word document or a PowerPoint deck, or present it as slides in the browser.
 - **Documents:** attach a ticket, booking or itinerary (PDF, image, spreadsheet) and the agent plans around it.
-- **Safe by design:** the agent never pays or shares card details, asks before anything irreversible and discloses that it is an AI on calls.
+- **Books and pays for you:** with a booking provider connected, the agent books the hotel and pays for it, only at the price you approved and within your budget, and the confirmation is emailed to you. Card details never pass through Backline. Restaurants and venues are booked by email or phone call, and calls say they're from an AI assistant.
 
 ## Try it
 
-Open the demo, type something like:
+Open the demo at **[backline-beta-one.vercel.app](https://backline-beta-one.vercel.app)** and type something like:
 
 - `Weekend in Lagos for a show at the National Theatre, Nov 14 to 16`
 - `Plan a weekend in Lagos like Burna Boy would`
@@ -75,6 +75,7 @@ npm run dev                                  # http://localhost:3000
 | `STT_API_KEY`, `STT_BASE_URL`, `STT_MODEL` | Speech-to-text for the voice prompt |
 | `NEXT_PUBLIC_SUPABASE_URL` | Google and Apple sign-in on the waitlist (see `docs/SETUP-AUTH.md`) |
 | `ANTHROPIC_API_KEY`, `CLAUDE_SEARCH_MODEL` | Web research and listed hotel prices; Tavily also supported, with Wikivoyage as a free fallback |
+| `LITEAPI_API_KEY` | Live hotel rates, booking and payment (a `sand_` key simulates payment) |
 | `NEXT_PUBLIC_MAP_TILES`, `NEXT_PUBLIC_MAP_ATTRIBUTION` | Optional keyed map tile provider (OpenStreetMap by default) |
 | `SUPABASE_URL`, `SUPABASE_SECRET_KEY` | Waitlist storage (run `packages/db/migrations/0001_waitlist.sql` first) |
 | `RESEND_API_KEY`, `WAITLIST_FROM_EMAIL` | Optional waitlist confirmation emails |

@@ -132,8 +132,11 @@ a { color: inherit; text-decoration: none; }
   mask-image: linear-gradient(to bottom, #000 0%, #000 62%, transparent 96%);
 }
 .stage-canvas { position: absolute; inset: 0; }
-.stage-canvas { opacity: 0; transform: scale(0.97); transition: opacity 1.1s var(--ease-out), transform 1.4s var(--ease-out); }
-.stage.is-ready .stage-canvas { opacity: 1; transform: none; }
+/* Fade in only: the canvas measures its box when it mounts, so a scale here would leave it
+   permanently 3% too narrow, with a hard edge on the right. */
+.stage-canvas { opacity: 0; transition: opacity 1.1s var(--ease-out); }
+.stage.is-ready .stage-canvas { opacity: 1; }
+.stage-canvas canvas { width: 100% !important; height: 100% !important; }
 .hero > :not(.stage) { position: relative; z-index: 1; }
 
 .hero-title {
@@ -1345,13 +1348,6 @@ a { color: inherit; text-decoration: none; }
   .pill { font-size: 14px; padding: 9px 15px; }
   .hero { padding: 104px 16px 64px; }
   .hero-title { font-size: clamp(38px, 11vw, 52px); margin-bottom: clamp(150px, 30vh, 240px); }
-  /* The sculpture fades at the sides instead of ending on a hard edge. */
-  .stage {
-    -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 62%, transparent 96%), linear-gradient(to right, transparent 0%, #000 12%, #000 88%, transparent 100%);
-    -webkit-mask-composite: source-in;
-    mask-image: linear-gradient(to bottom, #000 0%, #000 62%, transparent 96%), linear-gradient(to right, transparent 0%, #000 12%, #000 88%, transparent 100%);
-    mask-composite: intersect;
-  }
   .prompt { padding: 6px 6px 6px 18px; background: rgba(255, 255, 255, 0.62); }
   .prompt-input { font-size: 16px; }
   .hero-switch { margin-top: 18px; }
@@ -1363,3 +1359,30 @@ a { color: inherit; text-decoration: none; }
   .caps-tab { scroll-snap-align: start; padding: 9px 15px; font-size: 14.5px; }
   .caps-body { padding: 22px 18px 26px; }
 }
+
+/* ---------- Hero type ---------- */
+/* Two lines with two voices: a light, inky first line and a luminous second line in the brand's
+   stage-light colours, with a slow sheen. Both read clearly over the sculpture. */
+.hero-line { display: block; }
+.hero-title .hero-line:first-child, .join-title .hero-line:first-child {
+  font-weight: 300;
+  background: linear-gradient(180deg, #1b1f3d 0%, #3a3566 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.hero-accent {
+  font-weight: 500;
+  padding-bottom: 0.06em;
+  background: linear-gradient(100deg, #6d4cff 0%, #b14dff 28%, #ff4fa3 56%, #ff8a5c 78%, #6d4cff 100%);
+  background-size: 220% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 10px 28px rgba(123, 92, 255, 0.28));
+  animation: hero-sheen 9s ease-in-out infinite alternate;
+}
+@keyframes hero-sheen { from { background-position: 0% 50%; } to { background-position: 100% 50%; } }
+@media (prefers-reduced-motion: reduce) { .hero-accent { animation: none; } }
+@media (max-width: 560px) { .hero-title { letter-spacing: -0.04em; } }
+.caps-title { background: linear-gradient(180deg, #1b1f3d 0%, #4a3f86 100%); -webkit-background-clip: text; background-clip: text; color: transparent; }

@@ -36,7 +36,7 @@ What the product does today, how each part works and how it's checked. Engine te
 
 ### Booking with the user
 - Booking links with the dates filled in, reservation emails, calls with a script, and the whole plan as a calendar file.
-- Nothing runs before the user approves it. Limits per mission: 4 emails, 3 calls, 1 reservation. Calls say they're from an AI assistant. The agent never pays or shares card details.
+- Nothing runs before the user approves it. Limits per mission: 4 emails, 3 calls, 1 reservation. Calls say they're from an AI assistant. It books and pays for the hotel through the booking provider, only at the approved price and within budget; card details never pass through Backline.
 
 ### Taking it with you
 - Add to calendar (.ics), PDF, Word document, PowerPoint (.pptx) and a web slide deck to present. The taste profile is included in each.

@@ -52,9 +52,8 @@ export default function Landing() {
         <section className={`hero${launching ? " is-launching" : ""}`} aria-labelledby="hero-title">
           <Background />
           <h1 id="hero-title" className="hero-title">
-            Say where.
-            <br />
-            We plan the rest.
+            <span className="hero-line">Say where.</span>
+            <span className="hero-line hero-accent">We plan the rest.</span>
           </h1>
           <PromptBar onSubmit={go} placeholder="What are you planning, where and when?" shortPlaceholder="What are you planning?" />
           <ModeSwitch value={mode} onChange={setMode} className="hero-switch" />

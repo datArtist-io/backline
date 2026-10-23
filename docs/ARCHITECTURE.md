@@ -31,7 +31,7 @@ flowchart LR
 3. **Agent** (`skills/trip-agent.ts`). A JSON ReAct loop (`agent/runtime.ts`) with tools: `update_trip`, `locate`, `search_places`, `check_places`, `research`, `read_document`. Limits: 8 turns, 18 calls, 90 seconds. If the model stalls, a scripted autopilot finishes the job, and a final pass makes sure everything the user needs was found. Hotels are sorted into four lanes (premium, closest, best value, lowest price) with prices only where one is really listed.
 4. **Plan** (`skills/trip.ts`). The model writes the days, budget and tips from the agent's picks, using short ids that are mapped back, so it can't invent places. A template plan covers model failures.
 5. **Routes** (`skills/trip-routes.ts`). Each day's stops are routed on real roads (OSRM), with ride fares between stops and the round trip from the user's home city.
-6. **Actions and execute.** Booking links, emails, calls and a calendar file, approved by the user first. The agent never pays or shares card details.
+6. **Actions and execute.** Hotel booking and payment through LiteAPI (live rates, prebook, book), reservation emails, calls and a calendar file, approved by the user first (or straight through in "Just do it"). Payment happens only at the approved price and within budget; card details never pass through Backline.
 
 The orchestrator (`orchestrator.ts`) runs skills as a dependency graph: each starts when its inputs are ready, failures skip only what depends on them, and a checkpoint can pause the run until the user approves.
 

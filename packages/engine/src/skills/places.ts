@@ -6,6 +6,7 @@ import { z } from "zod";
 import type { QlooEntity } from "../clients/qloo";
 import type { OsmKind, OsmPlace } from "../clients/osm";
 import type { WebResult } from "../clients/web";
+import type { HotelOffer } from "../clients/hotels";
 import { EMAIL_RE } from "../clients/email";
 import type { BriefInput, Evidence, SkillContext } from "../types";
 import { UNTRUSTED_WEB_RULE, languageRule, quoteWeb, textOf, webEvidence } from "../grounding";
@@ -339,6 +340,50 @@ export async function searchNear(ctx: SkillContext, s: NearSearch): Promise<Near
     .slice(0, take);
   const both = merged.filter((p) => p.source === "qloo+osm").length;
   return { places, counts: { qloo: qPlaces.length, osm: oPlaces.length, merged: both }, failures };
+}
+
+/** A live, bookable hotel offer as a place. Pure. */
+export function fromOffer(o: HotelOffer, provider: string): Place {
+  return {
+    id: `hotels:${o.hotelId}`,
+    name: o.name,
+    address: o.address,
+    phone: null,
+    email: null,
+    website: null,
+    priceLevel: o.stars ? (o.stars >= 5 ? 4 : o.stars >= 4 ? 3 : o.stars >= 3 ? 2 : 1) : null,
+    rating: o.rating != null ? (o.rating > 5 ? Math.round((o.rating / 2) * 10) / 10 : o.rating) : null,
+    affinity: null,
+    image: o.image,
+    lat: o.lat,
+    lon: o.lon,
+    tags: ["Hotel"],
+    fit: 0,
+    why: [],
+    priceNote: null,
+    extra: null,
+    sources: [],
+    kind: "stay",
+    source: "hotels",
+    offer: { offerId: o.offerId, total: o.total, currency: o.currency, perNight: o.perNight, roomName: o.roomName, board: o.board, refundable: o.refundable, cancellation: o.cancellation, provider },
+  };
+}
+
+/**
+ * Join live offers onto the hotels already found: the same hotel (by name, within 300 m) gets the
+ * bookable rate; hotels only the booking provider knows are added. Pure.
+ */
+export function attachOffers(places: Place[], offers: HotelOffer[], provider: string): Place[] {
+  const out = places.map((p) => ({ ...p }));
+  for (const o of offers) {
+    const match = out.find((p) => sameName(p.name, o.name) && (p.lat == null || p.lon == null || o.lat == null || o.lon == null || distanceKm({ lat: p.lat, lon: p.lon }, { lat: o.lat, lon: o.lon }) <= 0.3));
+    const offer = fromOffer(o, provider).offer;
+    if (match) {
+      match.offer = offer;
+      match.image = match.image ?? o.image;
+    } else out.push(fromOffer(o, provider));
+  }
+  return out;
 }
 
 /**

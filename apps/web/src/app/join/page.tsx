@@ -28,9 +28,8 @@ export default async function JoinPage({ searchParams }: { searchParams: Promise
         <div className="join-grid">
           <div className="join-intro">
             <h1 className="join-title">
-              Say where.
-              <br />
-              We plan the rest.
+              <span className="hero-line">Say where.</span>
+              <span className="hero-line hero-accent">We plan the rest.</span>
             </h1>
             <p className="join-lede">
               Trips, events, dinners and nights out: tell it what you&apos;re planning and it finds the places, checks real prices, maps every move and books it with you.

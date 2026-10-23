@@ -1,6 +1,6 @@
 "use client";
 // The planning agent's screens: what it found and why, the plan with travel between stops, the
-// places it picked, what it's about to do, and what it did. Payments always stay with the user.
+// places it picked, what it's about to do, and what it did.
 import { useEffect, useMemo, useRef, useState } from "react";
 import TripMap, { DAY_COLORS, type MapDay, type TasteLayer } from "./TripMap";
 import { TasteMatch } from "./Taste";
@@ -443,7 +443,7 @@ export function ActionsCheckpoint({
       <h2 id="cp-actions" className="cp-title">
         Here&rsquo;s what I&rsquo;ll do. Good to go?
       </h2>
-      <p className="muted">Untick anything you&rsquo;d rather handle yourself. I never pay or share card details.</p>
+      <p className="muted">Untick anything you&rsquo;d rather handle yourself. I only pay at the price shown and within your budget.</p>
       <ul className="action-list">
         {actions.map((a) => {
           const on = picked.includes(a.id);
@@ -456,7 +456,7 @@ export function ActionsCheckpoint({
                 <span className="cp-text">
                   <span className="cp-label">{a.title}</span>
                   <span className="cp-detail">
-                    {a.channel === "reserve" && `I'll hold this rate${a.price ? ` (${money(a.price.total, a.price.currency)} total)` : ""}. You pay on the provider's secure page to confirm.`}
+                    {a.channel === "reserve" && `I'll book and pay${a.price ? ` ${money(a.price.total, a.price.currency)} for the whole stay` : ""}, only at this price and within your budget. The confirmation is emailed to you.`}
                     {a.channel === "email" && (a.mode === "auto" ? `I'll email ${a.to}` : `Opens a ready email to ${a.to}`)}
                     {a.channel === "call" && (a.mode === "auto" ? `I'll call ${a.to}` : `Number and script for ${a.to}`)}
                     {a.channel === "link" && "Opens with your dates and guests filled in. You pay there."}

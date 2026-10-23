@@ -22,7 +22,7 @@ One sentence in ("a weekend in Lagos, I love Wizkid and jazz"), a finished plan 
 3. **Checks real prices**: hotel rates are shown only when they're listed for the dates, with the page linked.
 4. **Sorts hotels into lanes**: premium, closest, best value and lowest price.
 5. **Writes the plan** day by day, with the map, routes on real roads, ride fares between stops and the round trip home.
-6. **Books it with them**: booking links, emails, calls and a calendar file, after they approve. It never pays or shares card details.
+6. **Books and pays**: live hotel rates, booked and paid through the booking provider at the approved price and within budget; reservation emails and calls for restaurants and venues; a calendar file. Card details never pass through Backline.
 7. **Hands it over**: calendar, PDF, Word, PowerPoint or slides to present.
 
 Artist teams also get missions built on Qloo's audience data: fan profiles, brand matches with pitches, tour routing, growth and content ideas.
@@ -47,4 +47,4 @@ Taste is the difference. Qloo connects what someone loves in one domain (music, 
 | Qloo has thin data for a city or a taste | The plan still works on distance, ratings and budget, and says so |
 | The model invents places or prices | Only ids from searches can be picked; contacts and prices must appear in their source |
 | A service is slow or down | Fixed time budgets, fallbacks for every provider, an autopilot when the model stalls |
-| Booking on the user's behalf goes wrong | Every action needs approval; payment always stays with the user |
+| Booking on the user's behalf goes wrong | Payment only at the approved price and within budget; a higher price stops for approval; one paid booking per mission |

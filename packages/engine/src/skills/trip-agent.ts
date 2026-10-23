@@ -6,9 +6,10 @@
 import { z } from "zod";
 import type { BriefInput, Evidence, Skill, SkillContext, StepProgress, TripRequest } from "../types";
 import { defineTool, modelPolicy, runAgent, type AgentRun, type AnyTool, type Decision, type FallbackReason, type Policy, type ToolOutput } from "../agent/runtime";
-import { KINDS, PLACE_KINDS, SOURCE_BUDGET_MS, checkPlaces, lookFor, placeEvidence, placeSchema, scorePlace, searchByName, searchNear, type Place, type PlaceKind } from "./places";
+import { KINDS, PLACE_KINDS, SOURCE_BUDGET_MS, attachOffers, checkPlaces, lookFor, placeEvidence, placeSchema, scorePlace, searchByName, searchNear, type Place, type PlaceKind } from "./places";
 import type { GeoHit } from "../clients/osm";
 import type { QlooEntity } from "../clients/qloo";
+import type { HotelOffer } from "../clients/hotels";
 import type { TasteOutput } from "./taste";
 import { CURRENCY_COUNTRY, describeTrip, groundTrip, rawTripSchema, tripRequestSchema, updateTrip } from "../trip-request";
 import { documentsBlock, searchDocuments } from "../documents";
@@ -640,10 +641,23 @@ export function tripTools(ctx: SkillContext, s: TripAgentState): AnyTool<TripAge
       // Hotels: everything within 5 km, plus the highly rated or upmarket ones out to 10 km, since a
       // much better hotel a short ride further often beats the nearest one.
       const wideStay = a.kind === "stay" && radius < 10;
-      const [first, wide] = await Promise.all([search(radius), wideStay ? search(10).catch(() => null) : Promise.resolve(null)]);
+      // Live, bookable rates for the trip's dates, when a booking provider is connected.
+      const live =
+        a.kind === "stay" && ctx.hotels && t().startDate && t().endDate
+          ? ctx.hotels
+              .search({ lat: anchor.lat, lon: anchor.lon, radiusKm: Math.max(radius, 10), checkin: t().startDate!, checkout: t().endDate!, adults: t().adults, rooms: t().rooms, currency: t().budget.currency, guestNationality: s.city?.countryCode ?? undefined, limit: 25, signal: ctx.signal })
+              .catch((err) => {
+                ctx.log.warn("Live hotel rates failed", { error: String(err) });
+                return [] as HotelOffer[];
+              })
+          : Promise.resolve([] as HotelOffer[]);
+      const [first, wide, offers] = await Promise.all([search(radius), wideStay ? search(10).catch(() => null) : Promise.resolve(null), live]);
+      if (offers.length) ctx.usage.add("hotels", 1);
       let res = first;
       const good = (wide?.places ?? []).filter((p) => !res.places.some((q) => q.id === p.id) && ((p.rating ?? 0) >= 4.2 || (p.priceLevel ?? 0) >= 3));
       if (good.length) res = { ...res, places: [...res.places, ...good.slice(0, 8)] };
+      const bookable = offers.length && ctx.hotels ? attachOffers(res.places, offers, ctx.hotels.name).map((p) => (p.distanceKm != null || p.lat == null || p.lon == null ? p : { ...p, distanceKm: round1(distanceKm(anchor, { lat: p.lat, lon: p.lon })) })) : null;
+      if (bookable) res = { ...res, places: bookable.map((p) => rescore(s, p)) };
       let widened = false;
       // Widen once if little turned up, unless the sources were slow (a second pass would be too).
       if (res.places.length < 3 && radius < 20 && Date.now() - t0 < SOURCE_BUDGET_MS) {

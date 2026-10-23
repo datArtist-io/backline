@@ -1,6 +1,6 @@
 // The planning mission after the agent has chosen: write a detailed plan from its picks and
 // research, propose concrete actions, and carry them out once approved (emails, calls,
-// pre-filled booking links, calendar). Payments always stay with the user.
+// pre-filled booking links, calendar, and hotel booking with payment through the booking provider).
 import { z } from "zod";
 import { toE164 } from "../clients/calls";
 import type { BriefInput, Profile, Skill, SkillResult, TripRequest } from "../types";
@@ -401,7 +401,7 @@ export function buildActions(
       add({
         kind: "book_stay",
         channel: "reserve",
-        title: `Reserve ${stay.offer.roomName ?? "a room"} at ${stay.name}`,
+        title: `Book and pay for ${stay.offer.roomName ?? "a room"} at ${stay.name}`,
         placeId: stay.id,
         placeName: stay.name,
         offerId: stay.offer.offerId,
@@ -627,6 +627,26 @@ export const tripExecute: Skill<BriefInput, TripExecuteOutput> = {
           if (++reserves > ACTION_LIMITS.reserve) return { actionId: a.id, status: "skipped", ref: null, message: "One room booking per mission." };
           const guest = { ...splitName(profile.name ?? ""), email: profile.email ?? "", phone: profile.phone };
           const held = await ctx.hotels.hold(a.offerId, guest, ctx.signal);
+          const money = (n: number, c: string) => `${Math.round(n).toLocaleString("en")} ${c}`;
+          // Pays straight away when the provider can, and the price is what they approved and within their budget.
+          const b = input.trip?.budget;
+          const stayNights = Math.max(1, tripDates(input.trip?.startDate ?? null, input.trip?.endDate ?? null).length - 1);
+          const cap = b?.amount && b.currency === held.currency ? (b.scope === "per_night" ? b.amount * stayNights : b.amount) : null;
+          const approved = a.price ? held.total <= a.price.total * 1.02 : true;
+          if (ctx.hotels.pay && approved && (cap == null || held.total <= cap)) {
+            const booking = await ctx.hotels.pay(held.holdId, guest, ctx.signal);
+            if (booking.status !== "failed") {
+              const test = ctx.hotels.sandbox ? " Test booking: no real money moved." : "";
+              return {
+                actionId: a.id,
+                status: "booked",
+                ref: booking.reference ?? booking.bookingId,
+                message: `${booking.status === "confirmed" ? "Booked and paid" : "Paid; the hotel is confirming"}: ${money(booking.total ?? held.total, booking.currency ?? held.currency)}${booking.reference ? `, confirmation ${booking.reference}` : ""}.${held.cancellation ? ` ${held.cancellation}.` : ""} The confirmation goes to ${guest.email}.${test}`,
+              };
+            }
+          }
+          if (!approved || (cap != null && held.total > cap))
+            return { actionId: a.id, status: "needs_info", ref: held.holdId, message: `The price is now ${money(held.total, held.currency)}${cap != null && held.total > cap ? `, over your ${money(cap, held.currency)} budget` : ""}, so I didn't pay. Approve the new price and I'll book it.` };
           return {
             actionId: a.id,
             status: "held",

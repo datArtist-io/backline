@@ -93,7 +93,7 @@ export const MISSIONS: Record<MissionType, MissionDef> = {
         before: "trip.execute",
         optionsFrom: "trip.actions",
         title: "Here's what I'll do. Good to go?",
-        hint: "Untick anything you'd rather handle yourself. I never pay or share card details.",
+        hint: "Untick anything you'd rather handle yourself. I only pay at the price shown and within your budget.",
         min: 1,
         max: 12,
       },

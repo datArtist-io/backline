@@ -9,6 +9,8 @@ import { VapiCaller, type CallPlacer } from "./clients/calls";
 import { OsmClient } from "./clients/osm";
 import { WikiSearchClient } from "./clients/wiki";
 import { ClaudeSearchClient } from "./clients/claude-search";
+import { LiteApiProvider } from "./clients/liteapi";
+import type { HotelProvider } from "./clients/hotels";
 import { ChainedWebSearch } from "./clients/chain";
 import type { WebSearch } from "./clients/web";
 import type { Logger, SkillContext, UsageMeter } from "./types";
@@ -36,6 +38,8 @@ const envSchema = z.object({
   VAPI_API_KEY: z.string().optional(),
   VAPI_PHONE_NUMBER_ID: z.string().optional(),
   VAPI_MODEL: z.string().optional(),
+  /** LiteAPI key for live hotel rates and booking. A sandbox key (sand_…) simulates payment. */
+  LITEAPI_API_KEY: z.string().optional(),
   // Maps (OpenStreetMap: geocoding, nearby places, road routes). No key needed; "off" disables.
   MAPS: z.enum(["on", "off"]).default("on"),
   OSM_USER_AGENT: z.string().optional(),
@@ -100,7 +104,7 @@ function parseExtraBody(raw: string | undefined): Record<string, unknown> | unde
   return undefined;
 }
 
-type Shared = { key: string; qloo: QlooClient; llm: LlmClient | null; web: WebSearch | null; rates: ClaudeSearchClient | null; email: EmailSender | null; calls: CallPlacer | null; osm: OsmClient | null };
+type Shared = { key: string; qloo: QlooClient; llm: LlmClient | null; web: WebSearch | null; rates: ClaudeSearchClient | null; email: EmailSender | null; calls: CallPlacer | null; osm: OsmClient | null; hotels: HotelProvider | null };
 
 // Clients are reused across requests in the same server process so their caches are shared.
 let shared: Shared | null = null;
@@ -124,6 +128,7 @@ export function createContext(env: Record<string, string | undefined>, opts: { l
     e.ACTIONS_FROM_EMAIL,
     Boolean(e.VAPI_API_KEY),
     e.VAPI_PHONE_NUMBER_ID,
+    e.LITEAPI_API_KEY?.slice(0, 5),
   ]);
   if (!shared || shared.key !== key) {
     const claude = e.ANTHROPIC_API_KEY ? new ClaudeSearchClient({ apiKey: e.ANTHROPIC_API_KEY, model: e.CLAUDE_SEARCH_MODEL }) : null;
@@ -139,6 +144,7 @@ export function createContext(env: Record<string, string | undefined>, opts: { l
       email: e.RESEND_API_KEY && e.ACTIONS_FROM_EMAIL ? new ResendSender({ apiKey: e.RESEND_API_KEY, from: e.ACTIONS_FROM_EMAIL }) : null,
       calls: e.VAPI_API_KEY && e.VAPI_PHONE_NUMBER_ID ? new VapiCaller({ apiKey: e.VAPI_API_KEY, phoneNumberId: e.VAPI_PHONE_NUMBER_ID, model: e.VAPI_MODEL }) : null,
       osm: e.MAPS === "off" ? null : new OsmClient({ userAgent: e.OSM_USER_AGENT, email: e.OSM_CONTACT_EMAIL }),
+      hotels: e.LITEAPI_API_KEY ? new LiteApiProvider({ apiKey: e.LITEAPI_API_KEY }) : null,
     };
   }
   return {
@@ -149,6 +155,7 @@ export function createContext(env: Record<string, string | undefined>, opts: { l
     email: shared.email,
     calls: shared.calls,
     osm: shared.osm,
+    hotels: shared.hotels,
     log: opts.log ?? consoleLogger,
     usage: createUsageMeter(),
     signal: opts.signal,
