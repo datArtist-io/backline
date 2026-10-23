@@ -209,4 +209,19 @@ describe("plans that follow a favourite star", () => {
     expect(groundTrip({ inspiredBy: "Burna Boy" }, "a weekend like burna boy would")?.inspiredBy).toBe("Burna Boy");
     expect(groundTrip({ inspiredBy: "Davido" }, "a quiet weekend in lagos")?.inspiredBy).toBeNull();
   });
+
+  it("books the travel unless they said they'd handle it", async () => {
+    const { groundTrip } = await import("../src/trip-request");
+    const ask = "Weekend in Abuja from Lagos, Nov 14 to 16, budget 1500000 naira";
+    expect(groundTrip({ selfArranged: ["transport"] }, ask)?.selfArranged).toEqual([]);
+    expect(groundTrip({ selfArranged: ["transport"] }, "Abuja from Lagos, I'll book the flight myself")?.selfArranged).toEqual(["transport"]);
+    expect(groundTrip({ selfArranged: ["transport"] }, "we already have our tickets to Abuja")?.selfArranged).toEqual(["transport"]);
+  });
+
+  it("assumes one traveller unless the request suggests company", async () => {
+    const { groundTrip } = await import("../src/trip-request");
+    expect(groundTrip({ adults: 2 }, "Weekend in Abuja from Lagos, Nov 14 to 16")?.adults).toBeNull();
+    expect(groundTrip({ adults: 2 }, "Weekend in Abuja with my wife")?.adults).toBe(2);
+    expect(groundTrip({ adults: 2 }, "a trip for 2 to Abuja")?.adults).toBe(2);
+  });
 });

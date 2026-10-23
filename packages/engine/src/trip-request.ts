@@ -125,6 +125,9 @@ function saidIn(text: string, name: string): boolean {
  * event for hosting one, so: numbers not stated in the text are dropped, and an "event" with no
  * sign of hosting becomes the trip's purpose instead. People and tastes must be ones they named. Pure.
  */
+const SELF_HANDLED = /\b(myself|ourselves|on my own dime|i'?ll (?:pay|handle|book|sort|arrange|cover|get)|we'?ll (?:pay|handle|book|sort|arrange|cover|get)|i'?m (?:driving|taking care of)|already (?:booked|bought|have)|(?:i|we) (?:have|got) (?:my|our) (?:own )?(?:flight|ticket|tickets|car|ride|transport))\b/i;
+const COMPANY = /\b(we|us|our|couple|partner|wife|husband|girlfriend|boyfriend|fianc[eé]e?|friend|friends|bae|two of us|with (?:my|a) \w+)\b/i;
+
 export function groundTrip(raw: RawTrip | null | undefined, text: string, opts: { near?: boolean } = {}): RawTrip | null {
   if (!raw) return null;
   const out: RawTrip = { ...raw };
@@ -142,6 +145,10 @@ export function groundTrip(raw: RawTrip | null | undefined, text: string, opts: 
   // From the first read of a request, a landmark must be one they named (models copy the example).
   if (opts.near && out.near && !saidIn(text, out.near)) out.near = null;
   if (out.origin && !saidIn(text, out.origin)) out.origin = null;
+  // Only skip booking something when they said they'd handle it; models fill this in from "from Lagos".
+  if (out.selfArranged?.length && !SELF_HANDLED.test(text)) out.selfArranged = [];
+  // Two travellers only when the request suggests company.
+  if (out.adults === 2 && !mentionsNumber(text, 2) && !COMPANY.test(text)) out.adults = null;
   // A taste ("seafood", "jazz") isn't a place to be near.
   if (out.near && out.likes?.some((l) => l.trim().toLowerCase() === out.near!.trim().toLowerCase())) out.near = null;
   const type = out.eventType?.trim();

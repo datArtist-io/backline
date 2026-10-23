@@ -118,7 +118,9 @@ export async function POST(req: Request) {
         const prior = isRunId(body.runId) ? getRun(body.runId) : null;
         const runId = prior && isRunId(body.runId) ? body.runId : crypto.randomUUID();
         const local = cleanProfile(body.profile);
-        const profile = account ? mergeProfile(account.profile, local, account.memories) : local;
+        const merged = account ? mergeProfile(account.profile, local, account.memories) : local;
+        // Signed in with Google or email: their name and email are enough to book in their name.
+        const profile = session ? { ...merged, name: merged.name || session.user.name || undefined, email: merged.email || session.user.email || undefined } : merged;
         let plan: Plan;
         if (prior) {
           plan = prior.plan;
