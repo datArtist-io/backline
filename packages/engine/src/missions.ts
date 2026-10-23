@@ -432,6 +432,23 @@ export function inspiredByIn(text: string): string | null {
   return raw.replace(/\b\p{L}/gu, (c) => c.toUpperCase());
 }
 
+/**
+ * The model's tastes plus any the sentence states plainly ("I love X"), so a taste is never lost
+ * when the model files it elsewhere or leaves it out. A taste that is the person to plan like stays there. Pure.
+ */
+export function withStatedLikes<T extends { likes?: string[] | null; inspiredBy?: string | null }>(trip: T | null, text: string): T | null {
+  if (!trip) return trip;
+  const star = trip.inspiredBy?.trim().toLowerCase();
+  const seen = new Set<string>();
+  const likes = [...(trip.likes ?? []), ...likesIn(text)].filter((l) => {
+    const k = l.trim().toLowerCase();
+    if (!k || seen.has(k) || k === star) return false;
+    seen.add(k);
+    return true;
+  });
+  return { ...trip, likes };
+}
+
 /** "I love jazz and suya", "big Wizkid fan", "I'm into afrobeats": the tastes named, or []. Pure. */
 export function likesIn(text: string): string[] {
   const stop = /\s+(?:in|at|for|on|this|next|so|but|near|from|when|while|which|please)\b.*$/i;
@@ -549,7 +566,7 @@ export async function planGoal(
         ack: out.ack?.trim() || null,
         reply: out.reply?.trim() || null,
         suggestions: (out.suggestions ?? []).filter((x) => typeof x === "string" && x.trim()),
-        trip: out.mission === "plan" ? normalizeTrip(groundTrip(out.trip ?? null, statedText, { near: true }), out.location?.trim() || plan.location, hints.profile, hints.today) : null,
+        trip: out.mission === "plan" ? normalizeTrip(groundTrip(withStatedLikes(out.trip ?? null, goal), statedText, { near: true }), out.location?.trim() || plan.location, hints.profile, hints.today) : null,
         goal,
         method: "model",
         fallbackReason: null,

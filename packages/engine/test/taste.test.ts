@@ -5,7 +5,7 @@ import type { HeatPoint } from "../src/clients/qloo";
 import { ageLean, heatForMap, readLike, readTags, tasteHit, tasteZone, tripTaste } from "../src/skills/taste";
 import { withMatch } from "../src/skills/places";
 import { createState, tasteLabel, zoneOf } from "../src/skills/trip-agent";
-import { likesIn } from "../src/missions";
+import { likesIn, withStatedLikes } from "../src/missions";
 import { groundTrip, normalizeTrip } from "../src/trip-request";
 import { areaName } from "../src/clients/osm";
 import { ctxWith, entity, stubQloo } from "./helpers";
@@ -101,6 +101,14 @@ describe("likesIn", () => {
     expect(likesIn("I'm a big Wizkid fan, plan my night out in Lekki")).toEqual(["Wizkid"]);
     expect(likesIn("we're really into afrobeats and seafood in Accra")).toEqual(["afrobeats", "seafood"]);
     expect(likesIn("Book a hotel near the National Theatre")).toEqual([]);
+  });
+});
+
+describe("withStatedLikes", () => {
+  it("adds tastes the sentence states when the model leaves them out", () => {
+    expect(withStatedLikes({ likes: [] }, "Lagos weekend, I love Wizkid and jazz")?.likes).toEqual(["Wizkid", "jazz"]);
+    expect(withStatedLikes({ likes: ["jazz"] }, "I love Jazz")?.likes).toEqual(["jazz"]);
+    expect(withStatedLikes({ inspiredBy: "Burna Boy", likes: null }, "a weekend like Burna Boy would, I love burna boy")?.likes).toEqual([]);
   });
 });
 
