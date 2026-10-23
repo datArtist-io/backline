@@ -93,5 +93,6 @@ Account data lives in three tables (`0003_accounts.sql`), all behind row-level s
 | `profiles` | Traveller details used for bookings (name, contact, date of birth, home city, currency, tastes) |
 | `trips` | A compact record of each finished trip: bookings with references, days, budget |
 | `memories` | What the agent learned: tastes named, cities visited, hotels stayed at |
+| `searches` | Search history: every request, with its mode, title and destination (`0004_searches.sql`) |
 
-When a signed-in person starts a mission, `/api/mission` merges their saved details with anything newer in the browser and their memories (`mergeProfile`): remembered tastes join the likes Qloo reads, and past stays become notes for the planner. When a trip finishes, it is saved with what to remember from it (`tripRecord`, `memoriesFrom`).
+When a signed-in person starts a mission, `/api/mission` merges their saved details with anything newer in the browser and their memories (`mergeProfile`): remembered tastes join the likes Qloo reads, and past stays become notes for the planner. As soon as a request is planned it goes into their search history, and any tastes it names are remembered straight away (`saveSearch`, `rememberTastes`). When a trip finishes, it is saved with what to remember from it (`tripRecord`, `memoriesFrom`).

@@ -4,11 +4,11 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Profile } from "@backline/engine";
-import type { Memory, SavedTrip } from "@/lib/account";
+import type { Memory, SavedTrip, Search } from "@/lib/account";
 import type { Me } from "@/lib/auth-client";
 import { saveDetails, signOut } from "@/lib/auth-client";
 
-type Account = { user: Me; profile: Profile; memories: Memory[]; trips: SavedTrip[] };
+type Account = { user: Me; profile: Profile; memories: Memory[]; trips: SavedTrip[]; searches: Search[] };
 
 const KIND: Record<Memory["kind"], string> = { like: "Loves", stayed: "Stayed at", visited: "Went to", note: "Note" };
 const list = (s: string) =>
@@ -62,6 +62,14 @@ export default function AccountView() {
     setAcc((a) => (a ? { ...a, trips: a.trips.filter((t) => t.id !== id) } : a));
     await fetch(`/api/account/trips?id=${encodeURIComponent(id)}`, { method: "DELETE" });
   }
+
+  async function forgetSearch(id: string | "all") {
+    setAcc((a) => (a ? { ...a, searches: id === "all" ? [] : a.searches.filter((x) => x.id !== id) } : a));
+    await fetch(`/api/account/searches?${id === "all" ? "all=1" : `id=${encodeURIComponent(id)}`}`, { method: "DELETE" });
+  }
+
+  const rerun = (q: Search) => router.push(`/mission?${new URLSearchParams({ goal: q.query, mode: q.mode ?? "auto" })}`);
+  const when = (iso: string) => new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
 
   async function out() {
     await signOut();
@@ -176,6 +184,35 @@ export default function AccountView() {
                 <span className="memory-kind">{KIND[m.kind]}</span>
                 <span className="memory-value">{m.value}</span>
                 <button type="button" className="memory-x" onClick={() => forget(m.id)} aria-label={`Forget ${m.value}`}>
+                  ×
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section className="lg account-card">
+        <div className="account-h-row">
+          <h2 className="account-h">Search history</h2>
+          {(acc.searches ?? []).length > 0 && (
+            <button type="button" className="link-btn" onClick={() => forgetSearch("all")}>
+              Clear all
+            </button>
+          )}
+        </div>
+        <p className="fine">Everything you&rsquo;ve asked it, newest first. Tap one to run it again.</p>
+        {(acc.searches ?? []).length === 0 ? (
+          <p className="account-empty">Nothing yet. Your searches will show up here.</p>
+        ) : (
+          <ul className="search-list">
+            {acc.searches.map((q) => (
+              <li key={q.id} className="search-row">
+                <button type="button" className="search-run" onClick={() => rerun(q)} title="Run this again">
+                  <span className="search-q">{q.query}</span>
+                  <span className="fine">{[q.destination, when(q.created_at)].filter(Boolean).join(" · ")}</span>
+                </button>
+                <button type="button" className="memory-x" onClick={() => forgetSearch(q.id)} aria-label={`Remove “${q.query}” from history`}>
                   ×
                 </button>
               </li>

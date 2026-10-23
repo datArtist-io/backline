@@ -20,7 +20,7 @@ export default function PrivacyPage() {
         <p className="doc-meta">Accounts · last updated 23 October 2026</p>
 
         <h2>What we collect</h2>
-        <p>If you sign in: your email address and, from Google, your name and profile picture. The traveller details you choose to save (name as on your passport, phone, home city, date of birth, gender, currency, dietary needs and the things you love). A record of each trip it books for you, and what it learns from them: the tastes you name, the cities you visit and the hotels you stay at. If you don&apos;t sign in, your details stay in your browser.</p>
+        <p>If you sign in: your email address and, from Google, your name and profile picture. The traveller details you choose to save (name as on your passport, phone, home city, date of birth, gender, currency, dietary needs and the things you love). Your search history (what you ask it). A record of each trip it books for you, and what it learns from them: the tastes you name, the cities you visit and the hotels you stay at. If you don&apos;t sign in, your details stay in your browser.</p>
 
         <h2>Why</h2>
         <p>To book flights, rooms and tables in your name, to keep your trips in one place, and to plan the next trip around what you like. Our legal basis is providing the service you asked for.</p>
@@ -32,7 +32,7 @@ export default function PrivacyPage() {
         <p>Your account is stored with our database and sign-in provider (Supabase). When it books for you, the details needed for that booking go to the airline or hotel booking provider (Duffel, LiteAPI). They act on our instructions or under their own terms for the booking.</p>
 
         <h2>How long we keep it</h2>
-        <p>Until you remove it. You can edit your details, forget anything it remembers and delete any trip from your account page at any time.</p>
+        <p>Until you remove it. You can edit your details, forget anything it remembers, clear your search history and delete any trip from your account page at any time.</p>
 
         <h2>Your rights</h2>
         <p>

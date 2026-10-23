@@ -23,7 +23,7 @@ import {
 import { getRun, isRunId, saveRun } from "@/lib/run-store";
 import { clientIp, rateLimiter } from "@/lib/rate-limit";
 import { getSession } from "@/lib/session";
-import { loadAccount, mergeProfile, saveTripAndMemories } from "@/lib/account";
+import { loadAccount, mergeProfile, rememberTastes, saveSearch, saveTripAndMemories } from "@/lib/account";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -129,6 +129,14 @@ export async function POST(req: Request) {
             { artist: body.artist, location: body.location, mission: body.mission, profile, today: body.today, documents },
             req.signal
           );
+          // Signed in: keep this request in their history and remember the tastes they named.
+          if (session && body.goal?.trim()) {
+            const source = (plan.title ?? body.goal).trim();
+            void Promise.all([
+              saveSearch(session, { query: body.goal, mode: body.autonomy, title: plan.title ?? null, destination: plan.trip?.destination ?? null }),
+              rememberTastes(session, [...(plan.trip?.likes ?? []), ...(plan.trip?.inspiredBy ? [plan.trip.inspiredBy] : [])], source),
+            ]).catch((err) => console.warn("[mission] history save failed", err instanceof Error ? err.message : err));
+          }
         }
 
         if (!prior && ctx.llm && plan.method === "keywords") console.warn(`[mission] the planning model didn't answer, so keywords were used (${plan.fallbackReason ?? "unknown reason"}). Run npm run check to test each model.`);

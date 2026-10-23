@@ -6,6 +6,7 @@ import type { Session } from "./session";
 
 export type Memory = { id: string; kind: "like" | "stayed" | "visited" | "note"; value: string; source: string | null; created_at: string };
 export type SavedTrip = { id: string; title: string; goal: string | null; destination: string | null; start_date: string | null; end_date: string | null; summary: string | null; details: TripDetails; created_at: string };
+export type Search = { id: string; query: string; mode: "check" | "auto" | null; title: string | null; destination: string | null; created_at: string };
 export type TripDetails = {
   bookings: { title: string; status: string; ref: string | null; message: string }[];
   days: { date: string | null; label: string; items: { time: string; title: string }[] }[];
@@ -14,14 +15,15 @@ export type TripDetails = {
   flight: string | null;
 };
 
-export async function loadAccount(s: Session): Promise<{ profile: Profile; memories: Memory[]; trips: SavedTrip[] }> {
+export async function loadAccount(s: Session): Promise<{ profile: Profile; memories: Memory[]; trips: SavedTrip[]; searches: Search[] }> {
   const id = encodeURIComponent(s.user.id);
-  const [p, memories, trips] = await Promise.all([
+  const [p, memories, trips, searches] = await Promise.all([
     rest<{ details: unknown }[]>(s.cfg, s.accessToken, `profiles?select=details&user_id=eq.${id}`),
     rest<Memory[]>(s.cfg, s.accessToken, `memories?select=id,kind,value,source,created_at&order=created_at.desc&limit=100`),
     rest<SavedTrip[]>(s.cfg, s.accessToken, `trips?select=id,title,goal,destination,start_date,end_date,summary,details,created_at&order=created_at.desc&limit=50`),
+    loadSearches(s, 30).catch(() => [] as Search[]),
   ]);
-  return { profile: cleanProfile(p[0]?.details ?? {}), memories, trips };
+  return { profile: cleanProfile(p[0]?.details ?? {}), memories, trips, searches };
 }
 
 export async function saveAccountProfile(s: Session, profile: Profile): Promise<void> {
@@ -29,6 +31,39 @@ export async function saveAccountProfile(s: Session, profile: Profile): Promise<
     method: "POST",
     body: { user_id: s.user.id, details: cleanProfile(profile), updated_at: new Date().toISOString() },
     prefer: "resolution=merge-duplicates,return=minimal",
+  });
+}
+
+export function loadSearches(s: Session, limit = 30): Promise<Search[]> {
+  return rest<Search[]>(s.cfg, s.accessToken, `searches?select=id,query,mode,title,destination,created_at&order=created_at.desc&limit=${Math.min(100, Math.max(1, limit))}`);
+}
+
+/** Record a request in their search history. */
+export async function saveSearch(s: Session, search: { query: string; mode: "check" | "auto"; title?: string | null; destination?: string | null }): Promise<void> {
+  const query = search.query.trim().slice(0, 2000);
+  if (!query) return;
+  await rest(s.cfg, s.accessToken, "searches", {
+    method: "POST",
+    body: { user_id: s.user.id, query, mode: search.mode, title: search.title?.slice(0, 160) ?? null, destination: search.destination?.slice(0, 120) ?? null },
+    prefer: "return=minimal",
+  });
+}
+
+/** Forget one search, or all of them. */
+export async function deleteSearches(s: Session, id: string | "all"): Promise<void> {
+  if (id !== "all" && !/^[0-9a-f-]{36}$/i.test(id)) return;
+  const filter = id === "all" ? `user_id=eq.${encodeURIComponent(s.user.id)}` : `id=eq.${id}`;
+  await rest(s.cfg, s.accessToken, `searches?${filter}`, { method: "DELETE", prefer: "return=minimal" });
+}
+
+/** Remember the tastes someone names as soon as they ask, even if the trip never finishes. */
+export async function rememberTastes(s: Session, tastes: string[], source: string): Promise<void> {
+  const values = [...new Set(tastes.map((t) => t.trim()).filter((t) => t.length > 1))].slice(0, 12);
+  if (!values.length) return;
+  await rest(s.cfg, s.accessToken, "memories?on_conflict=user_id,kind,value", {
+    method: "POST",
+    body: values.map((value) => ({ user_id: s.user.id, kind: "like", value: value.slice(0, 200), source: source.slice(0, 160) })),
+    prefer: "resolution=ignore-duplicates,return=minimal",
   });
 }
 

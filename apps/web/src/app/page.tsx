@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import Background from "./Background";
 import PromptBar from "./PromptBar";
 import Capabilities from "./Capabilities";
+import RecentSearches from "./RecentSearches";
 import GlassFilter from "./GlassFilter";
 import { Logo } from "./Logo";
 import { BRAND } from "@/lib/brand";
@@ -58,6 +59,7 @@ export default function Landing() {
           </h1>
           <PromptBar onSubmit={go} placeholder="Where are you going, and when?" shortPlaceholder="Where to, and when?" />
           <ModeSwitch value={mode} onChange={setMode} className="hero-switch" />
+          <RecentSearches onPick={(q) => go(q, [])} />
         </section>
 
         <Capabilities />
