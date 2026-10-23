@@ -14,7 +14,7 @@ export default function AccountButton() {
         Sign in
       </Link>
     );
-  const label = me.name || me.email || "Account";
+  const label = me.name || (me.lens ? `@${me.lens}` : null) || me.email || (me.wallet ? `${me.wallet.slice(0, 6)}…${me.wallet.slice(-4)}` : null) || "Account";
   return (
     <Link href="/account" className="lg pill account-pill" aria-label={`Your account (${label})`} title={label}>
       {me.avatar ? (

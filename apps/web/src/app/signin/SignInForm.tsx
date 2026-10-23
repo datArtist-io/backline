@@ -1,13 +1,16 @@
 "use client";
 import Link from "next/link";
 import { useState } from "react";
-import { GoogleMark } from "../AuthMarks";
+import { useRouter } from "next/navigation";
+import { GoogleMark, LensMark, WalletMark } from "../AuthMarks";
+import { signInWithWallet } from "@/lib/wallet";
 import { sendEmailLink, signInAvailable, startOAuth, useMe, type Provider } from "@/lib/auth-client";
 import { EMAIL_RE } from "@backline/engine";
 
 export default function SignInForm({ next }: { next: string }) {
   const [email, setEmail] = useState("");
-  const [busy, setBusy] = useState<Provider | "email" | null>(null);
+  const [busy, setBusy] = useState<Provider | "email" | "wallet" | "lens" | null>(null);
+  const router = useRouter();
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { providers } = useMe();
@@ -18,6 +21,20 @@ export default function SignInForm({ next }: { next: string }) {
     if (providers && !providers[p]) return setError(`${NAME[p]} sign-in is being switched on. Use your email for now; you can link ${NAME[p]} later.`);
     setBusy(p);
     startOAuth(p, next);
+  };
+
+  const wallet = async (lens: boolean) => {
+    if (!signInAvailable) return setError("Sign-in isn't switched on yet.");
+    if (providers && !providers.wallet) return setError("Wallet sign-in is being switched on. Use your email for now.");
+    setBusy(lens ? "lens" : "wallet");
+    setError(null);
+    const r = await signInWithWallet({ lens });
+    if ("error" in r) {
+      setBusy(null);
+      return setError(r.error);
+    }
+    router.replace(next);
+    router.refresh();
   };
 
   const emailLink = async (e: React.FormEvent) => {
@@ -55,6 +72,14 @@ export default function SignInForm({ next }: { next: string }) {
           <GoogleMark />
           <span>{busy === "google" ? "Opening Google…" : "Continue with Google"}</span>
         </button>
+        <button type="button" className="auth-btn lens" onClick={() => wallet(true)} disabled={busy !== null}>
+          <LensMark />
+          <span>{busy === "lens" ? "Check your wallet…" : "Continue with Lens"}</span>
+        </button>
+        <button type="button" className="auth-btn wallet" onClick={() => wallet(false)} disabled={busy !== null}>
+          <WalletMark />
+          <span>{busy === "wallet" ? "Check your wallet…" : "Continue with wallet"}</span>
+        </button>
       </div>
       <div className="or" role="separator">
         <span>or</span>
@@ -74,7 +99,7 @@ export default function SignInForm({ next }: { next: string }) {
         </p>
       )}
       <p className="fine">
-        No password needed: we email you a one-tap link. By continuing you agree to our <Link href="/privacy">privacy notice</Link>.
+        No password needed: we email you a one-tap link, or your wallet signs a message (free, nothing goes on-chain). By continuing you agree to our <Link href="/privacy">privacy notice</Link>.
       </p>
       </div>
     </div>
