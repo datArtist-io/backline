@@ -1292,3 +1292,74 @@ a { color: inherit; text-decoration: none; }
   .taste-zone-pin::after, .taste-ring { animation: none; }
 }
 @media print { .taste-edit, .taste-zone-cta, .map-taste-toggle { display: none; } }
+
+/* ---------- How the agent worked ---------- */
+.trace { border-radius: var(--radius-xl); overflow: hidden; }
+.trace-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; width: 100%; padding: 18px 22px; border: 0; font: inherit; text-align: left; color: var(--ink); background: transparent; cursor: pointer; }
+.trace-head > span:first-child { display: grid; gap: 3px; }
+.trace-kicker { font-size: 12px; font-weight: 750; letter-spacing: 0.06em; text-transform: uppercase; color: var(--violet); }
+.trace-title { font-size: 17px; font-weight: 700; }
+.trace-sub { font-size: 13.5px; color: var(--ink-soft); }
+.trace-caret { flex: none; display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; font-size: 20px; background: rgba(16, 19, 43, 0.06); transition: transform 0.3s var(--ease-out); }
+.trace-caret.on { transform: rotate(90deg); }
+.trace-list { list-style: none; margin: 0; padding: 4px 22px 22px; }
+.trace-turn { position: relative; padding: 0 0 16px 38px; animation: rise 0.4s var(--ease-out) both; }
+.trace-turn::before { content: ""; position: absolute; left: 13px; top: 28px; bottom: 0; width: 2px; background: linear-gradient(var(--violet), rgba(123, 92, 255, 0.1)); }
+.trace-turn.is-end::before { display: none; }
+.trace-thought { position: relative; margin: 0 0 8px; font-weight: 650; }
+.trace-n { position: absolute; left: -38px; top: -2px; display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; font-size: 12.5px; font-weight: 750; color: #fff; background: linear-gradient(135deg, var(--violet), var(--magenta)); }
+.trace-by { margin-left: 8px; padding: 2px 8px; border-radius: var(--radius-pill); font-size: 11px; font-weight: 700; color: var(--ink-soft); background: rgba(16, 19, 43, 0.07); }
+.trace-calls { list-style: none; display: grid; gap: 6px; margin: 0; padding: 0; }
+.trace-calls li { display: grid; gap: 2px; padding: 10px 12px; border-radius: 14px; font-size: 13.5px; background: rgba(255, 255, 255, 0.7); box-shadow: 0 0 0 1px rgba(16, 19, 43, 0.06); }
+.trace-calls li.is-failed { box-shadow: 0 0 0 1px rgba(229, 72, 77, 0.35); }
+.trace-tool { font-weight: 700; }
+.trace-tool code { margin-left: 6px; font-size: 11.5px; font-weight: 600; color: var(--violet); }
+.trace-args { color: var(--ink-faint); font-size: 12.5px; overflow-wrap: anywhere; }
+.trace-result { color: var(--ink-soft); }
+.trace-ms { color: var(--ink-faint); font-size: 12px; }
+.trace-note { margin: 8px 0 0; padding: 8px 12px; border-radius: 12px; font-size: 13.5px; color: #8a4b00; background: rgba(255, 181, 71, 0.18); }
+@media (prefers-reduced-motion: reduce) { .trace-turn { animation: none; } .trace-caret { transition: none; } }
+@media print { .trace { display: none; } }
+
+/* ---------- Phones ---------- */
+/* The header stays readable over whatever scrolls beneath it: a frosted strip that fades out. */
+.nav::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 -18px;
+  z-index: -1;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(238, 241, 248, 0.86), rgba(238, 241, 248, 0.55) 70%, rgba(238, 241, 248, 0));
+  -webkit-backdrop-filter: blur(14px) saturate(160%);
+  backdrop-filter: blur(14px) saturate(160%);
+  -webkit-mask-image: linear-gradient(180deg, #000 65%, transparent);
+  mask-image: linear-gradient(180deg, #000 65%, transparent);
+}
+/* A one-line prompt never shows a scrollbar; a long one scrolls without the bar. */
+.prompt-input { scrollbar-width: none; }
+.prompt-input::-webkit-scrollbar { display: none; }
+.prompt:not(.is-multiline) .prompt-input { overflow-y: hidden; }
+
+@media (max-width: 560px) {
+  .nav { padding: 14px 16px; }
+  .pill { font-size: 14px; padding: 9px 15px; }
+  .hero { padding: 104px 16px 64px; }
+  .hero-title { font-size: clamp(38px, 11vw, 52px); margin-bottom: clamp(150px, 30vh, 240px); }
+  /* The sculpture fades at the sides instead of ending on a hard edge. */
+  .stage {
+    -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 62%, transparent 96%), linear-gradient(to right, transparent 0%, #000 12%, #000 88%, transparent 100%);
+    -webkit-mask-composite: source-in;
+    mask-image: linear-gradient(to bottom, #000 0%, #000 62%, transparent 96%), linear-gradient(to right, transparent 0%, #000 12%, #000 88%, transparent 100%);
+    mask-composite: intersect;
+  }
+  .prompt { padding: 6px 6px 6px 18px; background: rgba(255, 255, 255, 0.62); }
+  .prompt-input { font-size: 16px; }
+  .hero-switch { margin-top: 18px; }
+  .caps { padding: 24px 16px 96px; }
+  .caps-title { font-size: 28px; margin-bottom: 24px; }
+  .caps-panel { padding: 8px; border-radius: 26px; }
+  /* Tabs scroll sideways; the edge fades so it's clear there's more. */
+  .caps-tabs { -webkit-mask-image: linear-gradient(to right, #000 82%, transparent); mask-image: linear-gradient(to right, #000 82%, transparent); scroll-snap-type: x proximity; }
+  .caps-tab { scroll-snap-align: start; padding: 9px 15px; font-size: 14.5px; }
+  .caps-body { padding: 22px 18px 26px; }
+}

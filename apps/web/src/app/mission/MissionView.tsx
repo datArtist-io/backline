@@ -40,6 +40,7 @@ import type {
 import { ActionsCheckpoint, AgentSummary, PlacesSection, PlanSection, ResultsSection, tripChips } from "./trip";
 import AgentActivity from "./AgentActivity";
 import TasteCard from "./Taste";
+import AgentTrace from "./AgentTrace";
 import TripMap, { type TasteLayer } from "./TripMap";
 import HotelLanes from "./HotelLanes";
 import Preferences from "./Preferences";
@@ -543,6 +544,7 @@ function TripView({
       <AgentActivity entries={activity} running={agentStep?.status === "running" || agentStep?.status === "pending"} />
       {exec && actions && <ResultsSection title={title} actions={actions.data} execute={exec} plan={plan?.data} places={places} />}
       {agent ? <AgentSummary result={agent} /> : (agentStep?.status === "failed" || agentStep?.status === "skipped") && <Placeholder steps={steps} id="trip.agent" label="What I found" />}
+      {a && <AgentTrace agent={a} />}
       {/* Until the plan is written, the map shows what was found; then it moves into the plan. */}
       {!plan && mapData?.bounds && <TripMap routes={mapData} landmarkId={landmarkId} title={title} taste={tasteLayer} />}
       {plan ? <PlanSection result={plan} places={places} routes={routes?.data} mapRoutes={mapData} landmarkId={landmarkId} title={title} agent={a} taste={taste} /> : agent && <Placeholder steps={steps} id="trip.plan" label="The plan" />}

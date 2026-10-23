@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { HeatPoint } from "../src/clients/qloo";
 import { ageLean, heatForMap, readLike, readTags, tasteHit, tasteZone, tripTaste } from "../src/skills/taste";
 import { withMatch } from "../src/skills/places";
-import { createState, tasteLabel, zoneOf } from "../src/skills/trip-agent";
+import { createState, reviewPicks, tasteLabel, zoneOf } from "../src/skills/trip-agent";
 import { likesIn, withStatedLikes } from "../src/missions";
 import { groundTrip, normalizeTrip } from "../src/trip-request";
 import { areaName } from "../src/clients/osm";
@@ -199,5 +199,62 @@ describe("zoneOf", () => {
     expect(zoneOf(s)?.name).toBe("Victoria Island");
     s.city = { ...s.city, lat: 9.07, lon: 7.4 }; // Abuja, about 520 km away
     expect(zoneOf(s)).toBeNull();
+  });
+});
+
+describe("the agent's self-review", () => {
+  const trip = normalizeTrip({ destination: "Lagos", priceTier: 2 }, "Lagos")!;
+  const pl = (id: string, extra: Record<string, unknown> = {}) => ({
+    id,
+    name: id.toUpperCase(),
+    address: null,
+    phone: null,
+    email: null,
+    website: null,
+    priceLevel: 2,
+    rating: 4.2,
+    affinity: 0.98,
+    image: null,
+    lat: 6.45,
+    lon: 3.4,
+    tags: [],
+    fit: 0.5,
+    why: [],
+    priceNote: null,
+    extra: null,
+    sources: [],
+    kind: "stay" as const,
+    ...extra,
+  });
+  const stateWith = (places: ReturnType<typeof pl>[], tasteOn = false) => {
+    const s = createState({ artist: "", trip }, trip, "2026-10-23", null);
+    if (tasteOn) s.signals = ["W"];
+    places.forEach((p, i) => {
+      s.places.set(p.id, p);
+      s.refOf.set(p.id, `s${i + 1}`);
+      s.refs.set(`s${i + 1}`, p.id);
+    });
+    return s;
+  };
+
+  it("questions a pick well above budget once, unless the reason explains it", () => {
+    const s = stateWith([pl("lux", { priceLevel: 4 })]);
+    expect(reviewPicks({ stays: [{ id: "s1", why: "Great view" }] }, s)).toMatch(/above their budget/);
+    expect(reviewPicks({ stays: [{ id: "s1", why: "Great view" }] }, s)).toBeNull();
+    const s2 = stateWith([pl("lux", { priceLevel: 4 })]);
+    expect(reviewPicks({ stays: [{ id: "s1", why: "Worth the splurge for the pool" }] }, s2)).toBeNull();
+  });
+
+  it("points to stronger taste matches the picks ignored", () => {
+    const s = stateWith([pl("weak", { match: 0.5, fit: 0.9 }), pl("strong", { match: 0.95, fit: 0.6 })], true);
+    expect(reviewPicks({ stays: [{ id: "s1", why: "Close" }] }, s)).toMatch(/s2 \(STRONG\) is a top taste match/);
+  });
+
+  it("asks for a price check on the hotel when research is connected", () => {
+    const s = stateWith([pl("h")]);
+    s.canCheck = true;
+    expect(reviewPicks({ stays: [{ id: "s1", why: "Close" }] }, s)).toMatch(/check_places/);
+    const off = stateWith([pl("h")]);
+    expect(reviewPicks({ stays: [{ id: "s1", why: "Close" }] }, off)).toBeNull();
   });
 });

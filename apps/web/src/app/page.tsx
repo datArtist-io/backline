@@ -56,7 +56,7 @@ export default function Landing() {
             <br />
             We plan the rest.
           </h1>
-          <PromptBar onSubmit={go} placeholder="What are you planning, where and when?" />
+          <PromptBar onSubmit={go} placeholder="What are you planning, where and when?" shortPlaceholder="What are you planning?" />
           <ModeSwitch value={mode} onChange={setMode} className="hero-switch" />
         </section>
 

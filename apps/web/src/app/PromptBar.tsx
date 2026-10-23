@@ -23,11 +23,25 @@ function pickMime(): string | undefined {
   return undefined;
 }
 
-type Props = { onSubmit: (text: string, docs: DocumentText[]) => void; placeholder?: string };
+type Props = {
+  onSubmit: (text: string, docs: DocumentText[]) => void;
+  placeholder?: string;
+  /** Used on narrow screens, where the full placeholder would wrap. */
+  shortPlaceholder?: string;
+};
 const MAX_CHARS = 2000;
 const AUTO_START_MS = 1800;
 
-export default function PromptBar({ onSubmit, placeholder = "Ask about any artist" }: Props) {
+export default function PromptBar({ onSubmit, placeholder: fullPlaceholder = "What are you planning?", shortPlaceholder }: Props) {
+  const [narrow, setNarrow] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 560px)");
+    const update = () => setNarrow(mq.matches);
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, []);
+  const placeholder = narrow && shortPlaceholder ? shortPlaceholder : fullPlaceholder;
   const [files, setFiles] = useState<Attachment[]>([]);
   const filesRef = useRef(files);
   filesRef.current = files;
@@ -268,7 +282,7 @@ export default function PromptBar({ onSubmit, placeholder = "Ask about any artis
         }}
       >
         <label htmlFor="prompt" className="sr-only">
-          Artist or question for the agent
+          What are you planning?
         </label>
         <div className="prompt-field">
           <textarea

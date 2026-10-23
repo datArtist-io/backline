@@ -71,6 +71,18 @@ export const agentOutputSchema = z.object({
     calls: z.number(),
     ms: z.number(),
     stop: z.string(),
+    /** What the agent did, turn by turn: its thought, each tool it chose with the arguments and result, and any self-check. */
+    trace: z
+      .array(
+        z.object({
+          n: z.number(),
+          by: z.string(),
+          thought: z.string(),
+          calls: z.array(z.object({ tool: z.string(), args: z.record(z.unknown()), ok: z.boolean(), summary: z.string(), ms: z.number() })),
+          note: z.string().optional(),
+        })
+      )
+      .optional(),
     /** Each decision's timing and outcome, for diagnosing a slow or confused model. */
     decisions: z.array(z.object({ n: z.number(), by: z.string(), ms: z.number(), ok: z.boolean(), error: z.string().optional(), actions: z.array(z.string()), finish: z.boolean(), raw: z.string().optional(), note: z.string().optional() })),
   }),
@@ -106,6 +118,10 @@ export type TripAgentState = {
   autoChecked: boolean;
   /** The model was reminded once to put the arrival station or airport on the map. */
   arrivalNudged: boolean;
+  /** Self-review checks already raised once (budget, taste, prices), so each is asked only once. */
+  reviewed: Set<string>;
+  /** Web research is connected, so prices can be checked. */
+  canCheck: boolean;
   /** Why web research stopped working this run (e.g. the provider's quota), or null while it works. */
   webDown: string | null;
   /** Set while the city is being pinned, so a search started in the same turn waits for it. */
@@ -273,6 +289,8 @@ export function createState(input: BriefInput, trip: TripRequest, today: string,
     tagSignals: (taste?.tags ?? []).map((x) => x.id),
     autoChecked: false,
     arrivalNudged: false,
+    reviewed: new Set(),
+    canCheck: false,
     webDown: null,
     pinning: null,
   };
@@ -784,6 +802,47 @@ export function checkFinish(f: AgentFinish, s: TripAgentState): string | null {
     s.arrivalNudged = true;
     return `They're arriving by ${mode}: locate the ${ARRIVAL_WORD[mode]} they'll most likely use (role place, no kind) so the plan and its map include the journey. Research which one if you're unsure, then finish.`;
   }
+  return reviewPicks(f, s);
+}
+
+/**
+ * The agent's self-review before it hands over: are the picks within budget, do they fit the
+ * person's taste when better matches were found, and were the hotel prices checked? Each problem
+ * is raised once; the model can fix it or keep its pick and say why in the reason.
+ */
+export function reviewPicks(f: AgentFinish, s: TripAgentState): string | null {
+  const once = (key: string, problem: string | null) => {
+    if (!problem || s.reviewed.has(key)) return null;
+    s.reviewed.add(key);
+    return problem;
+  };
+  const picked = (k: PlaceKind) => (f[OUT_KEY[k]] ?? []).map((x) => ({ ref: x.id, why: x.why ?? "", place: s.places.get(resolveRef(s, x.id) ?? "") })).filter((x) => x.place);
+  const tier = s.trip.priceTier;
+  // Budget: a lead pick two or more price levels above what they asked for needs a reason.
+  if (tier) {
+    const over = PLACE_KINDS.flatMap((k) => picked(k).slice(0, 1)).filter((x) => (x.place!.priceLevel ?? 0) >= tier + 2 && !/budget|price|splurge|worth/i.test(x.why));
+    const problem = over.length
+      ? `Self-check: ${over.map((x) => `${x.ref} (${x.place!.name}) is price level ${x.place!.priceLevel}`).join("; ")}, well above their budget (level ${tier}). Pick something that fits, or keep it and say in its reason why it's worth the extra.`
+      : null;
+    const r = once("budget", problem);
+    if (r) return r;
+  }
+  // Taste: when Qloo found strong matches the picks ignore, look again.
+  if (s.signals.length + s.tagSignals.length > 0) {
+    for (const k of PLACE_KINDS) {
+      const lead = picked(k)[0];
+      if (!lead || (lead.place!.match ?? 0) >= 0.75) continue;
+      const better = byFit(s, k).filter((p) => (p.match ?? 0) >= 0.9 && p.id !== lead.place!.id).slice(0, 2);
+      if (better.length === 0) continue;
+      const r = once(`taste:${k}`, `Self-check: your first ${KINDS[k].label}, ${lead.place!.name}, isn't a strong taste match, but ${listWords(better.map((p) => `${s.refOf.get(p.id)} (${p.name})`))} ${better.length > 1 ? "are" : "is a"} top taste match${better.length > 1 ? "es" : ""}. Consider ${better.length > 1 ? "them" : "it"}, or keep your pick and say why.`);
+      if (r) return r;
+    }
+  }
+  // Prices: the hotel they'll book should have been checked when research works.
+  if (s.canCheck && !s.webDown && s.checked.size === 0 && picked("stay").length > 0) {
+    const r = once("prices", `Self-check: you haven't checked prices or booking contacts for ${picked("stay")[0].place!.name}. Use check_places on your hotel picks, then finish.`);
+    if (r) return r;
+  }
   return null;
 }
 
@@ -1095,7 +1154,14 @@ export async function finalize(
     tiers,
     hotelScores: scores.filter((x) => shownStay.has(x.id)),
     method: !ctx.llm || modelTurns === 0 ? "autopilot" : run.usedFallback ? "mixed" : "agent",
-    stats: { turns: run.turns.length, calls: run.calls, ms: Date.now() - startedAt, stop: run.stop, decisions: run.decisions ?? [] },
+    stats: {
+      turns: run.turns.length,
+      calls: run.calls,
+      ms: Date.now() - startedAt,
+      stop: run.stop,
+      trace: run.turns.map((tn) => ({ n: tn.n, by: tn.by, thought: tn.thought, calls: tn.calls.map((c) => ({ tool: c.tool, args: c.args, ok: c.ok, summary: c.summary, ms: c.ms })), note: tn.note })),
+      decisions: run.decisions ?? [],
+    },
   };
   return { data, evidence, notes };
 }
@@ -1113,6 +1179,7 @@ export const tripAgent: Skill<BriefInput, TripAgentOutput> = {
     if (!input.trip) throw new EngineError("No trip", "Tell me where you're going and I'll plan it.");
     const taste = deps["trip.taste"]?.data as TasteOutput | undefined;
     const s = createState(input, input.trip, today, taste ?? null);
+    s.canCheck = Boolean(ctx.web);
     const log: StepProgress[] = [];
     const emit = (p: StepProgress) => {
       log.push(p);
