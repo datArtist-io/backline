@@ -7,7 +7,7 @@ import type { Profile } from "@backline/engine";
 import { loadProfile, saveProfile } from "./profile";
 
 export type Provider = "google";
-export type Me = { id: string; email: string | null; name: string | null; avatar: string | null; provider: string | null; wallet: string | null; lens: string | null };
+export type Me = { id: string; email: string | null; name: string | null; avatar: string | null; provider: string | null };
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/+$/, "") ?? "";
 export const signInAvailable = Boolean(SUPABASE_URL);
@@ -66,7 +66,7 @@ export async function completeSignIn(): Promise<{ next: string } | { error: stri
 }
 
 /** Details entered before signing in move into the new account, unless it already has some. */
-export async function carryOverLocalDetails() {
+async function carryOverLocalDetails() {
   const local = loadProfile();
   if (Object.keys(local).length === 0) return;
   const acc = await fetch("/api/account").then((r) => (r.ok ? r.json() : null)).catch(() => null);
@@ -81,7 +81,7 @@ export async function signOut() {
 }
 
 /** Who's signed in, if anyone. */
-export type Providers = { google: boolean; email: boolean; wallet: boolean };
+export type Providers = { google: boolean; email: boolean };
 
 export function useMe(): { me: Me | null; ready: boolean; configured: boolean; providers: Providers | null; refresh: () => void } {
   const [state, setState] = useState<{ me: Me | null; ready: boolean; configured: boolean; providers: Providers | null }>({ me: null, ready: false, configured: signInAvailable, providers: null });

@@ -33,7 +33,7 @@ Open the demo at **[backline-beta-one.vercel.app](https://backline-beta-one.verc
 - `Plan a weekend in Lagos like Burna Boy would`
 - `Birthday dinner for 12 in Lekki next Saturday`
 
-No sign-in is needed to plan. Sign in (Google, an email link, a wallet or Lens) and it keeps your traveller details, the tastes it has learned and every trip it booked, at `/account`.
+No sign-in is needed to plan. Sign in (Google or an email link) and it keeps your traveller details, the tastes it has learned and every trip it booked, at `/account`.
 
 ## Repository
 

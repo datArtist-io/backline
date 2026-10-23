@@ -122,9 +122,8 @@ export default function AccountView() {
           <div>
             <h1 className="account-name">{acc.user.name || p.name || "Your account"}</h1>
             <p className="fine">
-              {acc.user.lens ? `@${acc.user.lens} on Lens` : acc.user.email}
-              {acc.user.wallet ? ` · ${acc.user.wallet.slice(0, 6)}…${acc.user.wallet.slice(-4)}` : ""}
-              {acc.user.provider === "google" ? " · signed in with Google" : ""}
+              {acc.user.email}
+              {acc.user.provider && acc.user.provider !== "email" ? ` · signed in with ${acc.user.provider === "google" ? "Google" : acc.user.provider}` : ""}
             </p>
           </div>
         </div>
