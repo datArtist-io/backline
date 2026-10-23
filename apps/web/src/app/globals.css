@@ -1473,3 +1473,7 @@ a { color: inherit; text-decoration: none; }
 .recent-chip:active { transform: scale(0.97); }
 @media (max-width: 640px) { .recent-chip { max-width: 100%; } }
 .recent { transition: opacity 0.3s var(--ease-out); } .hero.is-launching .recent { opacity: 0; }
+
+/* Sign-in heading: quiet, one line */
+.signin-title { margin: 0 0 12px; font-family: var(--font-display); font-weight: 500; font-size: clamp(30px, 4vw, 44px); line-height: 1.1; letter-spacing: -0.02em; color: var(--ink); }
+.signin-lede { margin: 0; max-width: 34ch; font-size: 16px; line-height: 1.55; color: var(--ink-soft); }

@@ -23,11 +23,8 @@ export default async function SignInPage({ searchParams }: { searchParams: Promi
         <Background />
         <div className="join-grid">
           <div className="join-intro">
-            <h1 className="join-title">
-              <span className="hero-line">Sign in once.</span>
-              <span className="hero-line hero-accent">It remembers you.</span>
-            </h1>
-            <p className="join-lede">Your traveller details, the things you love and every trip it books for you, kept in your account and ready on any device.</p>
+            <h1 className="signin-title">Sign in to Backline</h1>
+            <p className="signin-lede">Save your details once. It books in your name, keeps every trip and remembers what you like.</p>
           </div>
           <SignInForm next={safeNext} />
         </div>
