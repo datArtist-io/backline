@@ -1,12 +1,12 @@
 "use client";
-// Signing in from the browser: Google and Apple through Supabase's sign-in page, or a one-tap
+// Signing in from the browser: Google through Supabase's sign-in page, or a one-tap
 // email link. Either way Supabase sends the person back to /auth/callback with tokens in the URL
 // fragment, which go straight to our server to become httpOnly cookies, then leave the address bar.
 import { useCallback, useEffect, useState } from "react";
 import type { Profile } from "@backline/engine";
 import { loadProfile, saveProfile } from "./profile";
 
-export type Provider = "google" | "apple";
+export type Provider = "google";
 export type Me = { id: string; email: string | null; name: string | null; avatar: string | null; provider: string | null };
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/+$/, "") ?? "";
@@ -81,7 +81,7 @@ export async function signOut() {
 }
 
 /** Who's signed in, if anyone. */
-export type Providers = { google: boolean; apple: boolean; email: boolean };
+export type Providers = { google: boolean; email: boolean };
 
 export function useMe(): { me: Me | null; ready: boolean; configured: boolean; providers: Providers | null; refresh: () => void } {
   const [state, setState] = useState<{ me: Me | null; ready: boolean; configured: boolean; providers: Providers | null }>({ me: null, ready: false, configured: signInAvailable, providers: null });

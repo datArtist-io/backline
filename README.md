@@ -33,7 +33,7 @@ Open the demo at **[backline-beta-one.vercel.app](https://backline-beta-one.verc
 - `Plan a weekend in Lagos like Burna Boy would`
 - `Birthday dinner for 12 in Lekki next Saturday`
 
-No sign-in is needed to plan. Sign in (Google, Apple or an email link) and it keeps your traveller details, the tastes it has learned and every trip it booked, at `/account`.
+No sign-in is needed to plan. Sign in (Google or an email link) and it keeps your traveller details, the tastes it has learned and every trip it booked, at `/account`.
 
 ## Repository
 
@@ -73,7 +73,7 @@ npm run dev                                  # http://localhost:3000
 | `LLM_API_KEY`, `LLM_BASE_URL`, `LLM_MODEL`, `LLM_MODEL_FAST`, `LLM_MODEL_STRONG` | Any OpenAI-compatible provider (Nebius Token Factory by default) |
 | `TAVILY_API_KEY` | Live web research |
 | `STT_API_KEY`, `STT_BASE_URL`, `STT_MODEL` | Speech-to-text for the voice prompt |
-| `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Accounts: Google, Apple and email sign-in, saved details, trips and memory (run migration `0003_accounts.sql`; see `docs/SETUP-AUTH.md`) |
+| `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Accounts: Google and email sign-in, saved details, trips and memory (run migration `0003_accounts.sql`; see `docs/SETUP-AUTH.md`) |
 | `ANTHROPIC_API_KEY`, `CLAUDE_SEARCH_MODEL` | Web research and listed hotel prices; Tavily also supported, with Wikivoyage as a free fallback |
 | `DUFFEL_API_KEY` | Flight search, booking and payment (a `duffel_test_` token uses Duffel's test airline) |
 | `LITEAPI_API_KEY` | Live hotel rates, booking and payment (a `sand_` key simulates payment) |

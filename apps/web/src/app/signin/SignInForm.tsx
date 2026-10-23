@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useState } from "react";
-import { AppleMark, GoogleMark } from "../AuthMarks";
+import { GoogleMark } from "../AuthMarks";
 import { sendEmailLink, signInAvailable, startOAuth, useMe, type Provider } from "@/lib/auth-client";
 import { EMAIL_RE } from "@backline/engine";
 
@@ -11,7 +11,7 @@ export default function SignInForm({ next }: { next: string }) {
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { providers } = useMe();
-  const NAME = { google: "Google", apple: "Apple" } as const;
+  const NAME = { google: "Google" } as const;
 
   const oauth = (p: Provider) => {
     if (!signInAvailable) return setError("Sign-in isn't switched on yet.");
@@ -54,10 +54,6 @@ export default function SignInForm({ next }: { next: string }) {
         <button type="button" className="auth-btn google" onClick={() => oauth("google")} disabled={busy !== null}>
           <GoogleMark />
           <span>{busy === "google" ? "Opening Google…" : "Continue with Google"}</span>
-        </button>
-        <button type="button" className="auth-btn apple" onClick={() => oauth("apple")} disabled={busy !== null}>
-          <AppleMark />
-          <span>{busy === "apple" ? "Opening Apple…" : "Continue with Apple"}</span>
         </button>
       </div>
       <div className="or" role="separator">

@@ -123,7 +123,7 @@ export default function AccountView() {
             <h1 className="account-name">{acc.user.name || p.name || "Your account"}</h1>
             <p className="fine">
               {acc.user.email}
-              {acc.user.provider && acc.user.provider !== "email" ? ` · signed in with ${acc.user.provider === "google" ? "Google" : acc.user.provider === "apple" ? "Apple" : acc.user.provider}` : ""}
+              {acc.user.provider && acc.user.provider !== "email" ? ` · signed in with ${acc.user.provider === "google" ? "Google" : acc.user.provider}` : ""}
             </p>
           </div>
         </div>

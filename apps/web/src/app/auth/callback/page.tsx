@@ -1,5 +1,5 @@
 "use client";
-// Where Google, Apple and email sign-in links land: finish signing in, then carry on.
+// Where Google and email sign-in links land: finish signing in, then carry on.
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";

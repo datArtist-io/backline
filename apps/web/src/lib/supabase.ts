@@ -15,7 +15,7 @@ export type Tokens = { accessToken: string; refreshToken: string; expiresAt: num
 
 const JWT = /^[\w-]+\.[\w-]+\.[\w-]+$/;
 
-export type Providers = { google: boolean; apple: boolean; email: boolean };
+export type Providers = { google: boolean; email: boolean };
 
 /** Which sign-in methods are switched on in the Supabase project. */
 export async function enabledProviders(cfg: SupabaseConfig): Promise<Providers> {
@@ -23,9 +23,9 @@ export async function enabledProviders(cfg: SupabaseConfig): Promise<Providers> 
     const res = await fetch(`${cfg.url}/auth/v1/settings`, { headers: { apikey: cfg.anonKey }, signal: AbortSignal.timeout(5000), next: { revalidate: 60 } });
     if (!res.ok) throw new Error(String(res.status));
     const j = (await res.json()) as { external?: Record<string, boolean> };
-    return { google: Boolean(j.external?.google), apple: Boolean(j.external?.apple), email: j.external?.email !== false };
+    return { google: Boolean(j.external?.google), email: j.external?.email !== false };
   } catch {
-    return { google: false, apple: false, email: true };
+    return { google: false, email: true };
   }
 }
 

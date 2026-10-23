@@ -1,4 +1,4 @@
-// Sign-in sessions. POST takes the tokens Supabase returned after Google, Apple or an email link,
+// Sign-in sessions. POST takes the tokens Supabase returned after Google or an email link,
 // verifies them and stores them in httpOnly cookies. GET says who's signed in. DELETE signs out.
 import { z } from "zod";
 import { clearSession, getSession, setSession } from "@/lib/session";

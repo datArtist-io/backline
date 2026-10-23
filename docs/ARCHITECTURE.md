@@ -84,7 +84,7 @@ Every client has timeouts, retries where safe, caching and a fixed time budget p
 
 ## Accounts and memory
 
-Sign-in is Supabase Auth over its REST API (no client library): Google and Apple through `/auth/v1/authorize`, or a one-tap email link through `/auth/v1/otp`. Both return to `/auth/callback`, which posts the tokens to `/api/auth/session`; the server verifies them and stores them in `httpOnly` cookies, refreshing when they expire (`lib/session.ts`).
+Sign-in is Supabase Auth over its REST API (no client library): Google through `/auth/v1/authorize`, or a one-tap email link through `/auth/v1/otp`. Both return to `/auth/callback`, which posts the tokens to `/api/auth/session`; the server verifies them and stores them in `httpOnly` cookies, refreshing when they expire (`lib/session.ts`).
 
 Account data lives in three tables (`0003_accounts.sql`), all behind row-level security and always reached with the person's own token:
 

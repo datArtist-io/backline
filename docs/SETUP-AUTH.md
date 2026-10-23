@@ -1,10 +1,10 @@
-# Setting up accounts: Google, Apple and email sign-in
+# Setting up accounts: Google and email sign-in
 
 Backline accounts run on Supabase: Supabase Auth for sign-in, and Postgres tables with row-level security for each person's details, trips and memory. The app talks to Supabase over its REST APIs and needs no extra libraries.
 
 ## How it works
 
-1. **Sign in** at `/signin`. Google and Apple go through `SUPABASE_URL/auth/v1/authorize?provider=google|apple`; email sends a one-tap link through `/auth/v1/otp`.
+1. **Sign in** at `/signin`. Google goes through `SUPABASE_URL/auth/v1/authorize?provider=google`; email sends a one-tap link through `/auth/v1/otp`.
 2. Supabase returns to `/auth/callback` with tokens in the URL fragment. The page removes them from the address bar immediately and posts them to `/api/auth/session`.
 3. The server verifies the token with Supabase (`/auth/v1/user`) and keeps the session in `httpOnly` cookies, refreshing it when it expires.
 4. `/api/account` reads and saves the person's details; `/api/mission` loads their details and memories before a trip and saves the trip and what it learned afterwards. Every call uses the person's own token, so row-level security decides what it can touch.
@@ -20,8 +20,7 @@ Backline accounts run on Supabase: Supabase Auth for sign-in, and Postgres table
    - **Redirect URLs:** `https://backline-beta-one.vercel.app/auth/callback`, `http://localhost:3000/auth/callback`
 4. **Email.** Authentication → Providers → Email is on by default. The built-in sender is rate limited (a few emails an hour); for real use add custom SMTP (for example Resend) under Authentication → Emails → SMTP settings.
 5. **Google.** Google Cloud Console → APIs & Services → Credentials → Create OAuth client ID (Web application). Authorised redirect URI: `https://<project-ref>.supabase.co/auth/v1/callback`. Paste the client ID and secret into Supabase → Authentication → Providers → Google and enable it.
-6. **Apple.** Needs a paid Apple Developer account. Create an App ID with Sign in with Apple, a Services ID with return URL `https://<project-ref>.supabase.co/auth/v1/callback`, and a Sign in with Apple key. In Supabase → Providers → Apple, enter the Services ID, Team ID, Key ID and the key, then enable it.
-7. **Vercel.** Add the same three variables in Vercel → Project → Settings → Environment Variables, then redeploy. `NEXT_PUBLIC_` values are baked in at build time, so a redeploy is needed after changing them.
+6. **Vercel.** Add the same three variables in Vercel → Project → Settings → Environment Variables, then redeploy. `NEXT_PUBLIC_` values are baked in at build time, so a redeploy is needed after changing them.
 
 ## Checking it
 
@@ -29,4 +28,4 @@ Backline accounts run on Supabase: Supabase Auth for sign-in, and Postgres table
 - Sign in at `/signin`; the top-right button changes to **Account**.
 - Save details at `/account`, then run a trip: when it finishes, it appears under **Your trips**, and its tastes and city appear under **What it remembers**.
 
-The sign-in page asks Supabase which providers are switched on and only shows those, so Google and Apple appear once enabled; email works as soon as the project exists.
+The sign-in page asks Supabase which providers are switched on and only shows those, so Google shows a short note until it is enabled; email works as soon as the project exists.
