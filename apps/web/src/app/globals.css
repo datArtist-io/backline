@@ -1181,7 +1181,7 @@ a { color: inherit; text-decoration: none; }
 .lane-star { font-weight: 700; color: var(--ink); }
 .lane-price { margin-top: auto; padding-top: 8px; }
 .lane-price p { margin: 0; }
-.lane-price strong { font-size: 22px; letter-spacing: -0.02em; color: var(--ink); }
+.lane-price strong { font-size: 22px; letter-spacing: -0.02em; }
 .lane-card.lead .lane-price strong { font-size: 26px; }
 .lane-price span { font-size: 13px; color: var(--ink-faint); }
 .lane-price-sub { margin-top: 2px !important; font-size: 12.5px; color: var(--ink-faint); }
@@ -1475,5 +1475,5 @@ a { color: inherit; text-decoration: none; }
 .recent { transition: opacity 0.3s var(--ease-out); } .hero.is-launching .recent { opacity: 0; }
 
 /* Sign-in heading: quiet, one line */
-.signin-title { margin: 0 0 12px; font-family: var(--font-display); font-weight: 500; font-size: clamp(30px, 4vw, 44px); line-height: 1.1; letter-spacing: -0.02em; color: var(--ink); }
+.signin-title { margin: 0 0 12px; font-family: var(--font-display); font-weight: 500; font-size: clamp(30px, 4vw, 44px); line-height: 1.1; letter-spacing: -0.02em; }
 .signin-lede { margin: 0; max-width: 34ch; font-size: 16px; line-height: 1.55; color: var(--ink-soft); }
