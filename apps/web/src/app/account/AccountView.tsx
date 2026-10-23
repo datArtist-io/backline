@@ -173,8 +173,8 @@ export default function AccountView() {
       </section>
 
       <section className="lg account-card">
-        <h2 className="account-h">What it remembers</h2>
-        <p className="fine">Learned from your trips and used to shape the next one. Remove anything you&rsquo;d rather it forgot.</p>
+        <h2 className="account-h">Your preferences</h2>
+        <p className="fine">Things you&rsquo;ve asked for, used to plan better trips. Remove anything you don&rsquo;t want used.</p>
         {acc.memories.length === 0 ? (
           <p className="account-empty">Nothing yet. Book a trip and it starts learning what you like.</p>
         ) : (
