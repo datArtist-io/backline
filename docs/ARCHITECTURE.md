@@ -7,7 +7,7 @@ Backline plans anything outside the home from one sentence. Qloo's taste graph s
 ```
 apps/web          Next.js 15 app: landing page, mission view, API routes
 packages/engine   The agent, framework-free TypeScript with Zod at every boundary
-packages/db       SQL migration for the waitlist
+packages/db       SQL migrations: waitlist, accounts (profiles, trips, memories)
 scripts/          API checks (keys, Qloo capabilities, location coverage)
 ```
 
@@ -81,3 +81,17 @@ Every client has timeouts, retries where safe, caching and a fixed time budget p
 ## 7. Tests
 
 `npm test` runs the engine's unit tests with stubbed clients (no network). `npm run typecheck` checks every workspace. `npm run check` verifies the API keys and Qloo's capabilities against the live API.
+
+## Accounts and memory
+
+Sign-in is Supabase Auth over its REST API (no client library): Google and Apple through `/auth/v1/authorize`, or a one-tap email link through `/auth/v1/otp`. Both return to `/auth/callback`, which posts the tokens to `/api/auth/session`; the server verifies them and stores them in `httpOnly` cookies, refreshing when they expire (`lib/session.ts`).
+
+Account data lives in three tables (`0003_accounts.sql`), all behind row-level security and always reached with the person's own token:
+
+| Table | Holds |
+|---|---|
+| `profiles` | Traveller details used for bookings (name, contact, date of birth, home city, currency, tastes) |
+| `trips` | A compact record of each finished trip: bookings with references, days, budget |
+| `memories` | What the agent learned: tastes named, cities visited, hotels stayed at |
+
+When a signed-in person starts a mission, `/api/mission` merges their saved details with anything newer in the browser and their memories (`mergeProfile`): remembered tastes join the likes Qloo reads, and past stays become notes for the planner. When a trip finishes, it is saved with what to remember from it (`tripRecord`, `memoriesFrom`).

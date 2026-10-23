@@ -1,21 +1,35 @@
-# Setting up Google and Apple sign-in
+# Setting up accounts: Google, Apple and email sign-in
 
-The waitlist offers **Continue with Google**, **Continue with Apple** and email. Sign-in runs through Supabase Auth; the app needs no extra libraries.
+Backline accounts run on Supabase: Supabase Auth for sign-in, and Postgres tables with row-level security for each person's details, trips and memory. The app talks to Supabase over its REST APIs and needs no extra libraries.
 
 ## How it works
 
-1. The button sends the browser to `SUPABASE_URL/auth/v1/authorize?provider=google|apple`.
-2. Supabase returns to `/join` with a short-lived access token in the URL fragment. The page removes it from the address bar immediately.
-3. The page asks one question (what you do) and posts the token to `/api/waitlist`.
-4. The server verifies the token with Supabase (`/auth/v1/user`) and takes the email **from Supabase, never from the browser**, then adds the person to the waitlist with `source = google | apple`.
+1. **Sign in** at `/signin`. Google and Apple go through `SUPABASE_URL/auth/v1/authorize?provider=google|apple`; email sends a one-tap link through `/auth/v1/otp`.
+2. Supabase returns to `/auth/callback` with tokens in the URL fragment. The page removes them from the address bar immediately and posts them to `/api/auth/session`.
+3. The server verifies the token with Supabase (`/auth/v1/user`) and keeps the session in `httpOnly` cookies, refreshing it when it expires.
+4. `/api/account` reads and saves the person's details; `/api/mission` loads their details and memories before a trip and saves the trip and what it learned afterwards. Every call uses the person's own token, so row-level security decides what it can touch.
+5. The waitlist at `/join` uses the same Google and Apple sign-in and returns to `/join`.
 
 ## Steps
 
-1. Create a Supabase project and run `packages/db/migrations/0001_waitlist.sql`, then `0002_waitlist_roles.sql`, in its SQL editor.
-2. In `apps/web/.env.local` set `SUPABASE_URL`, `SUPABASE_SECRET_KEY` and `NEXT_PUBLIC_SUPABASE_URL` (the same project URL).
-3. Supabase → Authentication → URL Configuration: set **Site URL** to `https://backline-beta-one.vercel.app` and add `http://localhost:3000/join` and `https://backline-beta-one.vercel.app/join` to **Redirect URLs**.
-4. Add the same three variables in Vercel → Project → Settings → Environment Variables, then redeploy.
-5. **Google:** in Google Cloud Console create an OAuth client (Web). Authorised redirect URI: `https://<project-ref>.supabase.co/auth/v1/callback`. Paste the client ID and secret into Supabase → Authentication → Providers → Google.
-6. **Apple:** needs an Apple Developer account. Create a Services ID with Sign in with Apple, return URL `https://<project-ref>.supabase.co/auth/v1/callback`, and a key. Paste the Services ID, Team ID, Key ID and key into Supabase → Providers → Apple.
+1. **Create a Supabase project.** In its SQL editor run, in order:
+   `packages/db/migrations/0001_waitlist.sql`, `0002_waitlist_roles.sql`, `0003_accounts.sql`.
+2. **Keys.** Supabase → Project Settings → API. In `apps/web/.env.local` set:
+   - `NEXT_PUBLIC_SUPABASE_URL` and `SUPABASE_URL`: the project URL
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`: the `anon` / publishable key (safe in the browser)
+   - `SUPABASE_SECRET_KEY`: the `service_role` / secret key (server only, used by the waitlist)
+3. **URLs.** Supabase → Authentication → URL Configuration:
+   - **Site URL:** `https://backline-beta-one.vercel.app`
+   - **Redirect URLs:** `https://backline-beta-one.vercel.app/auth/callback`, `https://backline-beta-one.vercel.app/join`, `http://localhost:3000/auth/callback`, `http://localhost:3000/join`
+4. **Email.** Authentication → Providers → Email is on by default. The built-in sender is rate limited (a few emails an hour); for real use add custom SMTP (for example Resend) under Authentication → Emails → SMTP settings.
+5. **Google.** Google Cloud Console → APIs & Services → Credentials → Create OAuth client ID (Web application). Authorised redirect URI: `https://<project-ref>.supabase.co/auth/v1/callback`. Paste the client ID and secret into Supabase → Authentication → Providers → Google and enable it.
+6. **Apple.** Needs a paid Apple Developer account. Create an App ID with Sign in with Apple, a Services ID with return URL `https://<project-ref>.supabase.co/auth/v1/callback`, and a Sign in with Apple key. In Supabase → Providers → Apple, enter the Services ID, Team ID, Key ID and the key, then enable it.
+7. **Vercel.** Add the same four variables in Vercel → Project → Settings → Environment Variables, then redeploy. `NEXT_PUBLIC_` values are baked in at build time, so a redeploy is needed after changing them.
 
-Until a provider is set up, its button explains that it isn't switched on and points to email.
+## Checking it
+
+- `/api/auth/session` returns `{"configured": true, "user": null}` when signed out.
+- Sign in at `/signin`; the top-right button changes to **Account**.
+- Save details at `/account`, then run a trip: when it finishes, it appears under **Your trips**, and its tastes and city appear under **What it remembers**.
+
+Until a provider is enabled, choosing it ends on `/auth/callback` with Supabase's "provider is not enabled" message; email works as soon as the project exists.

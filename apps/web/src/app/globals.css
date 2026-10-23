@@ -1410,3 +1410,50 @@ a { color: inherit; text-decoration: none; }
 .fl-ref { font-weight: 700; color: var(--ink); }
 .fl-test { padding: 2px 10px; border-radius: var(--radius-pill); font-size: 12px; font-weight: 650; color: #8a4b00; background: rgba(255, 181, 71, 0.2); }
 @media (prefers-reduced-motion: reduce) { .fl-card { animation: none; } }
+
+/* Accounts: sign-in, the account pill and the account page */
+.nav-acts { display: flex; align-items: center; gap: 8px; }
+.account-pill { display: inline-flex; align-items: center; gap: 8px; padding-left: 6px !important; }
+.account-pill img, .account-who img { border-radius: 50%; object-fit: cover; }
+.account-initial { width: 24px; height: 24px; border-radius: 50%; display: inline-grid; place-items: center; font-size: 12px; font-weight: 700; color: #fff; background: linear-gradient(135deg, var(--violet), #ff7a59); }
+.account-initial.big { width: 48px; height: 48px; font-size: 20px; }
+.signin-sent { margin: 0; font-size: 15px; line-height: 1.5; color: var(--ink-soft); }
+.signin-wait { min-height: 100svh; display: grid; place-items: center; padding: 24px 16px; }
+.account { max-width: 880px; margin: 0 auto; padding: 96px 16px 64px; }
+.account-grid { display: grid; gap: 16px; }
+.account-card { border-radius: 24px; padding: clamp(18px, 3vw, 28px); background: linear-gradient(180deg, rgba(255, 255, 255, 0.88), rgba(255, 255, 255, 0.72)); display: grid; gap: 12px; }
+.account-me { grid-template-columns: minmax(0, 1fr) auto; align-items: center; }
+.account-who { display: flex; align-items: center; gap: 14px; min-width: 0; }
+.account-who .fine { margin: 2px 0 0; overflow-wrap: anywhere; }
+.account-name { margin: 0; font-family: var(--font-display, inherit); font-size: clamp(20px, 3vw, 26px); font-weight: 500; letter-spacing: -0.01em; }
+.account-h { margin: 0; font-size: 17px; font-weight: 700; }
+.account-card > .fine { margin: -6px 0 0; }
+.account-save { grid-column: 1 / -1; display: flex; align-items: center; justify-content: flex-end; gap: 12px; flex-wrap: wrap; }
+.account-save .fine, .account-save .join-error { margin: 0 auto 0 0; }
+.account-empty, .account-wait { margin: 0; color: var(--ink-soft); font-size: 14.5px; }
+.memory-list { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
+.memory { display: inline-flex; align-items: center; gap: 6px; padding: 6px 6px 6px 12px; border-radius: var(--radius-pill); background: #fff; box-shadow: inset 0 0 0 1px rgba(16, 19, 43, 0.1); font-size: 13.5px; max-width: 100%; }
+.memory-kind { color: var(--ink-soft); font-size: 12px; font-weight: 600; }
+.memory-value { color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.memory-x { width: 22px; height: 22px; border-radius: 50%; border: 0; background: rgba(16, 19, 43, 0.06); color: var(--ink-soft); cursor: pointer; font-size: 15px; line-height: 1; flex: none; }
+.memory-x:hover { background: rgba(16, 19, 43, 0.12); color: var(--ink); }
+.trip-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.saved-trip { border-radius: 16px; background: #fff; box-shadow: inset 0 0 0 1px rgba(16, 19, 43, 0.08); overflow: hidden; }
+.saved-trip-head { width: 100%; display: grid; gap: 2px; text-align: left; font: inherit; color: var(--ink); background: none; border: 0; padding: 14px 16px; cursor: pointer; }
+.saved-trip-head .fine { margin: 0; }
+.saved-trip-title { font-weight: 600; font-size: 15px; }
+.saved-trip-body { padding: 0 16px 16px; display: grid; gap: 10px; font-size: 14px; line-height: 1.5; }
+.saved-trip-body p { margin: 0; }
+.saved-bookings, .saved-days { margin: 0; padding-left: 18px; display: grid; gap: 6px; }
+.saved-trip-body .link-btn { justify-self: start; }
+.status { font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; padding: 2px 8px; border-radius: var(--radius-pill); background: rgba(16, 19, 43, 0.06); }
+.status-booked { background: rgba(28, 170, 110, 0.14); color: #137a50; }
+.status-failed { background: rgba(220, 60, 60, 0.12); color: #a12a2a; }
+@media (max-width: 640px) {
+  .account { padding-top: 84px; }
+  .account-me { grid-template-columns: 1fr; }
+  .account-me .act { justify-self: start; }
+  .account-label { display: none; }
+  .account-pill { padding-right: 6px !important; }
+  .account .pref-grid { grid-template-columns: 1fr; }
+}

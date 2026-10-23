@@ -1,10 +1,11 @@
 "use client";
 // Your preferences: what the agent knows about you. Import them from another assistant in one
-// paste, or edit them directly. Kept in this browser until accounts ship.
+// paste, or edit them directly. Saved to your account when signed in, and in this browser either way.
 import { useEffect, useRef, useState } from "react";
 import type { Profile } from "@backline/engine";
 import { copyText } from "@/lib/actions";
-import { loadProfile, saveProfile } from "@/lib/profile";
+import { saveProfile } from "@/lib/profile";
+import { loadDetails, saveDetails, useMe } from "@/lib/auth-client";
 
 // Same text as EXPORT_PROMPT in the engine; duplicated so the browser doesn't load the engine.
 const EXPORT_PROMPT =
@@ -23,16 +24,18 @@ export default function Preferences({ open, onClose, onSaved }: { open: boolean;
   const [msg, setMsg] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const panel = useRef<HTMLDivElement>(null);
+  const { me, ready } = useMe();
+  const signedIn = Boolean(me);
 
   useEffect(() => {
-    if (!open) return;
-    setP(loadProfile());
+    if (!open || !ready) return;
+    loadDetails(signedIn).then(setP);
     setMsg(null);
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
     window.addEventListener("keydown", onKey);
     setTimeout(() => panel.current?.focus(), 30);
     return () => window.removeEventListener("keydown", onKey);
-  }, [open, onClose]);
+  }, [open, onClose, ready, signedIn]);
 
   if (!open) return null;
 
@@ -55,8 +58,11 @@ export default function Preferences({ open, onClose, onSaved }: { open: boolean;
     }
   }
 
-  function save() {
-    saveProfile(p);
+  async function save() {
+    setBusy(true);
+    const ok = await saveDetails(p, signedIn);
+    setBusy(false);
+    if (!ok) return setMsg("Saved in this browser, but your account didn't update. Try again.");
     onSaved?.(p);
     onClose();
   }
@@ -150,13 +156,14 @@ export default function Preferences({ open, onClose, onSaved }: { open: boolean;
             className="link-btn"
             onClick={() => {
               setP({});
-              saveProfile({});
+              if (signedIn) void saveDetails({}, true);
+              else saveProfile({});
             }}
           >
             Clear everything
           </button>
-          <button type="button" className="go" onClick={save}>
-            Save
+          <button type="button" className="go" onClick={save} disabled={busy}>
+            {busy ? "Saving…" : "Save"}
           </button>
         </div>
       </div>

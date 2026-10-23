@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import AccountButton from "../AccountButton";
 import Background from "../Background";
 import GlassFilter from "../GlassFilter";
 import { Logo } from "../Logo";
@@ -22,6 +23,9 @@ export default async function JoinPage({ searchParams }: { searchParams: Promise
         <Link href="/" className="wordmark" aria-label={`${BRAND.name} home`}>
           <Logo />
         </Link>
+        <div className="nav-acts">
+          <AccountButton />
+        </div>
       </header>
       <main className="join hero">
         <Background />

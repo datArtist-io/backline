@@ -58,4 +58,5 @@ Built on Qloo's audience data for an artist:
 ## Around the product
 - Follow-up questions answered from a mission's findings (`followup.test.ts`).
 - Preferences: home city, currency, budget style, dietary needs and things they love, importable from another assistant.
+- Accounts: sign in with Google, Apple or an email link. Details are saved to the account and used for bookings; each finished trip is saved; the agent remembers tastes, cities and hotels and uses them on the next trip. All editable at `/account` (`apps/web/test/account.test.ts`).
 - Waitlist with referral positions at `/join`.

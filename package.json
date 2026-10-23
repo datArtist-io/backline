@@ -11,7 +11,7 @@
     "dev": "npm run dev -w @backline/web",
     "build": "npm run build -w @backline/web",
     "start": "npm run start -w @backline/web",
-    "test": "npm run test -w @backline/engine",
+    "test": "npm run test -w @backline/engine && npm run test -w @backline/web",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "check": "node scripts/check.mjs",
     "check:locations": "node scripts/check-locations.mjs",

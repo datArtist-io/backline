@@ -46,6 +46,7 @@ import FlightCard from "./FlightCard";
 import TripMap, { type TasteLayer } from "./TripMap";
 import HotelLanes from "./HotelLanes";
 import Preferences from "./Preferences";
+import AccountButton from "../AccountButton";
 import { loadDocs } from "@/lib/docs";
 import { loadProfile, saveProfile, today } from "@/lib/profile";
 import { Logo } from "../Logo";
@@ -225,6 +226,7 @@ export default function MissionView(props: { goal?: string; artist?: string; mis
             <Logo />
           </Link>
           <div className="top-acts">
+            <AccountButton />
             <button type="button" className="lg pill" onClick={() => setPrefsOpen(true)}>
               Preferences
             </button>

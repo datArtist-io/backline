@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import AccountButton from "./AccountButton";
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Background from "./Background";
@@ -43,9 +44,12 @@ export default function Landing() {
         <Link href="/" className="wordmark" aria-label={`${BRAND.name} home`}>
           <Logo />
         </Link>
-        <Link href="/join" className="lg pill">
-          Get early access
-        </Link>
+        <div className="nav-acts">
+          <AccountButton />
+          <Link href="/join" className="lg pill">
+            Get early access
+          </Link>
+        </div>
       </header>
 
       <main>

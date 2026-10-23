@@ -12,6 +12,7 @@ Email the maintainer (see the GitHub profile) with steps to reproduce. Please do
 | What people tell the planner (requests, documents, preferences) | Plans can reveal where someone will be and when |
 | Qloo data | Licensed for the hackathon; must not be published |
 | Waitlist emails | Personal data |
+| Account details (name, contact, date of birth, trips, memories) | Personal data; trips reveal where someone will be and when |
 
 ## Threats and controls
 
@@ -28,11 +29,13 @@ Email the maintainer (see the GitHub profile) with steps to reproduce. Please do
 | **Voice input** | The microphone opens only while the button is held. The clip goes to `/api/transcribe`, which forwards it to the speech-to-text provider and returns text. Audio isn't stored or logged. |
 | **Spreadsheet formula injection** | CSV cells starting with `= + - @` are prefixed so spreadsheet apps treat them as text. |
 | **Waitlist data** | Row-level security on with no public policies; only the server writes, through `waitlist_join()`. Honeypot field, minimum fill time and a rate limit. Duplicate emails get a generic reply. IP addresses aren't stored. |
+| **Accounts** | Sign-in is Supabase Auth (Google, Apple, email link); no passwords are stored by Backline. Tokens from the sign-in redirect are cleared from the address bar at once and kept only in `httpOnly`, `SameSite=Lax`, `Secure` cookies the page's scripts can't read. Every account read and write goes to Supabase with the person's own token, and row-level security (`user_id = auth.uid()`) means a server bug can't reach another person's rows. The `anon` role has no access to account tables. The return path after sign-in must be a same-site path. People can edit their details, forget any memory, remove any trip and sign out from `/account`. |
 | **Publishing Qloo data** | Qloo responses are cached in memory only. None are in the repo, fixtures or logs; tests use synthetic data. |
 
 ## Data handling
 
-- Plans are built per request and aren't stored on the server. Preferences stay in the browser.
+- Signed out: plans are built per request and aren't stored on the server; preferences stay in the browser.
+- Signed in: details, a compact record of each finished trip (bookings, days, budget) and what the agent remembers (tastes named, cities visited, hotels stayed at) are stored in the person's Supabase rows. Raw Qloo responses are never stored.
 - Logs contain no keys, personal details or Qloo payloads.
 - Waitlist entries hold an email, a referral code and a consent time.
 

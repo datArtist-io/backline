@@ -22,6 +22,8 @@ import {
 } from "@backline/engine";
 import { getRun, isRunId, saveRun } from "@/lib/run-store";
 import { clientIp, rateLimiter } from "@/lib/rate-limit";
+import { getSession } from "@/lib/session";
+import { loadAccount, mergeProfile, saveTripAndMemories } from "@/lib/account";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -88,6 +90,10 @@ export async function POST(req: Request) {
     return fail(503, "The agent isn't configured yet.");
   }
 
+  // Signed in: run with their saved details and what the agent remembers, and save the trip after.
+  const session = await getSession().catch(() => null);
+  const account = session ? await loadAccount(session).catch((err) => (console.warn("[mission] account load failed", err instanceof Error ? err.message : err), null)) : null;
+
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
     async start(controller) {
@@ -111,7 +117,8 @@ export async function POST(req: Request) {
         // Resume an earlier run if we still have it; otherwise plan from scratch.
         const prior = isRunId(body.runId) ? getRun(body.runId) : null;
         const runId = prior && isRunId(body.runId) ? body.runId : crypto.randomUUID();
-        const profile = cleanProfile(body.profile);
+        const local = cleanProfile(body.profile);
+        const profile = account ? mergeProfile(account.profile, local, account.memories) : local;
         let plan: Plan;
         if (prior) {
           plan = prior.plan;
@@ -225,6 +232,8 @@ export async function POST(req: Request) {
             send("mission.checkpoint", { id: cp.id, title: cp.title, hint: cp.hint, min: cp.min, max: cp.max, options: checkpointOptions(cp, run.results) });
           }
         }
+        if (session && plan.mission === "plan" && run.status !== "waiting")
+          await saveTripAndMemories(session, plan.goal, plan.title ?? plan.trip?.destination ?? "Your trip", { ...seed, ...run.results }).catch((err) => console.warn("[mission] trip save failed", err instanceof Error ? err.message : err));
         sendDebug();
         send("mission.completed", { status: run.status, steps: run.steps, ms: run.ms, usage: ctx.usage.snapshot() });
       } catch (err) {
