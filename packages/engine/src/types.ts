@@ -59,6 +59,9 @@ export type StepProgress = {
   by?: "model" | "autopilot";
 };
 
+/** Passport details for booking flights. Sensitive: see SkillContext.traveller. */
+export type PassportDetails = { givenNames: string; familyName: string; number: string; nationality: string; issuingCountry: string; expiresOn: string; birthDate: string; gender: "m" | "f" };
+
 export type SkillContext = {
   qloo: QlooClient;
   llm: LlmClient | null;
@@ -74,6 +77,11 @@ export type SkillContext = {
   hotels?: HotelProvider | null;
   /** Flight search and booking, or null when no flight provider is connected. */
   flights?: DuffelClient | null;
+  /**
+   * The signed-in traveller's passport, decrypted on the server for this mission only. Used solely
+   * in booking calls to the airline; never put in a prompt, a log, an event or a result.
+   */
+  traveller?: { passport: PassportDetails | null } | null;
   /** Looks up a hotel's listed nightly price for the trip, with its source page (Claude web search). */
   rates?: { hotelRate(q: { name: string; city: string; checkin: string | null; checkout: string | null; adults: number; currency: string }, signal?: AbortSignal): Promise<{ perNight: number; currency: string; total: number | null; url: string; site: string; note: string | null } | null> } | null;
   /** Streams what a running skill is doing. Set by the orchestrator for each skill. */

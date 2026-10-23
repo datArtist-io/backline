@@ -24,6 +24,7 @@ import { getRun, isRunId, saveRun } from "@/lib/run-store";
 import { clientIp, rateLimiter } from "@/lib/rate-limit";
 import { getSession } from "@/lib/session";
 import { loadAccount, mergeProfile, rememberTastes, saveSearch, saveTripAndMemories } from "@/lib/account";
+import { passportForBooking } from "@/lib/documents";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -93,6 +94,8 @@ export async function POST(req: Request) {
   // Signed in: run with their saved details and what the agent remembers, and save the trip after.
   const session = await getSession().catch(() => null);
   const account = session ? await loadAccount(session).catch((err) => (console.warn("[mission] account load failed", err instanceof Error ? err.message : err), null)) : null;
+  // Their passport, decrypted for this mission's booking calls only (never sent to the model or the browser).
+  if (session) ctx.traveller = { passport: await passportForBooking(session).catch(() => null) };
 
   const encoder = new TextEncoder();
   const stream = new ReadableStream({

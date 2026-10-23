@@ -64,6 +64,27 @@ describe("booking a flight", () => {
     expect(body.passengers[0]).toMatchObject({ id: "pas_1", given_name: "Ada", family_name: "Obi", born_on: "1995-04-02", gender: "f", title: "ms" });
   });
 
+  it("books with the saved passport, and asks for one when the airline needs it", async () => {
+    const fetch = vi.fn(async () => ({ ok: true, status: 200, text: async () => JSON.stringify({ data: { id: "ord_2", booking_reference: "PSPT01", total_amount: "150000.00", total_currency: "NGN" } }) }));
+    const flights = new DuffelClient({ token: "duffel_test_x", fetch: fetch as unknown as typeof globalThis.fetch });
+    const intl = { ...f, documentsRequired: true };
+    const trip = normalizeTrip({ destination: "Accra, Ghana", startDate: "2026-11-14", endDate: "2026-11-16", currency: "NGN" }, "Accra")!;
+    const email = { name: "Ada", email: "ada@example.com", phone: "+2348012345678" };
+    const deps = { "trip.actions": { data: { actions: [{ ...flightAction(intl, email, true), id: "a1" }] }, evidence: [] }, "trip.flights": { data: { flight: intl, compared: 1, from: "Lagos", to: "Accra", sandbox: true }, evidence: [] } };
+
+    const without = await tripExecute.run({ ...ctxWith(), flights }, { artist: "", trip, profile: email }, deps);
+    expect(without.data.results[0]).toMatchObject({ status: "needs_info" });
+    expect(without.data.results[0].message).toMatch(/needs your passport/);
+    expect(fetch).not.toHaveBeenCalled();
+
+    const passport = { givenNames: "Adaeze", familyName: "Obi", number: "A12345678", nationality: "NG", issuingCountry: "NG", expiresOn: "2030-01-01", birthDate: "1995-04-02", gender: "f" as const };
+    const withIt = await tripExecute.run({ ...ctxWith(), flights, traveller: { passport } }, { artist: "", trip, profile: email }, deps);
+    expect(withIt.data.results[0]).toMatchObject({ status: "booked", ref: "PSPT01" });
+    expect(JSON.stringify(withIt.data)).not.toContain("A12345678");
+    const pax = JSON.parse((fetch.mock.calls[0] as unknown as [string, { body: string }])[1].body).data.passengers[0];
+    expect(pax).toMatchObject({ given_name: "Adaeze", family_name: "Obi", born_on: "1995-04-02", identity_documents: [{ type: "passport", unique_identifier: "A12345678", issuing_country_code: "NG", expires_on: "2030-01-01" }] });
+  });
+
   it("finds the flight for the trip", async () => {
     const flights = {
       sandbox: true,

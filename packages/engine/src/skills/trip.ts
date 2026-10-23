@@ -553,8 +553,15 @@ export function buildActions(
 }
 
 /** Booking and paying for the chosen flight, with what's still needed from the traveller. Pure. */
-export function flightAction(f: TripFlightsOutput["flight"] & object, profile: Profile): TripAction {
-  const missing = [!profile.name?.trim().includes(" ") && "full name", !profile.email && "email", !profile.phone && "phone", !profile.birthDate && "date of birth", !profile.gender && "gender"].filter(Boolean) as string[];
+export function flightAction(f: TripFlightsOutput["flight"] & object, profile: Profile, hasPassport = false): TripAction {
+  // A saved passport already gives the name, date of birth and gender as the airline needs them.
+  const missing = [
+    !hasPassport && !profile.name?.trim().includes(" ") && "full name",
+    !profile.email && "email",
+    !profile.phone && "phone",
+    !hasPassport && !profile.birthDate && "date of birth",
+    !hasPassport && !profile.gender && "gender",
+  ].filter(Boolean) as string[];
   const when = (iso: string) => (iso ? new Date(iso).toLocaleString("en-GB", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "UTC" }) : "");
   return {
     id: "a0",
@@ -569,7 +576,7 @@ export function flightAction(f: TripFlightsOutput["flight"] & object, profile: P
     body: null,
     callOpening: null,
     callBrief: null,
-    missing: missing.length ? `Add your ${missing.join(", ")} in Preferences (as on your passport) so I can book the flight.` : null,
+    missing: missing.length ? `Add your ${missing.join(", ")} in your account details (as on your passport) so I can book the flight.` : null,
     offerId: f.offerId,
     price: { total: f.total, currency: f.currency },
     mode: "auto",
@@ -594,7 +601,7 @@ export const tripActions: Skill<BriefInput, TripActionsOutput> = {
       input.profile ?? {},
       { email: Boolean(ctx.email), calls: Boolean(ctx.calls), hotels: Boolean(ctx.hotels) }
     );
-    const actions = flight && ctx.flights ? [flightAction(flight, input.profile ?? {}), ...built].map((x, i) => ({ ...x, id: `a${i + 1}` })) : built;
+    const actions = flight && ctx.flights ? [flightAction(flight, input.profile ?? {}, Boolean(ctx.traveller?.passport)), ...built].map((x, i) => ({ ...x, id: `a${i + 1}` })) : built;
     const notes: string[] = [];
     if (!ctx.email) notes.push("Email sending isn't connected yet, so emails open in your own mail app.");
     if (!ctx.calls) notes.push("AI calling isn't connected yet, so calls show the number and what to say.");
@@ -663,8 +670,13 @@ export const tripExecute: Skill<BriefInput, TripExecuteOutput> = {
           const b = input.trip?.budget;
           if (b?.amount && b.currency === flight.currency && flight.total > b.amount)
             return { actionId: a.id, status: "needs_info", ref: null, message: `The flight costs ${Math.round(flight.total).toLocaleString("en")} ${flight.currency}, over your ${b.amount.toLocaleString("en")} ${b.currency} budget, so I didn't pay. Approve it or raise the budget.` };
+          const passport = ctx.traveller?.passport ?? null;
+          if (flight.documentsRequired && !passport)
+            return { actionId: a.id, status: "needs_info", ref: null, message: "This airline needs your passport to issue the ticket. Add it under Account → Travel documents and I'll book it." };
           const name = splitName(profile.name ?? "");
-          const traveller = { givenName: name.firstName, familyName: name.lastName, email: profile.email ?? "", phone: toE164(profile.phone ?? null) ?? profile.phone ?? "", bornOn: profile.birthDate ?? "", gender: profile.gender ?? "m" };
+          const traveller = passport
+            ? { givenName: passport.givenNames, familyName: passport.familyName, email: profile.email ?? "", phone: toE164(profile.phone ?? null) ?? profile.phone ?? "", bornOn: passport.birthDate, gender: passport.gender, passport: { number: passport.number, issuingCountry: passport.issuingCountry, expiresOn: passport.expiresOn } }
+            : { givenName: name.firstName, familyName: name.lastName, email: profile.email ?? "", phone: toE164(profile.phone ?? null) ?? profile.phone ?? "", bornOn: profile.birthDate ?? "", gender: profile.gender ?? "m" };
           const booked = await ctx.flights.book(flight, [traveller], ctx.signal);
           const test = ctx.flights.sandbox ? " Test booking on Duffel's test airline: no real money moved." : "";
           return {

@@ -12,6 +12,7 @@ Email the maintainer (see the GitHub profile) with steps to reproduce. Please do
 | What people tell the planner (requests, documents, preferences) | Plans can reveal where someone will be and when |
 | Qloo data | Licensed for the hackathon; must not be published |
 | Account details (name, contact, date of birth, trips, memories) | Personal data; trips reveal where someone will be and when |
+| Passports | Identity documents: the most sensitive data held |
 
 ## Threats and controls
 
@@ -28,6 +29,7 @@ Email the maintainer (see the GitHub profile) with steps to reproduce. Please do
 | **Voice input** | The microphone opens only while the button is held. The clip goes to `/api/transcribe`, which forwards it to the speech-to-text provider and returns text. Audio isn't stored or logged. |
 | **Spreadsheet formula injection** | CSV cells starting with `= + - @` are prefixed so spreadsheet apps treat them as text. |
 | **Accounts** | Sign-in is Supabase Auth (Google, email link); no passwords are stored by Backline. Tokens from the sign-in redirect are cleared from the address bar at once and kept only in `httpOnly`, `SameSite=Lax`, `Secure` cookies the page's scripts can't read. Every account read and write goes to Supabase with the person's own token, and row-level security (`user_id = auth.uid()`) means a server bug can't reach another person's rows. The `anon` role has no access to account tables. The return path after sign-in must be a same-site path. People can edit their details, forget any memory, remove any trip and sign out from `/account`. |
+| **Passports** | Encrypted in the app with AES-256-GCM before storage (key only in the server environment, `TRAVEL_DOCS_KEY`), with the user id bound in so a row can't be moved between accounts; the database holds ciphertext and a masked summary. Saved only with explicit consent. The browser only ever gets the masked summary (last 3 digits, country, expiry). Decrypted on the server for a mission's flight-booking call and sent only to the airline through Duffel; never put in a model prompt, an event stream, a result or a log. Expired passports aren't used. Removable from the account page. |
 | **Publishing Qloo data** | Qloo responses are cached in memory only. None are in the repo, fixtures or logs; tests use synthetic data. |
 
 ## Data handling

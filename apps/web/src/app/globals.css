@@ -1477,3 +1477,11 @@ a { color: inherit; text-decoration: none; }
 /* Sign-in heading: quiet, one line */
 .signin-title { margin: 0 0 12px; font-family: var(--font-display); font-weight: 500; font-size: clamp(30px, 4vw, 44px); line-height: 1.1; letter-spacing: -0.02em; }
 .signin-lede { margin: 0; max-width: 34ch; font-size: 16px; line-height: 1.55; color: var(--ink-soft); }
+
+/* Travel documents */
+.doc-card { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 14px 16px; border-radius: 16px; background: #fff; box-shadow: inset 0 0 0 1px rgba(16, 19, 43, 0.08); }
+.doc-card .fine { margin: 2px 0 0; }
+.doc-name { margin: 0; font-weight: 600; font-size: 15px; }
+.doc-acts { display: flex; align-items: center; gap: 12px; }
+.consent { grid-column: 1 / -1; display: flex; gap: 10px; align-items: flex-start; font-size: 13.5px; line-height: 1.45; color: var(--ink-soft); }
+.consent input { margin-top: 3px; width: 16px; height: 16px; accent-color: var(--violet); flex: none; }

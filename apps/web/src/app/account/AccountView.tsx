@@ -7,6 +7,7 @@ import type { Profile } from "@backline/engine";
 import type { Memory, SavedTrip, Search } from "@/lib/account";
 import type { Me } from "@/lib/auth-client";
 import { saveDetails, signOut } from "@/lib/auth-client";
+import TravelDocuments from "./TravelDocuments";
 
 type Account = { user: Me; profile: Profile; memories: Memory[]; trips: SavedTrip[]; searches: Search[] };
 
@@ -171,6 +172,8 @@ export default function AccountView() {
           </div>
         </form>
       </section>
+
+      <TravelDocuments />
 
       <section className="lg account-card">
         <h2 className="account-h">Your preferences</h2>

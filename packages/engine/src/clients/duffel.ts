@@ -16,9 +16,11 @@ export type FlightOffer = {
   /** The return flight, for a round trip. */
   inbound: FlightLeg | null;
   refundable: boolean | null;
+  /** The airline needs a passport for each traveller to issue this ticket (usually international). */
+  documentsRequired?: boolean;
 };
 
-export type Traveller = { givenName: string; familyName: string; email: string; phone: string; bornOn: string; gender: "m" | "f" };
+export type Traveller = { givenName: string; familyName: string; email: string; phone: string; bornOn: string; gender: "m" | "f"; passport?: { number: string; issuingCountry: string; expiresOn: string } | null };
 
 export type FlightBooking = { orderId: string; reference: string | null; total: number | null; currency: string | null };
 
@@ -36,7 +38,7 @@ export function durationMinutes(iso: unknown): number | null {
 
 type RawSegment = { departing_at?: string; arriving_at?: string; marketing_carrier?: { name?: string; iata_code?: string }; marketing_carrier_flight_number?: string; origin?: { iata_code?: string; name?: string }; destination?: { iata_code?: string; name?: string } };
 type RawSlice = { origin?: { iata_code?: string; name?: string; city_name?: string }; destination?: { iata_code?: string; name?: string; city_name?: string }; duration?: string; segments?: RawSegment[] };
-type RawOffer = { id?: string; total_amount?: string; total_currency?: string; owner?: { name?: string }; slices?: RawSlice[]; passengers?: { id?: string }[]; conditions?: { refund_before_departure?: { allowed?: boolean } | null } };
+type RawOffer = { id?: string; total_amount?: string; total_currency?: string; owner?: { name?: string }; slices?: RawSlice[]; passengers?: { id?: string }[]; conditions?: { refund_before_departure?: { allowed?: boolean } | null }; passenger_identity_documents_required?: boolean };
 
 function legFrom(s: RawSlice | undefined): FlightLeg | null {
   const segs = s?.segments ?? [];
@@ -76,6 +78,7 @@ export function flightOffersFrom(json: unknown): FlightOffer[] {
       outbound,
       inbound: legFrom(o.slices?.[1]),
       refundable: o.conditions?.refund_before_departure ? Boolean(o.conditions.refund_before_departure.allowed) : null,
+      documentsRequired: Boolean(o.passenger_identity_documents_required),
     });
   }
   return out.sort((a, b) => a.total - b.total);
@@ -153,7 +156,8 @@ export class DuffelClient {
   async book(offer: Pick<FlightOffer, "offerId" | "passengerIds" | "total" | "currency">, travellers: Traveller[], signal?: AbortSignal): Promise<FlightBooking> {
     const passengers = offer.passengerIds.map((id, i) => {
       const t = travellers[i] ?? travellers[0];
-      return { id, given_name: t.givenName, family_name: t.familyName, born_on: t.bornOn, gender: t.gender, title: t.gender === "f" ? "ms" : "mr", email: t.email, phone_number: t.phone };
+      const documents = t.passport ? { identity_documents: [{ type: "passport", unique_identifier: t.passport.number, issuing_country_code: t.passport.issuingCountry, expires_on: t.passport.expiresOn }] } : {};
+      return { id, given_name: t.givenName, family_name: t.familyName, born_on: t.bornOn, gender: t.gender, title: t.gender === "f" ? "ms" : "mr", email: t.email, phone_number: t.phone, ...documents };
     });
     const json = (await this.call(
       "POST",

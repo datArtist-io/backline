@@ -15,6 +15,7 @@ export const flightSchema = z.object({
   outbound: legSchema,
   inbound: legSchema.nullable(),
   refundable: z.boolean().nullable(),
+  documentsRequired: z.boolean().optional(),
 });
 
 const flightsOutput = z.object({
