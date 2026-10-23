@@ -14,6 +14,10 @@ const nextConfig: NextConfig = {
   // The engine is shipped as TypeScript source inside the monorepo.
   transpilePackages: ["@backline/engine"],
   poweredByHeader: false,
+  // The waitlist became sign-in; old /join links land on it.
+  async redirects() {
+    return [{ source: "/join", destination: "/signin", permanent: true }];
+  },
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },

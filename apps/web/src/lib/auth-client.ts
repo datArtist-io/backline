@@ -81,12 +81,14 @@ export async function signOut() {
 }
 
 /** Who's signed in, if anyone. */
-export function useMe(): { me: Me | null; ready: boolean; configured: boolean; refresh: () => void } {
-  const [state, setState] = useState<{ me: Me | null; ready: boolean; configured: boolean }>({ me: null, ready: false, configured: signInAvailable });
+export type Providers = { google: boolean; apple: boolean; email: boolean };
+
+export function useMe(): { me: Me | null; ready: boolean; configured: boolean; providers: Providers | null; refresh: () => void } {
+  const [state, setState] = useState<{ me: Me | null; ready: boolean; configured: boolean; providers: Providers | null }>({ me: null, ready: false, configured: signInAvailable, providers: null });
   const refresh = useCallback(() => {
     fetch("/api/auth/session", { cache: "no-store" })
       .then((r) => r.json())
-      .then((j: { user: Me | null; configured: boolean }) => setState({ me: j.user, ready: true, configured: j.configured }))
+      .then((j: { user: Me | null; configured: boolean; providers: Providers | null }) => setState({ me: j.user, ready: true, configured: j.configured, providers: j.providers }))
       .catch(() => setState((s) => ({ ...s, ready: true })));
   }, []);
   useEffect(refresh, [refresh]);

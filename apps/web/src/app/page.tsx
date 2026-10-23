@@ -46,9 +46,6 @@ export default function Landing() {
         </Link>
         <div className="nav-acts">
           <AccountButton />
-          <Link href="/join" className="lg pill">
-            Get early access
-          </Link>
         </div>
       </header>
 

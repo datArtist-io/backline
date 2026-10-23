@@ -33,7 +33,7 @@ Open the demo at **[backline-beta-one.vercel.app](https://backline-beta-one.verc
 - `Plan a weekend in Lagos like Burna Boy would`
 - `Birthday dinner for 12 in Lekki next Saturday`
 
-No sign-in is needed to plan. Sign in (Google, Apple or an email link) and it keeps your traveller details, the tastes it has learned and every trip it booked, at `/account`. The waitlist at `/join` is optional.
+No sign-in is needed to plan. Sign in (Google, Apple or an email link) and it keeps your traveller details, the tastes it has learned and every trip it booked, at `/account`.
 
 ## Repository
 
@@ -78,8 +78,7 @@ npm run dev                                  # http://localhost:3000
 | `DUFFEL_API_KEY` | Flight search, booking and payment (a `duffel_test_` token uses Duffel's test airline) |
 | `LITEAPI_API_KEY` | Live hotel rates, booking and payment (a `sand_` key simulates payment) |
 | `NEXT_PUBLIC_MAP_TILES`, `NEXT_PUBLIC_MAP_ATTRIBUTION` | Optional keyed map tile provider (OpenStreetMap by default) |
-| `SUPABASE_URL`, `SUPABASE_SECRET_KEY` | Waitlist storage (run `packages/db/migrations/0001_waitlist.sql` first) |
-| `RESEND_API_KEY`, `WAITLIST_FROM_EMAIL` | Optional waitlist confirmation emails |
+| `SUPABASE_URL` | Same project URL, read on the server |
 | `NEXT_PUBLIC_SITE_URL`, `NEXT_PUBLIC_CONTACT_EMAIL` | Public site URL and privacy contact |
 
 ## Documentation

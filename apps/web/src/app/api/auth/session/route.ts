@@ -2,7 +2,7 @@
 // verifies them and stores them in httpOnly cookies. GET says who's signed in. DELETE signs out.
 import { z } from "zod";
 import { clearSession, getSession, setSession } from "@/lib/session";
-import { signOutEverywhere, supabaseConfig, userFor } from "@/lib/supabase";
+import { enabledProviders, signOutEverywhere, supabaseConfig, userFor } from "@/lib/supabase";
 import { clientIp, rateLimiter } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
@@ -12,9 +12,9 @@ const rateLimited = rateLimiter(20);
 const bodySchema = z.object({ accessToken: z.string().min(20).max(4000), refreshToken: z.string().min(6).max(400), expiresIn: z.number().int().min(60).max(86400).optional() });
 
 export async function GET() {
-  const configured = Boolean(supabaseConfig());
-  const s = await getSession();
-  return Response.json({ configured, user: s?.user ?? null });
+  const cfg = supabaseConfig();
+  const [s, providers] = await Promise.all([getSession(), cfg ? enabledProviders(cfg) : null]);
+  return Response.json({ configured: Boolean(cfg), user: s?.user ?? null, providers });
 }
 
 export async function POST(req: Request) {

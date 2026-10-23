@@ -7,7 +7,7 @@ Backline plans anything outside the home from one sentence. Qloo's taste graph s
 ```
 apps/web          Next.js 15 app: landing page, mission view, API routes
 packages/engine   The agent, framework-free TypeScript with Zod at every boundary
-packages/db       SQL migrations: waitlist, accounts (profiles, trips, memories)
+packages/db       SQL migrations: accounts (profiles, trips, memories) in 0003; 0001–0002 are an earlier waitlist, no longer used
 scripts/          API checks (keys, Qloo capabilities, location coverage)
 ```
 
