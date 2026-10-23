@@ -638,12 +638,13 @@ export const tripExecute: Skill<BriefInput, TripExecuteOutput> = {
   id: "trip.execute",
   title: "Doing it: booking, sending and calling",
   dependsOn: ["trip.actions"],
-  optionalDeps: ["trip.flights"],
+  optionalDeps: ["trip.flights", "trip.agent"],
   timeoutMs: 90_000,
   output: executeOutput,
   async run(ctx, input, deps) {
     const { actions } = deps["trip.actions"].data as TripActionsOutput;
     const flight = (deps["trip.flights"]?.data as TripFlightsOutput | undefined)?.flight ?? null;
+    const agent = deps["trip.agent"]?.data as TripAgentOutput | undefined;
     const picked = input.selections?.actions;
     const chosen = picked?.length ? actions.filter((a) => picked.includes(a.id)) : actions.filter((a) => a.recommended);
     const profile = input.profile ?? {};
@@ -676,13 +677,34 @@ export const tripExecute: Skill<BriefInput, TripExecuteOutput> = {
         if (a.channel === "reserve" && ctx.hotels && a.offerId) {
           if (++reserves > ACTION_LIMITS.reserve) return { actionId: a.id, status: "skipped", ref: null, message: "One room booking per mission." };
           const guest = { ...splitName(profile.name ?? ""), email: profile.email ?? "", phone: profile.phone };
-          const held = await ctx.hotels.hold(a.offerId, guest, ctx.signal);
+          // If the chosen room has just sold out, book the next best hotel that's still bookable.
+          const alternates = (agent?.stays ?? [])
+            .filter((p) => p.offer && p.offer.offerId !== a.offerId)
+            .sort((x, y) => y.fit - x.fit)
+            .slice(0, 3)
+            .map((p) => ({ offerId: p.offer!.offerId, name: p.name, total: p.offer!.total }));
+          const tries = [{ offerId: a.offerId, name: a.placeName ?? "the hotel", total: a.price?.total ?? null }, ...alternates];
+          let held: Awaited<ReturnType<NonNullable<typeof ctx.hotels>["hold"]>> | null = null;
+          let bookedName = tries[0].name;
+          let lastErr: unknown = null;
+          for (const t of tries) {
+            try {
+              held = await ctx.hotels.hold(t.offerId, guest, ctx.signal);
+              bookedName = t.name;
+              break;
+            } catch (err) {
+              lastErr = err;
+              if (!(err instanceof EngineError) || !/availab|sold|no longer/i.test(`${err.message} ${err.userMessage}`)) throw err;
+            }
+          }
+          if (!held) throw lastErr ?? new EngineError("No rooms", "None of the hotels I found have rooms left for your dates.");
+          const swapped = bookedName !== tries[0].name ? `${tries[0].name} had no rooms left, so I booked ${bookedName} instead. ` : "";
           const money = (n: number, c: string) => `${Math.round(n).toLocaleString("en")} ${c}`;
           // Pays straight away when the provider can, and the price is what they approved and within their budget.
           const b = input.trip?.budget;
           const stayNights = Math.max(1, tripDates(input.trip?.startDate ?? null, input.trip?.endDate ?? null).length - 1);
           const cap = b?.amount && b.currency === held.currency ? (b.scope === "per_night" ? b.amount * stayNights : b.amount) : null;
-          const approved = a.price ? held.total <= a.price.total * 1.02 : true;
+          const approved = swapped ? true : a.price ? held.total <= a.price.total * 1.02 : true;
           if (ctx.hotels.pay && approved && (cap == null || held.total <= cap)) {
             const booking = await ctx.hotels.pay(held.holdId, guest, ctx.signal);
             if (booking.status !== "failed") {
@@ -691,7 +713,7 @@ export const tripExecute: Skill<BriefInput, TripExecuteOutput> = {
                 actionId: a.id,
                 status: "booked",
                 ref: booking.reference ?? booking.bookingId,
-                message: `${booking.status === "confirmed" ? "Booked and paid" : "Paid; the hotel is confirming"}: ${money(booking.total ?? held.total, booking.currency ?? held.currency)}${booking.reference ? `, confirmation ${booking.reference}` : ""}.${held.cancellation ? ` ${held.cancellation}.` : ""} The confirmation goes to ${guest.email}.${test}`,
+                message: `${swapped}${booking.status === "confirmed" ? "Booked and paid" : "Paid; the hotel is confirming"}: ${money(booking.total ?? held.total, booking.currency ?? held.currency)}${booking.reference ? `, confirmation ${booking.reference}` : ""}.${held.cancellation ? ` ${held.cancellation}.` : ""} The confirmation goes to ${guest.email}.${test}`,
               };
             }
           }

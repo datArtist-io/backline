@@ -6,6 +6,7 @@ import { tripExecute } from "../src/skills/trip";
 import { normalizeTrip } from "../src/trip-request";
 import type { HotelProvider } from "../src/clients/hotels";
 import { ctxWith } from "./helpers";
+import { UpstreamError } from "../src/errors";
 
 const RATES = {
   data: [
@@ -98,5 +99,21 @@ describe("booking and paying", () => {
     const over = provider(180000);
     expect((await run(over, 150000)).data.results[0]).toMatchObject({ status: "needs_info" });
     expect(over.pay).not.toHaveBeenCalled();
+  });
+
+  it("books the next best hotel when the chosen room has sold out", async () => {
+    const hotels = provider(200000);
+    hotels.hold = vi.fn(async (offerId: string) => {
+      if (offerId === "off-cheap") throw new UpstreamError("hotels", 400, "LiteAPI returned 400: no availability found", "The hotel couldn't be booked: no availability found");
+      return { holdId: "P2", offerId, total: 200000, currency: "NGN", cancellation: null, checkoutUrl: null, checkout: null };
+    });
+    const stay = (id: string, name: string, offerId: string, fit: number) => ({ id, name, fit, offer: { offerId, total: 200000, currency: "NGN" } });
+    const r = await tripExecute.run(
+      { ...ctxWith(), hotels },
+      { artist: "", trip: normalizeTrip({ destination: "Lagos, Nigeria", startDate: "2026-11-14", endDate: "2026-11-16", currency: "NGN" }, "Lagos")!, profile: { name: "Ada Obi", email: "ada@example.com" } },
+      { "trip.actions": { data: { actions: [action] }, evidence: [] }, "trip.agent": { data: { stays: [stay("q2", "Lagos Continental", "off-2", 0.8)] }, evidence: [] } } as never
+    );
+    expect(r.data.results[0]).toMatchObject({ status: "booked" });
+    expect(r.data.results[0].message).toMatch(/Eko Hotel had no rooms left, so I booked Lagos Continental instead/);
   });
 });
