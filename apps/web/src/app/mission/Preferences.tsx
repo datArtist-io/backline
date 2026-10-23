@@ -118,6 +118,15 @@ export default function Preferences({ open, onClose, onSaved }: { open: boolean;
           {field("email", "Email", "For replies to bookings", "email")}
           {field("phone", "Phone", "+234…", "tel")}
           {field("homeCity", "Home city", "Lagos")}
+          {field("birthDate", "Date of birth (for flights)", "", "date")}
+          <label className="pref-field">
+            <span>Gender on passport (for flights)</span>
+            <select value={p.gender ?? ""} onChange={(e) => setP({ ...p, gender: (e.target.value || undefined) as Profile["gender"] })}>
+              <option value="">Not set</option>
+              <option value="f">Female</option>
+              <option value="m">Male</option>
+            </select>
+          </label>
           {field("currency", "Currency", "NGN")}
           <label className="pref-field">
             <span>Spending style</span>

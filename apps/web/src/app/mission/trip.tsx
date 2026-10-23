@@ -456,7 +456,8 @@ export function ActionsCheckpoint({
                 <span className="cp-text">
                   <span className="cp-label">{a.title}</span>
                   <span className="cp-detail">
-                    {a.channel === "reserve" && `I'll book and pay${a.price ? ` ${money(a.price.total, a.price.currency)} for the whole stay` : ""}, only at this price and within your budget. The confirmation is emailed to you.`}
+                    {a.channel === "reserve" && a.kind === "book_flight" && `${a.subject ? `${a.subject}. ` : ""}I'll book and pay${a.price ? ` ${money(a.price.total, a.price.currency)}` : ""} for the tickets, within your budget. The e-ticket is emailed to you.`}
+                    {a.channel === "reserve" && a.kind !== "book_flight" && `I'll book and pay${a.price ? ` ${money(a.price.total, a.price.currency)} for the whole stay` : ""}, only at this price and within your budget. The confirmation is emailed to you.`}
                     {a.channel === "email" && (a.mode === "auto" ? `I'll email ${a.to}` : `Opens a ready email to ${a.to}`)}
                     {a.channel === "call" && (a.mode === "auto" ? `I'll call ${a.to}` : `Number and script for ${a.to}`)}
                     {a.channel === "link" && "Opens with your dates and guests filled in. You pay there."}

@@ -5,14 +5,36 @@ import { useRef, useState } from "react";
 
 const AREAS = [
   {
+    id: "agent",
+    label: "It does it",
+    lead: "Say where and when. It books and pays.",
+    items: [
+      "Books your flights there and back, and pays for them",
+      "Books the hotel and pays, only at the price shown and within your budget",
+      "Reserves tables and venues by email or an AI phone call",
+      "Runs end to end without asking, or checks with you first: your choice",
+    ],
+  },
+  {
+    id: "taste",
+    label: "Your taste",
+    lead: "Picks that feel like you, read through Qloo.",
+    items: [
+      "Tell it what you love, or plan it like your favourite star",
+      "The vibe, scenes and dishes that go with your taste",
+      "The part of town where your taste lives, on the map",
+      "Every place scored for how well it fits you",
+    ],
+  },
+  {
     id: "stay",
     label: "Stays",
     lead: "The right hotel, at the price it really costs.",
     items: [
       "Hotels within 5 km of where you need to be, plus the best-rated within 10 km",
       "Sorted into Premium, Closest, Best value and Lowest price",
-      "Nightly rates as listed online for your dates, with the page they're on",
-      "Ratings, distances and a one-tap way to check dates or call",
+      "Live, bookable rates for your dates",
+      "Ratings, distances and a one-tap way to call",
     ],
   },
   {
@@ -20,21 +42,10 @@ const AREAS = [
     label: "Getting around",
     lead: "Every move of the trip, mapped.",
     items: [
-      "Your journey there and back, from home to the station or airport",
+      "Your flights, from home to the airport and back",
       "Each day's route on the map, with ride and walking times",
       "Bolt fare estimates between stops, and a daily ride total",
       "Directions for every day, ready on your phone",
-    ],
-  },
-  {
-    id: "plan",
-    label: "The plan",
-    lead: "An hour-by-hour plan you can actually follow.",
-    items: [
-      "Check-in, the event, meals and free time, in the right order",
-      "Places to eat near where you are, not across town",
-      "A budget with hotel, rides and the rest",
-      "Local tips for the city you're heading to",
     ],
   },
   {
@@ -43,30 +54,19 @@ const AREAS = [
     lead: "Birthdays, launches, weddings, dinners, nights out.",
     items: [
       "Venues sized for your guest list and budget",
-      "Restaurants for group dinners, with booking contacts",
+      "Restaurants for group dinners, reserved for you",
       "Things to do that match your taste, or a favourite star's",
-      "Enquiry emails and call scripts written for you",
+      "An hour-by-hour plan with a budget",
     ],
   },
   {
     id: "share",
     label: "Take it with you",
-    lead: "Your trip, wherever you need it.",
+    lead: "Your whole trip, wherever you need it.",
     items: [
-      "Add the whole plan to Google, Apple or Outlook calendar",
+      "Every booking in your Google, Apple or Outlook calendar",
       "Export it as a document, a PDF or a presentation",
       "Share it with whoever's coming along",
-    ],
-  },
-  {
-    id: "agent",
-    label: "The agent",
-    lead: "Say where and when. It does the rest.",
-    items: [
-      "Plans in any language, typed or spoken: \u201cA birthday dinner for 12 in Lekki on Saturday\u201d",
-      "Reads your tickets, invites and itineraries from a file or photo",
-      "Checks facts and prices on the web instead of guessing",
-      "Asks before booking anything, or runs end to end",
     ],
   },
 ];
@@ -85,7 +85,7 @@ export default function Capabilities() {
   return (
     <section className="caps" aria-labelledby="caps-title">
       <h2 id="caps-title" className="caps-title">
-        Everything you plan, from one sentence
+        Everything done for you, from one sentence
       </h2>
 
       <div className="lg caps-panel">

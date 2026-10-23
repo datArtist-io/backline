@@ -53,9 +53,9 @@ export default function Landing() {
           <Background />
           <h1 id="hero-title" className="hero-title">
             <span className="hero-line">Say where.</span>
-            <span className="hero-line hero-accent">We plan the rest.</span>
+            <span className="hero-line hero-accent">We do the rest.</span>
           </h1>
-          <PromptBar onSubmit={go} placeholder="What are you planning, where and when?" shortPlaceholder="What are you planning?" />
+          <PromptBar onSubmit={go} placeholder="Where are you going, and when?" shortPlaceholder="Where to, and when?" />
           <ModeSwitch value={mode} onChange={setMode} className="hero-switch" />
         </section>
 

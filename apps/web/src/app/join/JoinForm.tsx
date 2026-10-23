@@ -6,12 +6,11 @@ import { BRAND } from "@/lib/brand";
 import { oauthEnabled, oauthUrl, takeOauthToken, type Provider } from "@/lib/oauth";
 
 const ROLES = [
-  { value: "manager", label: "Manager" },
-  { value: "artist", label: "Artist" },
-  { value: "label", label: "Label" },
-  { value: "agency", label: "Agency" },
-  { value: "brand", label: "Brand" },
-  { value: "other", label: "Other" },
+  { value: "traveller", label: "I travel for fun" },
+  { value: "business", label: "I travel for work" },
+  { value: "host", label: "I host events" },
+  { value: "agency", label: "I plan for others" },
+  { value: "other", label: "Something else" },
 ] as const;
 type Role = (typeof ROLES)[number]["value"];
 
@@ -125,7 +124,7 @@ export default function JoinForm({ refCode }: { refCode?: string }) {
           <button type="button" className="back" onClick={() => setStep({ kind: "start" })} aria-label="Back">
             <Arrow flip /> {step.who.email ?? (step.who.provider === "apple" ? "Signed in with Apple" : "Signed in with Google")}
           </button>
-          <p className="join-step-title">What do you do?</p>
+          <p className="join-step-title">What brings you here?</p>
           <div className="roles">
             {ROLES.map((r) => (
               <button key={r.value} type="button" className={`role${busy === r.value ? " is-busy" : ""}`} disabled={busy !== null} onClick={() => finish(r.value, step.who)}>

@@ -6,6 +6,7 @@ import type { EmailSender } from "./clients/email";
 import type { CallPlacer } from "./clients/calls";
 import type { OsmClient } from "./clients/osm";
 import type { HotelProvider } from "./clients/hotels";
+import type { DuffelClient } from "./clients/duffel";
 
 /** Where a recommendation came from. Every recommendation must carry at least one. */
 export type Evidence =
@@ -37,7 +38,7 @@ export type Logger = {
 };
 
 export type UsageMeter = {
-  add: (kind: "qloo" | "llm_tokens" | "web" | "maps" | "hotels", units: number) => void;
+  add: (kind: "qloo" | "llm_tokens" | "web" | "maps" | "hotels" | "flights", units: number) => void;
   snapshot: () => Record<string, number>;
 };
 
@@ -71,6 +72,8 @@ export type SkillContext = {
   osm?: OsmClient | null;
   /** Live hotel availability and reservations, or null when no booking provider is connected. */
   hotels?: HotelProvider | null;
+  /** Flight search and booking, or null when no flight provider is connected. */
+  flights?: DuffelClient | null;
   /** Looks up a hotel's listed nightly price for the trip, with its source page (Claude web search). */
   rates?: { hotelRate(q: { name: string; city: string; checkin: string | null; checkout: string | null; adults: number; currency: string }, signal?: AbortSignal): Promise<{ perNight: number; currency: string; total: number | null; url: string; site: string; note: string | null } | null> } | null;
   /** Streams what a running skill is doing. Set by the orchestrator for each skill. */
@@ -102,6 +105,7 @@ export type SkillId =
   | "content.merch"
   | "content.release"
   | "trip.taste"
+  | "trip.flights"
   | "trip.agent"
   | "trip.plan"
   | "trip.routes"
@@ -172,6 +176,9 @@ export type Profile = {
   email?: string;
   phone?: string;
   homeCity?: string;
+  /** For booking flights: date of birth (YYYY-MM-DD) and gender as on their passport. */
+  birthDate?: string;
+  gender?: "m" | "f";
   currency?: string;
   budgetStyle?: "budget" | "mid" | "luxury";
   dietary?: string[];
@@ -197,6 +204,8 @@ export type TripRequest = {
   needs: ("stay" | "dine" | "venue" | "activities")[];
   /** A landmark to stay or eat close to ("National Theatre"), within the destination. */
   near: string | null;
+  /** Where they're travelling from, if said ("from Abuja"); otherwise their home city is used. */
+  origin?: string | null;
   /** How they're getting there, if said ("train", "flight", "car"). */
   travelMode: string | null;
   /** Things the user handles themselves (e.g. "transport"). The agent plans around them but doesn't book them. */

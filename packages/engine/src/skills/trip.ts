@@ -9,6 +9,7 @@ import { EngineError } from "../errors";
 import { mapLimit } from "../util";
 import { placeSchema, scorePlace, toPlace, type Place } from "./places";
 import { isArrivalStop, nameRefs, type Stop, type TripAgentOutput } from "./trip-agent";
+import type { TripFlightsOutput } from "./flights";
 
 export { placeSchema, scorePlace, toPlace };
 import type { TasteOutput } from "./taste";
@@ -109,11 +110,12 @@ export const tripPlan: Skill<BriefInput, TripPlanOutput> = {
   id: "trip.plan",
   title: "Writing the plan",
   dependsOn: ["trip.agent"],
-  optionalDeps: ["trip.taste"],
+  optionalDeps: ["trip.taste", "trip.flights"],
   timeoutMs: 60_000,
   output: planOutput,
   async run(ctx, input, deps) {
     const a = agentOf(deps);
+    const fl = (deps["trip.flights"]?.data as TripFlightsOutput | undefined)?.flight ?? null;
     const taste = deps["trip.taste"]?.data as TasteOutput | undefined;
     const trip = a.trip;
     const { stays, dines, venues, activities } = a;
@@ -158,6 +160,9 @@ export const tripPlan: Skill<BriefInput, TripPlanOutput> = {
             `Budget: ${trip.budget.amount ? `${trip.budget.amount} ${trip.budget.currency} ${trip.budget.scope === "per_night" ? "per night" : "total"}` : "not given"}${trip.priceTier ? ` (price tier ${trip.priceTier}/4)` : ""}`,
             trip.purpose ? `Purpose: ${trip.purpose}` : "",
             trip.near ? `They want to be close to: ${trip.near}. Distances below are from there.` : "",
+            fl
+              ? `Flight booked for them: ${fl.airline ?? "flight"} ${fl.outbound.from} to ${fl.outbound.to}, departs ${fl.outbound.departs} and lands ${fl.outbound.arrives} (local times)${fl.inbound ? `; return departs ${fl.inbound.departs}, lands ${fl.inbound.arrives}` : ""}. Start day 1 with the arrival and the ride from the airport, and end the last day with getting to the airport at least 2 hours before the return flight.`
+              : "",
             taste && taste.signals.length + taste.tags.length > 0
               ? `Their taste, read through Qloo: ${[...taste.signals.map((x) => x.name), ...taste.tags.map((x) => x.name)].join(", ")}${taste.vibes.length ? `; vibe ${taste.vibes.join(", ")}` : ""}${taste.scenes.length ? `; scenes ${taste.scenes.join(", ")}` : ""}${taste.dishes.length ? `; dishes ${taste.dishes.join(", ")}` : ""}${taste.zone?.name ? `; strongest around ${taste.zone.name}` : ""}. Places marked as a taste match fit it best: shape the days around them and say in the summary how the plan fits their taste.`
               : "",
@@ -312,7 +317,7 @@ export function templatePlan(
 
 export const actionSchema = z.object({
   id: z.string(),
-  kind: z.enum(["book_stay", "reserve_table", "enquire_venue", "calendar"]),
+  kind: z.enum(["book_flight", "book_stay", "reserve_table", "enquire_venue", "calendar"]),
   channel: z.enum(["email", "call", "link", "calendar", "reserve"]),
   title: z.string(),
   placeId: z.string().nullable(),
@@ -547,21 +552,49 @@ export function buildActions(
   return actions;
 }
 
+/** Booking and paying for the chosen flight, with what's still needed from the traveller. Pure. */
+export function flightAction(f: TripFlightsOutput["flight"] & object, profile: Profile): TripAction {
+  const missing = [!profile.name?.trim().includes(" ") && "full name", !profile.email && "email", !profile.phone && "phone", !profile.birthDate && "date of birth", !profile.gender && "gender"].filter(Boolean) as string[];
+  const when = (iso: string) => (iso ? new Date(iso).toLocaleString("en-GB", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "UTC" }) : "");
+  return {
+    id: "a0",
+    kind: "book_flight",
+    channel: "reserve",
+    title: `Book and pay for your flight: ${f.airline ?? "best fare"} ${f.outbound.from}→${f.outbound.to}${f.inbound ? " and back" : ""}`,
+    placeId: null,
+    placeName: f.airline,
+    to: null,
+    url: null,
+    subject: `${when(f.outbound.departs)}${f.inbound ? `, back ${when(f.inbound.departs)}` : ""}`,
+    body: null,
+    callOpening: null,
+    callBrief: null,
+    missing: missing.length ? `Add your ${missing.join(", ")} in Preferences (as on your passport) so I can book the flight.` : null,
+    offerId: f.offerId,
+    price: { total: f.total, currency: f.currency },
+    mode: "auto",
+    recommended: true,
+  };
+}
+
 export const tripActions: Skill<BriefInput, TripActionsOutput> = {
   id: "trip.actions",
   title: "Preparing bookings and messages",
   dependsOn: ["trip.plan", "trip.agent"],
+  optionalDeps: ["trip.flights"],
   timeoutMs: 5_000,
   output: actionsOutput,
   async run(ctx, input, deps) {
     const a = agentOf(deps);
-    const actions = buildActions(
+    const flight = (deps["trip.flights"]?.data as TripFlightsOutput | undefined)?.flight ?? null;
+    const built = buildActions(
       { ...a.trip, destination: cityLabel(a) },
       deps["trip.plan"].data as TripPlanOutput,
       { stays: a.stays, dines: a.dines, venues: a.venues },
       input.profile ?? {},
       { email: Boolean(ctx.email), calls: Boolean(ctx.calls), hotels: Boolean(ctx.hotels) }
     );
+    const actions = flight && ctx.flights ? [flightAction(flight, input.profile ?? {}), ...built].map((x, i) => ({ ...x, id: `a${i + 1}` })) : built;
     const notes: string[] = [];
     if (!ctx.email) notes.push("Email sending isn't connected yet, so emails open in your own mail app.");
     if (!ctx.calls) notes.push("AI calling isn't connected yet, so calls show the number and what to say.");
@@ -605,10 +638,12 @@ export const tripExecute: Skill<BriefInput, TripExecuteOutput> = {
   id: "trip.execute",
   title: "Doing it: booking, sending and calling",
   dependsOn: ["trip.actions"],
-  timeoutMs: 60_000,
+  optionalDeps: ["trip.flights"],
+  timeoutMs: 90_000,
   output: executeOutput,
   async run(ctx, input, deps) {
     const { actions } = deps["trip.actions"].data as TripActionsOutput;
+    const flight = (deps["trip.flights"]?.data as TripFlightsOutput | undefined)?.flight ?? null;
     const picked = input.selections?.actions;
     const chosen = picked?.length ? actions.filter((a) => picked.includes(a.id)) : actions.filter((a) => a.recommended);
     const profile = input.profile ?? {};
@@ -623,6 +658,21 @@ export const tripExecute: Skill<BriefInput, TripExecuteOutput> = {
       }
       if (a.missing) return { actionId: a.id, status: "needs_info", ref: null, message: a.missing };
       try {
+        if (a.kind === "book_flight" && ctx.flights && flight && a.offerId === flight.offerId) {
+          const b = input.trip?.budget;
+          if (b?.amount && b.currency === flight.currency && flight.total > b.amount)
+            return { actionId: a.id, status: "needs_info", ref: null, message: `The flight costs ${Math.round(flight.total).toLocaleString("en")} ${flight.currency}, over your ${b.amount.toLocaleString("en")} ${b.currency} budget, so I didn't pay. Approve it or raise the budget.` };
+          const name = splitName(profile.name ?? "");
+          const traveller = { givenName: name.firstName, familyName: name.lastName, email: profile.email ?? "", phone: toE164(profile.phone ?? null) ?? profile.phone ?? "", bornOn: profile.birthDate ?? "", gender: profile.gender ?? "m" };
+          const booked = await ctx.flights.book(flight, [traveller], ctx.signal);
+          const test = ctx.flights.sandbox ? " Test booking on Duffel's test airline: no real money moved." : "";
+          return {
+            actionId: a.id,
+            status: "booked",
+            ref: booked.reference ?? booked.orderId,
+            message: `Flight booked and paid: ${Math.round(booked.total ?? flight.total).toLocaleString("en")} ${booked.currency ?? flight.currency}${booked.reference ? `, booking reference ${booked.reference}` : ""}. The e-ticket goes to ${profile.email}.${test}`,
+          };
+        }
         if (a.channel === "reserve" && ctx.hotels && a.offerId) {
           if (++reserves > ACTION_LIMITS.reserve) return { actionId: a.id, status: "skipped", ref: null, message: "One room booking per mission." };
           const guest = { ...splitName(profile.name ?? ""), email: profile.email ?? "", phone: profile.phone };

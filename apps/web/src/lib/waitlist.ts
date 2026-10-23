@@ -1,7 +1,7 @@
 // Server-only waitlist store (import only from route handlers).
 // Supabase in production; an in-memory store for local development.
 
-export const ROLES = ["artist", "manager", "label", "agency", "brand", "other"] as const;
+export const ROLES = ["traveller", "business", "host", "agency", "other"] as const;
 export type Role = (typeof ROLES)[number];
 
 export interface JoinInput {

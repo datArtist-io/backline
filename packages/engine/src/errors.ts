@@ -14,7 +14,7 @@ export class EngineError extends Error {
 /** An external API (Qloo, LLM provider, web search) failed. */
 export class UpstreamError extends EngineError {
   constructor(
-    public readonly service: "qloo" | "llm" | "web" | "email" | "calls" | "maps" | "hotels" | "documents",
+    public readonly service: "qloo" | "llm" | "web" | "email" | "calls" | "maps" | "hotels" | "flights" | "documents",
     public readonly status: number | null,
     message: string,
     userMessage = "A data source didn't respond. Try again in a moment."

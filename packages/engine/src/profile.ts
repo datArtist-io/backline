@@ -15,6 +15,8 @@ export const profileSchema = z
     email: z.string().trim().max(254).regex(EMAIL_RE).optional().catch(undefined),
     phone: short(30).optional(),
     homeCity: short(80).optional(),
+    birthDate: z.string().trim().regex(/^\d{4}-\d{2}-\d{2}$/).optional().catch(undefined),
+    gender: z.enum(["m", "f"]).optional().catch(undefined),
     currency: z.string().trim().toUpperCase().regex(/^[A-Z]{3}$/).optional().catch(undefined),
     budgetStyle: z.enum(["budget", "mid", "luxury"]).optional().catch(undefined),
     dietary: list(8).optional(),

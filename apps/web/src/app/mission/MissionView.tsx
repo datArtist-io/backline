@@ -36,11 +36,13 @@ import type {
   TripPlanOutput,
   TripRoutesOutput,
   TasteOutput,
+  TripFlightsOutput,
 } from "@backline/engine";
 import { ActionsCheckpoint, AgentSummary, PlacesSection, PlanSection, ResultsSection, tripChips } from "./trip";
 import AgentActivity from "./AgentActivity";
 import TasteCard from "./Taste";
 import AgentTrace from "./AgentTrace";
+import FlightCard from "./FlightCard";
 import TripMap, { type TasteLayer } from "./TripMap";
 import HotelLanes from "./HotelLanes";
 import Preferences from "./Preferences";
@@ -545,6 +547,16 @@ function TripView({
       {exec && actions && <ResultsSection title={title} actions={actions.data} execute={exec} plan={plan?.data} places={places} />}
       {agent ? <AgentSummary result={agent} /> : (agentStep?.status === "failed" || agentStep?.status === "skipped") && <Placeholder steps={steps} id="trip.agent" label="What I found" />}
       {a && <AgentTrace agent={a} />}
+      {r<TripFlightsOutput>("trip.flights")?.data.flight && (
+        <FlightCard
+          data={r<TripFlightsOutput>("trip.flights")!.data}
+          booked={(() => {
+            const act = actions?.data.actions.find((x) => x.kind === "book_flight");
+            const res = act ? exec?.data.results.find((x) => x.actionId === act.id && x.status === "booked") : null;
+            return res ? { ref: res.ref, message: res.message } : null;
+          })()}
+        />
+      )}
       {/* Until the plan is written, the map shows what was found; then it moves into the plan. */}
       {!plan && mapData?.bounds && <TripMap routes={mapData} landmarkId={landmarkId} title={title} taste={tasteLayer} />}
       {plan ? <PlanSection result={plan} places={places} routes={routes?.data} mapRoutes={mapData} landmarkId={landmarkId} title={title} agent={a} taste={taste} /> : agent && <Placeholder steps={steps} id="trip.plan" label="The plan" />}

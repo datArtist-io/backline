@@ -22,6 +22,7 @@ export const rawTripSchema = z.object({
   needs: z.array(z.enum(["stay", "dine", "venue", "activities"])).nullable().optional(),
   near: z.string().nullable().optional(),
   travelMode: z.string().nullable().optional(),
+  origin: z.string().nullable().optional(),
   selfArranged: z.array(z.string()).nullable().optional(),
   /** A celebrity or person whose taste the plan should follow. */
   inspiredBy: z.string().nullable().optional(),
@@ -44,6 +45,7 @@ export const tripRequestSchema = z.object({
   needs: z.array(z.enum(["stay", "dine", "venue", "activities"])),
   near: z.string().nullable(),
   travelMode: z.string().nullable(),
+  origin: z.string().nullable().optional(),
   selfArranged: z.array(z.string()),
   inspiredBy: z.string().nullable().optional(),
   likes: z.array(z.string()).optional(),
@@ -139,6 +141,7 @@ export function groundTrip(raw: RawTrip | null | undefined, text: string, opts: 
   if (out.likes?.length) out.likes = out.likes.filter((l) => saidIn(text, l));
   // From the first read of a request, a landmark must be one they named (models copy the example).
   if (opts.near && out.near && !saidIn(text, out.near)) out.near = null;
+  if (out.origin && !saidIn(text, out.origin)) out.origin = null;
   // A taste ("seafood", "jazz") isn't a place to be near.
   if (out.near && out.likes?.some((l) => l.trim().toLowerCase() === out.near!.trim().toLowerCase())) out.near = null;
   const type = out.eventType?.trim();
@@ -206,6 +209,7 @@ export function normalizeTrip(raw: RawTrip | null | undefined, fallbackDestinati
     needs,
     near: raw?.near?.replace(/[<>]/g, "").trim().slice(0, 80) || null,
     travelMode: raw?.travelMode?.replace(/[<>]/g, "").trim().slice(0, 30) || null,
+    origin: raw?.origin?.replace(/[<>"]/g, "").trim().slice(0, 80) || null,
     selfArranged: (raw?.selfArranged ?? []).map((x) => x.replace(/[<>]/g, "").trim().slice(0, 40)).filter(Boolean).slice(0, 5),
     inspiredBy: raw?.inspiredBy?.replace(/[<>"]/g, "").trim().slice(0, 60) || null,
     likes: [...new Set((raw?.likes ?? []).map((l) => l.replace(/[<>"]/g, "").trim().slice(0, 50)).filter(Boolean))].slice(0, 5),
@@ -255,6 +259,7 @@ export function rawFromTrip(t: TripRequest): RawTrip {
     needs: t.needs,
     near: t.near,
     travelMode: t.travelMode,
+    origin: t.origin ?? null,
     selfArranged: t.selfArranged,
     inspiredBy: t.inspiredBy ?? null,
     likes: t.likes ?? [],
@@ -314,6 +319,7 @@ export function describeTrip(t: TripRequest): string {
     t.event ? `Hosting: ${t.event.type}${t.event.guests ? ` for ${t.event.guests} guests` : ""}${t.event.date ? ` on ${fmt(t.event.date)}` : ""}.` : "",
     t.likes?.length ? `Loves: ${t.likes.join(", ")}.` : "",
     t.inspiredBy ? `Wants the plan to follow ${t.inspiredBy}'s taste (places fans of ${t.inspiredBy} love).` : "",
+    t.origin ? `Travelling from ${t.origin}.` : "",
     t.travelMode ? `Travelling by ${t.travelMode}${t.selfArranged.includes("transport") ? " (the user is arranging and paying for it)" : ""}.` : "",
     t.selfArranged.length && !(t.travelMode && t.selfArranged.length === 1 && t.selfArranged[0] === "transport") ? `The user handles themselves: ${t.selfArranged.join(", ")}.` : "",
   ];

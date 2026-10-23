@@ -29,10 +29,10 @@ export default async function JoinPage({ searchParams }: { searchParams: Promise
           <div className="join-intro">
             <h1 className="join-title">
               <span className="hero-line">Say where.</span>
-              <span className="hero-line hero-accent">We plan the rest.</span>
+              <span className="hero-line hero-accent">We do the rest.</span>
             </h1>
             <p className="join-lede">
-              Trips, events, dinners and nights out: tell it what you&apos;re planning and it finds the places, checks real prices, maps every move and books it with you.
+              Trips, events, dinners and nights out: say where and when, and the agent books the flights and the hotel, pays for them, reserves the table and hands you the whole trip.
             </p>
             {safeRef ? <p className="join-invited">You were invited. Join and you both move up.</p> : null}
           </div>

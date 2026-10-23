@@ -11,10 +11,11 @@ The waitlist offers **Continue with Google**, **Continue with Apple** and email.
 
 ## Steps
 
-1. Create a Supabase project and run `packages/db/migrations/0001_waitlist.sql` in its SQL editor.
+1. Create a Supabase project and run `packages/db/migrations/0001_waitlist.sql`, then `0002_waitlist_roles.sql`, in its SQL editor.
 2. In `apps/web/.env.local` set `SUPABASE_URL`, `SUPABASE_SECRET_KEY` and `NEXT_PUBLIC_SUPABASE_URL` (the same project URL).
-3. Supabase → Authentication → URL Configuration: add `http://localhost:3000/join` and your production `https://<domain>/join` to **Redirect URLs**.
-4. **Google:** in Google Cloud Console create an OAuth client (Web). Authorised redirect URI: `https://<project-ref>.supabase.co/auth/v1/callback`. Paste the client ID and secret into Supabase → Authentication → Providers → Google.
-5. **Apple:** needs an Apple Developer account. Create a Services ID with Sign in with Apple, return URL `https://<project-ref>.supabase.co/auth/v1/callback`, and a key. Paste the Services ID, Team ID, Key ID and key into Supabase → Providers → Apple.
+3. Supabase → Authentication → URL Configuration: set **Site URL** to `https://backline-beta-one.vercel.app` and add `http://localhost:3000/join` and `https://backline-beta-one.vercel.app/join` to **Redirect URLs**.
+4. Add the same three variables in Vercel → Project → Settings → Environment Variables, then redeploy.
+5. **Google:** in Google Cloud Console create an OAuth client (Web). Authorised redirect URI: `https://<project-ref>.supabase.co/auth/v1/callback`. Paste the client ID and secret into Supabase → Authentication → Providers → Google.
+6. **Apple:** needs an Apple Developer account. Create a Services ID with Sign in with Apple, return URL `https://<project-ref>.supabase.co/auth/v1/callback`, and a key. Paste the Services ID, Team ID, Key ID and key into Supabase → Providers → Apple.
 
 Until a provider is set up, its button explains that it isn't switched on and points to email.

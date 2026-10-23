@@ -55,7 +55,7 @@ export function offersFrom(json: unknown, q: Pick<HotelSearch, "checkin" | "chec
         lon: num(info?.longitude),
         address: str(info?.address),
         stars: num(info?.stars ?? info?.starRating),
-        rating: num(info?.rating),
+        rating: num(info?.rating) || null,
         image: str(info?.main_photo) ?? str(info?.thumbnail),
         offerId: rt.offerId,
         roomName: str(rate?.name),

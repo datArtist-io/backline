@@ -101,6 +101,7 @@ describe("likesIn", () => {
     expect(likesIn("I'm a big Wizkid fan, plan my night out in Lekki")).toEqual(["Wizkid"]);
     expect(likesIn("we're really into afrobeats and seafood in Accra")).toEqual(["afrobeats", "seafood"]);
     expect(likesIn("Book a hotel near the National Theatre")).toEqual([]);
+    expect(likesIn("Weekend in Lagos, I love Wizkid and jazz, budget 500000 naira")).toEqual(["Wizkid", "jazz"]);
   });
 });
 

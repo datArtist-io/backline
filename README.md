@@ -75,6 +75,7 @@ npm run dev                                  # http://localhost:3000
 | `STT_API_KEY`, `STT_BASE_URL`, `STT_MODEL` | Speech-to-text for the voice prompt |
 | `NEXT_PUBLIC_SUPABASE_URL` | Google and Apple sign-in on the waitlist (see `docs/SETUP-AUTH.md`) |
 | `ANTHROPIC_API_KEY`, `CLAUDE_SEARCH_MODEL` | Web research and listed hotel prices; Tavily also supported, with Wikivoyage as a free fallback |
+| `DUFFEL_API_KEY` | Flight search, booking and payment (a `duffel_test_` token uses Duffel's test airline) |
 | `LITEAPI_API_KEY` | Live hotel rates, booking and payment (a `sand_` key simulates payment) |
 | `NEXT_PUBLIC_MAP_TILES`, `NEXT_PUBLIC_MAP_ATTRIBUTION` | Optional keyed map tile provider (OpenStreetMap by default) |
 | `SUPABASE_URL`, `SUPABASE_SECRET_KEY` | Waitlist storage (run `packages/db/migrations/0001_waitlist.sql` first) |
