@@ -37,6 +37,7 @@ import type {
   TripRoutesOutput,
   TasteOutput,
   TripFlightsOutput,
+  TripIntelOutput,
 } from "@backline/engine";
 import { ActionsCheckpoint, AgentSummary, PlacesSection, PlanSection, ResultsSection, tripChips } from "./trip";
 import AgentActivity from "./AgentActivity";
@@ -44,6 +45,9 @@ import TasteCard from "./Taste";
 import AgentTrace from "./AgentTrace";
 import FlightCard from "./FlightCard";
 import TripMap, { type TasteLayer } from "./TripMap";
+import AdventureView from "../adventure/AdventureView";
+import Codex from "../adventure/Codex";
+import { buildAdventure } from "../adventure/model";
 import HotelLanes from "./HotelLanes";
 import Preferences from "./Preferences";
 import AccountButton from "../AccountButton";
@@ -555,11 +559,24 @@ function TripView({
   const places = useMemo(() => placeMap(a), [a]);
   const mapData = useMemo(() => routes?.data ?? (a ? pointsOnly(a) : null), [routes, a]);
   const agentStep = steps.find((s) => s.id === "trip.agent");
+  const intel = r<TripIntelOutput>("trip.intel")?.data ?? null;
+  const intelStep = steps.find((s) => s.id === "trip.intel");
+  const [view, setView] = useState<"map" | "classic">("map");
+  const adventure = useMemo(() => buildAdventure({ title, agent: a, plan: plan?.data, routes: routes?.data, taste, intel }), [title, a, plan, routes, taste, intel]);
+  const working = steps.some((s) => s.id.startsWith("trip.") && (s.status === "pending" || s.status === "running"));
   const anchor = a?.where.landmark?.name ?? a?.where.zone?.name ?? a?.where.city?.name ?? null;
   const landmarkId = a?.stops.find((s) => s.kind === "landmark")?.id ?? (a?.where.landmark ? a.stops[0]?.id : null) ?? null;
   return (
     <>
-      {taste && <TasteCard taste={taste} onEdit={onEditTaste} onShowMap={mapData?.bounds ? showMap : undefined} />}
+      <div className="adv-wrap">
+        <div className="adv-switch" role="group" aria-label="View">
+          <button type="button" className={view === "map" ? "on" : ""} onClick={() => setView("map")}>Adventure map</button>
+          <button type="button" className={view === "classic" ? "on" : ""} onClick={() => setView("classic")}>Classic view</button>
+        </div>
+        {view === "map" && <AdventureView model={adventure} steps={steps} activity={activity} scanning={working && !plan} intelPending={intelStep?.status === "running" || intelStep?.status === "pending"} onClassic={() => setView("classic")} />}
+      </div>
+      {view === "classic" && taste && <TasteCard taste={taste} onEdit={onEditTaste} onShowMap={mapData?.bounds ? showMap : undefined} />}
+      {view === "map" && taste && <button type="button" className="link-btn" onClick={onEditTaste}>Edit your taste</button>}
       <AgentActivity entries={activity} running={agentStep?.status === "running" || agentStep?.status === "pending"} />
       {exec && actions && <ResultsSection title={title} actions={actions.data} execute={exec} plan={plan?.data} places={places} />}
       {agent ? <AgentSummary result={agent} /> : (agentStep?.status === "failed" || agentStep?.status === "skipped") && <Placeholder steps={steps} id="trip.agent" label="What I found" />}
@@ -575,8 +592,9 @@ function TripView({
         />
       )}
       {/* Until the plan is written, the map shows what was found; then it moves into the plan. */}
-      {!plan && mapData?.bounds && <TripMap routes={mapData} landmarkId={landmarkId} title={title} taste={tasteLayer} />}
+      {view === "classic" && !plan && mapData?.bounds && <TripMap routes={mapData} landmarkId={landmarkId} title={title} taste={tasteLayer} />}
       {plan ? <PlanSection result={plan} places={places} routes={routes?.data} mapRoutes={mapData} landmarkId={landmarkId} title={title} agent={a} taste={taste} /> : agent && <Placeholder steps={steps} id="trip.plan" label="The plan" />}
+      {view === "classic" && (intel || intelStep) && <Codex intel={intel} pending={intelStep?.status === "running" || intelStep?.status === "pending"} />}
       {a && a.tiers && a.tiers.length > 0 ? (
         <>
           <HotelLanes tiers={a.tiers} scores={a.hotelScores ?? []} places={places} chosenId={plan?.data.stayId ?? a.picks.stays[0]} bookingUrl={(p) => hotelSearchUrl(p, a)} />

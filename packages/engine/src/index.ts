@@ -55,6 +55,8 @@ export { tripDates, bookingLink, mapsLink, cityLabel, ACTION_LIMITS } from "./sk
 export type { Place, TasteOutput, TripPlanOutput, TripAction, TripActionsOutput, TripExecuteOutput, ActionResult } from "./skills/trip";
 export type { TripAgentOutput, GeoPoint, Stop, Fact } from "./skills/trip-agent";
 export type { TripRoutesOutput } from "./skills/trip-routes";
+export type { TripIntelOutput, DayWeather, SectionId } from "./skills/trip-intel";
+export { SECTION_TITLES, SECTION_IDS } from "./skills/trip-intel";
 export type { PlaceKind } from "./skills/places";
 export { describeTrip, updateTrip, blankTrip } from "./trip-request";
 export { OsmClient, decodePolyline, simplifyPath, spellingVariants } from "./clients/osm";
