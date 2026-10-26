@@ -3,7 +3,7 @@
 // holidays, entry/safety/health/culture/connectivity notes, emergency numbers, phrases, local guides,
 // and what Qloo's taste means for the trip. Every line says where it came from, or that it's unverified.
 import { useState } from "react";
-import type { TripIntelOutput } from "@backline/engine";
+import type { TripIntelOutput, TripTravelOutput } from "@backline/engine";
 import { SECTION_TITLES } from "@backline/engine";
 
 const ICON: Record<string, string> = { entry: "🛂", safety: "🛡", health: "✚", culture: "❖", connect: "⌁", transport: "⇄", food: "◒" };
@@ -12,14 +12,15 @@ const wxIcon = (label: string) => WX[label] ?? Object.entries(WX).find(([k]) => 
 const day = (d: string) => new Date(`${d}T12:00:00Z`).toLocaleDateString("en", { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" });
 
 const TABS = [
+  { id: "go", label: "Getting there" },
   { id: "now", label: "Weather & money" },
   { id: "rules", label: "Rules & safety" },
   { id: "people", label: "Guides & phrases" },
   { id: "taste", label: "Your taste" },
 ] as const;
 
-export default function Codex({ intel, pending, className = "" }: { intel: TripIntelOutput | null; pending: boolean; className?: string }) {
-  const [tab, setTab] = useState<(typeof TABS)[number]["id"]>("now");
+export default function Codex({ intel, travel = null, pending, className = "" }: { intel: TripIntelOutput | null; travel?: TripTravelOutput | null; pending: boolean; className?: string }) {
+  const [tab, setTab] = useState<(typeof TABS)[number]["id"]>(travel?.options.length ? "go" : "now");
   if (!intel) {
     return (
       <section className={`codex ${className}`} aria-label="Field guide">
@@ -51,6 +52,26 @@ export default function Codex({ intel, pending, className = "" }: { intel: TripI
           </button>
         ))}
       </div>
+
+      {tab === "go" && (
+        <div className="codex-pane">
+          <h4>{travel?.origin && travel.destination ? `${travel.origin} → ${travel.destination}` : "Getting there"}{travel?.km ? ` · ${travel.km.toLocaleString("en")} km` : ""}</h4>
+          {travel && travel.options.length > 0 ? (
+            <ul className="plain">
+              {travel.options.map((o, i) => (
+                <li key={i}>
+                  <b>{o.title}</b>{o.best ? " · best pick" : ""}{o.duration ? ` · ${o.duration}` : ""}
+                  {o.priceMin != null ? ` · ${o.currency ?? ""} ${o.priceMin.toLocaleString("en")}${o.priceMax && o.priceMax > o.priceMin ? `–${o.priceMax.toLocaleString("en")}` : ""} per person` : " · price not published"}
+                  {o.note ? ` — ${o.note}` : ""}{" "}
+                  {o.url ? <a href={o.url} target="_blank" rel="noreferrer noopener">{o.site ?? "source"}</a> : null}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="codex-none">No reliable fares found for this route. Check an airline or rail site for today's price.</p>
+          )}
+        </div>
+      )}
 
       {tab === "now" && (
         <div className="codex-pane">

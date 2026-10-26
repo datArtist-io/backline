@@ -641,9 +641,10 @@ export function tripTools(ctx: SkillContext, s: TripAgentState): AnyTool<TripAge
       // Hotels: everything within 5 km, plus the highly rated or upmarket ones out to 10 km, since a
       // much better hotel a short ride further often beats the nearest one.
       const wideStay = a.kind === "stay" && radius < 10;
-      // Live, bookable rates for the trip's dates, when a booking provider is connected.
+      // Live, bookable rates for the trip's dates, when a booking provider is connected. A sandbox key returns
+      // simulated rates, so those are never shown as prices.
       const live =
-        a.kind === "stay" && ctx.hotels && t().startDate && t().endDate
+        a.kind === "stay" && ctx.hotels && !ctx.hotels.sandbox && t().startDate && t().endDate
           ? ctx.hotels
               .search({ lat: anchor.lat, lon: anchor.lon, radiusKm: Math.max(radius, 10), checkin: t().startDate!, checkout: t().endDate!, adults: t().adults, rooms: t().rooms, currency: t().budget.currency, guestNationality: s.city?.countryCode ?? undefined, limit: 25, signal: ctx.signal })
               .catch((err) => {

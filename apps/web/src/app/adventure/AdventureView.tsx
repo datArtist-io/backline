@@ -412,7 +412,7 @@ export default function AdventureView({
       {guide && (
         <div className="adv-guide">
           <button type="button" className="adv-guide-x" onClick={() => setGuide(false)} aria-label="Close field guide">×</button>
-          <Codex intel={model?.intel ?? null} pending={intelPending} />
+          <Codex intel={model?.intel ?? null} travel={model?.travel ?? null} pending={intelPending} />
         </div>
       )}
     </section>

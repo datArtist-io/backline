@@ -99,3 +99,5 @@ export { readTags, ageLean, tasteZone, heatForMap, tasteHit, type TasteZone } fr
 export { withMatch } from "./skills/places";
 export { likesIn } from "./missions";
 export { areaName } from "./clients/osm";
+
+export type { TripTravelOutput, TravelOption, TravelMode } from "./skills/trip-travel";

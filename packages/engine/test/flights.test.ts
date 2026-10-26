@@ -96,9 +96,17 @@ describe("booking a flight", () => {
     expect(fetch).not.toHaveBeenCalled();
   });
 
+  it("never shows the test airline's made-up fares", async () => {
+    const flights = { sandbox: true, airport: vi.fn(), search: vi.fn(async () => [f]) } as unknown as DuffelClient;
+    const trip = normalizeTrip({ destination: "Abuja, Nigeria", startDate: "2026-11-14", endDate: "2026-11-16" }, "Abuja")!;
+    const r = await tripFlights.run({ ...ctxWith(), flights }, { artist: "", trip, profile: { homeCity: "Lagos" } }, {});
+    expect(r.data.flight).toBeNull();
+    expect(flights.search).not.toHaveBeenCalled();
+  });
+
   it("finds the flight for the trip", async () => {
     const flights = {
-      sandbox: true,
+      sandbox: false,
       airport: vi.fn(async (q: string) => (/lagos/i.test(q) ? { code: "LOS", name: "Lagos" } : { code: "ABV", name: "Abuja" })),
       search: vi.fn(async () => [f]),
     } as unknown as DuffelClient;

@@ -38,6 +38,7 @@ import type {
   TasteOutput,
   TripFlightsOutput,
   TripIntelOutput,
+  TripTravelOutput,
 } from "@backline/engine";
 import { ActionsCheckpoint, AgentSummary, PlacesSection, PlanSection, ResultsSection, tripChips } from "./trip";
 import AgentActivity from "./AgentActivity";
@@ -561,8 +562,9 @@ function TripView({
   const agentStep = steps.find((s) => s.id === "trip.agent");
   const intel = r<TripIntelOutput>("trip.intel")?.data ?? null;
   const intelStep = steps.find((s) => s.id === "trip.intel");
+  const travel = r<TripTravelOutput>("trip.travel")?.data ?? null;
   const [view, setView] = useState<"map" | "classic">("map");
-  const adventure = useMemo(() => buildAdventure({ title, agent: a, plan: plan?.data, routes: routes?.data, taste, intel }), [title, a, plan, routes, taste, intel]);
+  const adventure = useMemo(() => buildAdventure({ title, agent: a, plan: plan?.data, routes: routes?.data, taste, intel, travel }), [title, a, plan, routes, taste, intel, travel]);
   const working = steps.some((s) => s.id.startsWith("trip.") && (s.status === "pending" || s.status === "running"));
   const anchor = a?.where.landmark?.name ?? a?.where.zone?.name ?? a?.where.city?.name ?? null;
   const landmarkId = a?.stops.find((s) => s.kind === "landmark")?.id ?? (a?.where.landmark ? a.stops[0]?.id : null) ?? null;
@@ -594,7 +596,7 @@ function TripView({
       {/* Until the plan is written, the map shows what was found; then it moves into the plan. */}
       {view === "classic" && !plan && mapData?.bounds && <TripMap routes={mapData} landmarkId={landmarkId} title={title} taste={tasteLayer} />}
       {plan ? <PlanSection result={plan} places={places} routes={routes?.data} mapRoutes={mapData} landmarkId={landmarkId} title={title} agent={a} taste={taste} /> : agent && <Placeholder steps={steps} id="trip.plan" label="The plan" />}
-      {view === "classic" && (intel || intelStep) && <Codex intel={intel} pending={intelStep?.status === "running" || intelStep?.status === "pending"} />}
+      {view === "classic" && (intel || intelStep) && <Codex intel={intel} travel={travel} pending={intelStep?.status === "running" || intelStep?.status === "pending"} />}
       {a && a.tiers && a.tiers.length > 0 ? (
         <>
           <HotelLanes tiers={a.tiers} scores={a.hotelScores ?? []} places={places} chosenId={plan?.data.stayId ?? a.picks.stays[0]} bookingUrl={(p) => hotelSearchUrl(p, a)} />

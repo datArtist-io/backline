@@ -1,7 +1,7 @@
 // The adventure map's data layer: turns what the agent found (places, the plan, the routes, the
 // person's Qloo taste, the field guide) into a small "world" the 3D scene and the HUD both read.
 // Pure and framework-free, so it's unit-tested without a browser.
-import type { Place, TasteOutput, TripAgentOutput, TripIntelOutput, TripPlanOutput, TripRoutesOutput } from "@backline/engine";
+import type { Place, TasteOutput, TripAgentOutput, TripIntelOutput, TripPlanOutput, TripTravelOutput, TripRoutesOutput } from "@backline/engine";
 
 export type NodeKind = "stay" | "dine" | "venue" | "activity" | "landmark" | "stop";
 
@@ -64,6 +64,7 @@ export type AdventureModel = {
   scale: number;
   taste: { signals: string[]; vibes: string[]; scenes: string[]; dishes: string[]; audience: string | null; alsoLoved: string[] } | null;
   intel: TripIntelOutput | null;
+  travel: TripTravelOutput | null;
   summary: string | null;
   stats: { places: number; picked: number; km: number; match: number | null; xp: number; days: number };
 };
@@ -75,6 +76,7 @@ export type AdventureSource = {
   routes?: TripRoutesOutput | null;
   taste?: TasteOutput | null;
   intel?: TripIntelOutput | null;
+  travel?: TripTravelOutput | null;
   sample?: boolean;
 };
 
@@ -246,6 +248,7 @@ export function buildAdventure(src: AdventureSource): AdventureModel | null {
       ? { signals: [...taste.signals.map((s) => s.name), ...taste.tags.map((t) => t.name)].slice(0, 6), vibes: taste.vibes, scenes: taste.scenes, dishes: taste.dishes, audience: taste.audience, alsoLoved: taste.alsoLoved.map((x) => x.name).slice(0, 4) }
       : null,
     intel: src.intel ?? null,
+    travel: src.travel ?? null,
     summary: plan?.summary ?? a.summary ?? null,
     stats: {
       places: nodes.filter((n) => n.place).length,

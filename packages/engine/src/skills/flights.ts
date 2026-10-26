@@ -52,6 +52,8 @@ export const tripFlights: Skill<BriefInput, TripFlightsOutput> = {
     const t = input.trip;
     const none = (notes: string[] = []) => ({ data: { flight: null, compared: 0, from: null, to: null, sandbox: Boolean(ctx.flights?.sandbox) }, evidence: [], notes });
     if (!t || !ctx.flights) return none();
+    // Duffel's test airline returns made-up flights and fares. Never show those as a real option; the "getting there" step covers it.
+    if (ctx.flights.sandbox) return none();
     const origin = flightOrigin(t, input.profile?.homeCity);
     if (!origin) return none();
     ctx.progress?.({ kind: "act", id: "fl.find", tool: "flights", text: `Finding flights from ${origin} to ${t.destination}`, by: "autopilot" });
