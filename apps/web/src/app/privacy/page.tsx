@@ -37,7 +37,7 @@ export default function PrivacyPage() {
 
         <h2>Your rights</h2>
         <p>
-          You can ask to see, correct or delete your data, or withdraw consent, under the Nigeria Data Protection Act, the GDPR and similar laws.{" "}
+          You can ask to see, correct or delete your data, or withdraw consent, under the GDPR, the Nigeria Data Protection Act and similar laws.{" "}
           {contact ? (
             <>Email <a href={`mailto:${contact}`}>{contact}</a> and we&apos;ll act within 30 days.</>
           ) : (

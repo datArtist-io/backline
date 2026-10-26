@@ -28,7 +28,7 @@ function Avatar({ name, image, size = 44 }: { name: string; image?: string | nul
 /** A small symbol for a taste that's a genre or cuisine rather than a name. Pure. */
 const tagIcon = (id: string) => (/:music/.test(id) ? "♪" : /:place|dish/.test(id) ? "🍴" : /:media|movie|tv/.test(id) ? "▶" : "✦");
 
-/** "Planned like Burna Boy", "Tuned to Wizkid and jazz". Pure. */
+/** "Planned like Radiohead", "Tuned to Bad Bunny and jazz". Pure. */
 export function tasteHeadline(t: Pick<TasteOutput, "signals" | "tags">): string {
   const star = t.signals.find((s) => s.from === "star");
   if (star) return `Planned like ${star.name}`;

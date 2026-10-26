@@ -147,8 +147,8 @@ export default function AccountView() {
         <form className="pref-grid" onSubmit={save}>
           {field("name", "Full name (as on your passport)", { auto: "name" })}
           {field("email", "Email for bookings", { type: "email", auto: "email" })}
-          {field("phone", "Phone", { type: "tel", auto: "tel", placeholder: "+234…" })}
-          {field("homeCity", "Home city", { placeholder: "Lagos" })}
+          {field("phone", "Phone", { type: "tel", auto: "tel", placeholder: "+1 555 123 4567" })}
+          {field("homeCity", "Home city", { placeholder: "Where you live" })}
           {field("birthDate", "Date of birth", { type: "date", auto: "bday" })}
           <label className="pref-field">
             <span>Gender (for airline records)</span>
@@ -158,8 +158,8 @@ export default function AccountView() {
               <option value="m">Male</option>
             </select>
           </label>
-          {field("currency", "Currency", { placeholder: "NGN" })}
-          {listField("likes", "Things you love", "Burna Boy, Insecure, Japanese food")}
+          {field("currency", "Currency", { placeholder: "USD, EUR, NGN…" })}
+          {listField("likes", "Things you love", "Radiohead, Fleabag, Japanese food")}
           {listField("dietary", "Dietary needs", "Vegetarian, no pork")}
           {listField("stayPrefs", "Hotel preferences", "Quiet room, pool")}
           {field("notes", "Anything else", { placeholder: "Travels with a toddler…" })}

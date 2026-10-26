@@ -379,7 +379,7 @@ export default function MissionView(props: { goal?: string; artist?: string; mis
                 plan={needs.plan}
                 message={needs.message}
                 preview={needs.preview}
-                placeholder={needs.field === "destination" ? "Lagos, 3 nights from Friday, 4 people" : "Artist or stage name"}
+                placeholder={needs.field === "destination" ? "Lisbon, 3 nights from Friday, 4 people" : "Artist or stage name"}
                 onSubmit={(answer) => {
                   if (needs.field === "destination") {
                     start({ goal: `${needs.plan.goal}. ${answer}`, mission: "plan", autonomy });

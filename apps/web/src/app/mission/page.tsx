@@ -24,7 +24,7 @@ export default async function MissionPage({ searchParams }: { searchParams: Prom
         <GlassFilter />
         <div className="lg holding-card">
           <h1>Give the agent a goal</h1>
-          <p>For example: &ldquo;Plan a birthday weekend in Lagos for 6, ₦2m budget&rdquo; or &ldquo;Book dinner for 4 in Accra on Friday&rdquo;.</p>
+          <p>For example: &ldquo;Plan a birthday weekend in Lisbon for 6, €3,000 budget&rdquo; or &ldquo;Book dinner for 4 in Mexico City on Friday&rdquo;.</p>
           <Link href="/" className="lg pill">
             Back to home
           </Link>

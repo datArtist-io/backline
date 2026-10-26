@@ -122,8 +122,8 @@ export default function Preferences({ open, onClose, onSaved }: { open: boolean;
         <div className="pref-grid">
           {field("name", "Name", "Your name")}
           {field("email", "Email", "For replies to bookings", "email")}
-          {field("phone", "Phone", "+234…", "tel")}
-          {field("homeCity", "Home city", "Lagos")}
+          {field("phone", "Phone", "+1 555 123 4567", "tel")}
+          {field("homeCity", "Home city", "Where you live")}
           {field("birthDate", "Date of birth (for flights)", "", "date")}
           <label className="pref-field">
             <span>Gender on passport (for flights)</span>
@@ -133,7 +133,7 @@ export default function Preferences({ open, onClose, onSaved }: { open: boolean;
               <option value="m">Male</option>
             </select>
           </label>
-          {field("currency", "Currency", "NGN")}
+          {field("currency", "Currency", "USD, EUR, NGN…")}
           <label className="pref-field">
             <span>Spending style</span>
             <select value={p.budgetStyle ?? ""} onChange={(e) => setP({ ...p, budgetStyle: (e.target.value || undefined) as Profile["budgetStyle"] })}>
@@ -143,7 +143,7 @@ export default function Preferences({ open, onClose, onSaved }: { open: boolean;
               <option value="luxury">Luxury</option>
             </select>
           </label>
-          {listField("likes", "Things you love", "Burna Boy, Insecure, Japanese food")}
+          {listField("likes", "Things you love", "Radiohead, Fleabag, Japanese food")}
           {listField("dietary", "Dietary needs", "Vegetarian, no pork")}
           {listField("stayPrefs", "Hotel preferences", "Quiet room, pool, near the beach")}
           {field("notes", "Anything else", "Travels with a toddler…")}
