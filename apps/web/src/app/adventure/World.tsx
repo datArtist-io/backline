@@ -819,21 +819,37 @@ function Rig({ model, selected, shared, play, reduced, introKey, labels, onUserM
     const w = size.width;
     const h = size.height;
     const sel = selected?.id ?? null;
+    const dist = camera.position.distanceTo(controls.target);
+    const cand: { n: QuestNode; x: number; y: number; z: number; prio: number }[] = [];
     for (const n of model.nodes) {
       const el = labels.current.get(n.id);
       if (!el) continue;
       v.set(n.x, heightAt(n.x, n.z, extent) + (0.9 + (n.match ?? 0.5) * 1.8) * 1.3 + 0.8, n.z).project(camera);
-      const dist = camera.position.distanceTo(controls.target);
       const rank = n.match ?? 0;
       const near = n.picked && (dist < extent * 0.9 || (dist < extent * 2.4 && rank >= 0.86));
-      const show = (n.id === sel || near) && v.z < 1 && Math.abs(v.x) < 1.05 && Math.abs(v.y) < 1.05;
-      if (!show) {
+      const onScreen = v.z < 1 && Math.abs(v.x) < 1.05 && Math.abs(v.y) < 1.05;
+      if (!onScreen || !(n.id === sel || near)) {
         el.style.opacity = "0";
         continue;
       }
-      el.style.opacity = n.id === sel ? "1" : "0.88";
-      el.style.transform = `translate3d(${(v.x * 0.5 + 0.5) * w}px, ${(-v.y * 0.5 + 0.5) * h}px, 0) translate(-50%, -100%)`;
-      el.style.zIndex = n.id === sel ? "4" : String(Math.round((1 - v.z) * 100));
+      cand.push({ n, x: (v.x * 0.5 + 0.5) * w, y: (-v.y * 0.5 + 0.5) * h, z: v.z, prio: n.id === sel ? 10 : rank });
+    }
+    // Keep the most relevant labels and hide any that would sit on top of one already placed.
+    cand.sort((a, b) => b.prio - a.prio);
+    const placed: { x0: number; x1: number; y0: number; y1: number }[] = [];
+    for (const c of cand) {
+      const el = labels.current.get(c.n.id)!;
+      const half = (26 + c.n.name.length * 6.8) / 2;
+      const box = { x0: c.x - half, x1: c.x + half, y0: c.y - 30, y1: c.y };
+      const clash = c.n.id !== sel && placed.some((p) => box.x0 < p.x1 && box.x1 > p.x0 && box.y0 < p.y1 && box.y1 > p.y0);
+      if (clash) {
+        el.style.opacity = "0";
+        continue;
+      }
+      placed.push(box);
+      el.style.opacity = c.n.id === sel ? "1" : "0.88";
+      el.style.transform = `translate3d(${c.x}px, ${c.y}px, 0) translate(-50%, -100%)`;
+      el.style.zIndex = c.n.id === sel ? "4" : String(Math.round((1 - c.z) * 100));
     }
   }
   return null;
