@@ -1,0 +1,169 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Backline logo concepts</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;500&family=Hanken+Grotesk:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{--mist:#eef1f8;--ink:#10132b;--soft:#4a4f6e;--faint:#8a8fa8}
+*{box-sizing:border-box}body{margin:0;background:var(--mist);color:var(--ink);font:16px/1.55 "Hanken Grotesk","Inter",system-ui,sans-serif;padding:56px 24px}
+.wrap{max-width:1180px;margin:0 auto}
+h1{font:500 34px/1.1 Unbounded,"Inter Display",sans-serif;letter-spacing:-.02em;margin:0 0 8px}
+.lede{color:var(--soft);margin:0 0 36px;max-width:640px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:20px}
+.card{background:rgba(255,255,255,.6);border:1px solid rgba(255,255,255,.9);border-radius:26px;padding:22px;box-shadow:0 24px 60px -30px rgba(16,19,43,.3)}
+.card header{display:flex;align-items:center;gap:10px}h2{font:500 17px Unbounded,"Inter Display",sans-serif;margin:0}
+.rec{font-size:12px;font-weight:600;color:#7b5cff;background:rgba(123,92,255,.1);padding:3px 10px;border-radius:99px}
+.card p{color:var(--soft);font-size:14.5px;margin:8px 0 16px;min-height:66px}
+.hero{display:grid;place-items:center;height:220px;border-radius:18px;background:var(--mist)}.big{width:132px;height:132px}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}.row.small{grid-template-columns:repeat(3,1fr)}
+.tile{border-radius:16px;padding:16px 10px;display:grid;place-items:center;gap:8px;min-height:84px}
+.tile.light{background:var(--mist)}.tile.dark{background:var(--ink);color:#fff}
+.tile.gelbg{background:var(--mist)}small{color:var(--faint);font-size:12px}
+.lockup{display:flex;align-items:center;gap:8px}.lockup span{font:500 19px Unbounded,"Inter Display",sans-serif;letter-spacing:-.02em}.lockup .m{width:28px;height:28px}
+.appicon{width:56px;height:56px;border-radius:14px;display:grid;place-items:center;background:radial-gradient(90% 90% at 20% 15%,#ff4fa3,transparent 60%),radial-gradient(90% 90% at 90% 90%,#38d3ff,transparent 60%),#7b5cff}.appicon .m{width:34px;height:34px}
+.mono .m{width:40px;height:40px}.favs{display:flex;align-items:end;gap:10px}.f32{width:32px;height:32px}.f16{width:16px;height:16px}
+footer{margin-top:32px;color:var(--faint);font-size:13px}
+</style></head><body><div class="wrap">
+<h1>Backline: logo concepts</h1>
+<p class="lede">Starting points to refine. Wordmark is Unbounded Medium, lowercase, tightened. Colour is the stage-gel gradient from the site: magenta to violet to cyan, on mist or ink.</p>
+<div class="grid">
+<article class="card">
+  <header><h2>A · Cone</h2></header>
+  <p>A lowercase <b>b</b> built from a stage stem and a speaker cone. The letter and the gear in one shape. Reads at 16px.</p>
+  <div class="hero"><svg class="big" viewBox="0 0 64 64" fill="none" aria-hidden="true">
+  <defs><linearGradient id="gelconea" x1="8" y1="6" x2="58" y2="60" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#ff4fa3"/><stop offset="0.5" stop-color="#7b5cff"/><stop offset="1" stop-color="#38d3ff"/></linearGradient></defs>
+  <defs><mask id="cutconea"><rect width="64" height="64" fill="#fff"/><circle cx="38" cy="39" r="9.5" stroke="#000" stroke-width="3.5"/></mask></defs>
+  <rect x="10" y="6" width="11" height="52" rx="5.5" fill="#10132b"/>
+  <circle cx="38" cy="39" r="19" fill="url(#gelconea)" mask="url(#cutconea)"/>
+</svg></div>
+  <div class="row">
+    <div class="tile light"><div class="lockup"><svg class="m" viewBox="0 0 64 64" fill="none" aria-hidden="true">
+  <defs><linearGradient id="gelconeb" x1="8" y1="6" x2="58" y2="60" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#ff4fa3"/><stop offset="0.5" stop-color="#7b5cff"/><stop offset="1" stop-color="#38d3ff"/></linearGradient></defs>
+  <defs><mask id="cutconeb"><rect width="64" height="64" fill="#fff"/><circle cx="38" cy="39" r="9.5" stroke="#000" stroke-width="3.5"/></mask></defs>
+  <rect x="10" y="6" width="11" height="52" rx="5.5" fill="#10132b"/>
+  <circle cx="38" cy="39" r="19" fill="url(#gelconeb)" mask="url(#cutconeb)"/>
+</svg><span>backline</span></div></div>
+    <div class="tile dark"><div class="lockup"><svg class="m" viewBox="0 0 64 64" fill="none" aria-hidden="true">
+  <defs><linearGradient id="gelconec" x1="8" y1="6" x2="58" y2="60" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#ff4fa3"/><stop offset="0.5" stop-color="#7b5cff"/><stop offset="1" stop-color="#38d3ff"/></linearGradient></defs>
+  <defs><mask id="cutconec"><rect width="64" height="64" fill="#fff"/><circle cx="38" cy="39" r="9.5" stroke="#000" stroke-width="3.5"/></mask></defs>
+  <rect x="10" y="6" width="11" height="52" rx="5.5" fill="#ffffff"/>
+  <circle cx="38" cy="39" r="19" fill="url(#gelconec)" mask="url(#cutconec)"/>
+</svg><span>backline</span></div></div>
+  </div>
+  <div class="row small">
+    <div class="tile gelbg"><div class="appicon"><svg class="m" viewBox="0 0 64 64" fill="none" aria-hidden="true">
+  <defs><linearGradient id="gelconed" x1="8" y1="6" x2="58" y2="60" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#ff4fa3"/><stop offset="0.5" stop-color="#7b5cff"/><stop offset="1" stop-color="#38d3ff"/></linearGradient></defs>
+  <defs><mask id="cutconed"><rect width="64" height="64" fill="#fff"/><circle cx="38" cy="39" r="9.5" stroke="#000" stroke-width="3.5"/></mask></defs>
+  <rect x="10" y="6" width="11" height="52" rx="5.5" fill="#ffffff"/>
+  <circle cx="38" cy="39" r="19" fill="#ffffff" mask="url(#cutconed)"/>
+</svg></div><small>App icon</small></div>
+    <div class="tile light"><div class="mono"><svg class="m" viewBox="0 0 64 64" fill="none" aria-hidden="true">
+  <defs><linearGradient id="gelconee" x1="8" y1="6" x2="58" y2="60" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#ff4fa3"/><stop offset="0.5" stop-color="#7b5cff"/><stop offset="1" stop-color="#38d3ff"/></linearGradient></defs>
+  <defs><mask id="cutconee"><rect width="64" height="64" fill="#fff"/><circle cx="38" cy="39" r="9.5" stroke="#000" stroke-width="3.5"/></mask></defs>
+  <rect x="10" y="6" width="11" height="52" rx="5.5" fill="#10132b"/>
+  <circle cx="38" cy="39" r="19" fill="#10132b" mask="url(#cutconee)"/>
+</svg></div><small>One colour</small></div>
+    <div class="tile light"><div class="favs"><svg class="f32" viewBox="0 0 64 64" fill="none" aria-hidden="true">
+  <defs><linearGradient id="gelconef" x1="8" y1="6" x2="58" y2="60" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#ff4fa3"/><stop offset="0.5" stop-color="#7b5cff"/><stop offset="1" stop-color="#38d3ff"/></linearGradient></defs>
+  <defs><mask id="cutconef"><rect width="64" height="64" fill="#fff"/><circle cx="38" cy="39" r="9.5" stroke="#000" stroke-width="3.5"/></mask></defs>
+  <rect x="10" y="6" width="11" height="52" rx="5.5" fill="#10132b"/>
+  <circle cx="38" cy="39" r="19" fill="url(#gelconef)" mask="url(#cutconef)"/>
+</svg><svg class="f16" viewBox="0 0 64 64" fill="none" aria-hidden="true">
+  <defs><linearGradient id="gelconeg" x1="8" y1="6" x2="58" y2="60" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#ff4fa3"/><stop offset="0.5" stop-color="#7b5cff"/><stop offset="1" stop-color="#38d3ff"/></linearGradient></defs>
+  <defs><mask id="cutconeg"><rect width="64" height="64" fill="#fff"/><circle cx="38" cy="39" r="9.5" stroke="#000" stroke-width="3.5"/></mask></defs>
+  <rect x="10" y="6" width="11" height="52" rx="5.5" fill="#10132b"/>
+  <circle cx="38" cy="39" r="19" fill="url(#gelconeg)" mask="url(#cutconeg)"/>
+</svg></div><small>32 · 16 px</small></div>
+  </div>
+</article>
+<article class="card">
+  <header><h2>B · Stack</h2><span class="rec">Chosen</span></header>
+  <p>Three bars: an amp stack, a rising level meter, the crew lined up behind the artist. Most abstract, most flexible as a pattern.</p>
+  <div class="hero"><svg class="big" viewBox="0 0 64 64" fill="none" aria-hidden="true">
+  <defs><linearGradient id="gelstacka" x1="8" y1="6" x2="58" y2="60" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#ff4fa3"/><stop offset="0.5" stop-color="#7b5cff"/><stop offset="1" stop-color="#38d3ff"/></linearGradient></defs>
+  <rect x="5" y="9" width="30" height="12" rx="6" fill="url(#gelstacka)"/>
+  <rect x="5" y="26" width="42" height="12" rx="6" fill="url(#gelstacka)"/>
+  <rect x="5" y="43" width="54" height="12" rx="6" fill="url(#gelstacka)"/>
+</svg></div>
+  <div class="row">
+    <div class="tile light"><div class="lockup"><svg class="m" viewBox="0 0 64 64" fill="none" aria-hidden="true">
+  <defs><linearGradient id="gelstackb" x1="8" y1="6" x2="58" y2="60" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#ff4fa3"/><stop offset="0.5" stop-color="#7b5cff"/><stop offset="1" stop-color="#38d3ff"/></linearGradient></defs>
+  <rect x="5" y="9" width="30" height="12" rx="6" fill="url(#gelstackb)"/>
+  <rect x="5" y="26" width="42" height="12" rx="6" fill="url(#gelstackb)"/>
+  <rect x="5" y="43" width="54" height="12" rx="6" fill="url(#gelstackb)"/>
+</svg><span>backline</span></div></div>
+    <div class="tile dark"><div class="lockup"><svg class="m" viewBox="0 0 64 64" fill="none" aria-hidden="true">
+  <defs><linearGradient id="gelstackc" x1="8" y1="6" x2="58" y2="60" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#ff4fa3"/><stop offset="0.5" stop-color="#7b5cff"/><stop offset="1" stop-color="#38d3ff"/></linearGradient></defs>
+  <rect x="5" y="9" width="30" height="12" rx="6" fill="url(#gelstackc)"/>
+  <rect x="5" y="26" width="42" height="12" rx="6" fill="url(#gelstackc)"/>
+  <rect x="5" y="43" width="54" height="12" rx="6" fill="url(#gelstackc)"/>
+</svg><span>backline</span></div></div>
+  </div>
+  <div class="row small">
+    <div class="tile gelbg"><div class="appicon"><svg class="m" viewBox="0 0 64 64" fill="none" aria-hidden="true">
+  <defs><linearGradient id="gelstackd" x1="8" y1="6" x2="58" y2="60" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#ff4fa3"/><stop offset="0.5" stop-color="#7b5cff"/><stop offset="1" stop-color="#38d3ff"/></linearGradient></defs>
+  <rect x="5" y="9" width="30" height="12" rx="6" fill="#ffffff"/>
+  <rect x="5" y="26" width="42" height="12" rx="6" fill="#ffffff"/>
+  <rect x="5" y="43" width="54" height="12" rx="6" fill="#ffffff"/>
+</svg></div><small>App icon</small></div>
+    <div class="tile light"><div class="mono"><svg class="m" viewBox="0 0 64 64" fill="none" aria-hidden="true">
+  <defs><linearGradient id="gelstacke" x1="8" y1="6" x2="58" y2="60" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#ff4fa3"/><stop offset="0.5" stop-color="#7b5cff"/><stop offset="1" stop-color="#38d3ff"/></linearGradient></defs>
+  <rect x="5" y="9" width="30" height="12" rx="6" fill="#10132b"/>
+  <rect x="5" y="26" width="42" height="12" rx="6" fill="#10132b"/>
+  <rect x="5" y="43" width="54" height="12" rx="6" fill="#10132b"/>
+</svg></div><small>One colour</small></div>
+    <div class="tile light"><div class="favs"><svg class="f32" viewBox="0 0 64 64" fill="none" aria-hidden="true">
+  <defs><linearGradient id="gelstackf" x1="8" y1="6" x2="58" y2="60" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#ff4fa3"/><stop offset="0.5" stop-color="#7b5cff"/><stop offset="1" stop-color="#38d3ff"/></linearGradient></defs>
+  <rect x="5" y="9" width="30" height="12" rx="6" fill="url(#gelstackf)"/>
+  <rect x="5" y="26" width="42" height="12" rx="6" fill="url(#gelstackf)"/>
+  <rect x="5" y="43" width="54" height="12" rx="6" fill="url(#gelstackf)"/>
+</svg><svg class="f16" viewBox="0 0 64 64" fill="none" aria-hidden="true">
+  <defs><linearGradient id="gelstackg" x1="8" y1="6" x2="58" y2="60" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#ff4fa3"/><stop offset="0.5" stop-color="#7b5cff"/><stop offset="1" stop-color="#38d3ff"/></linearGradient></defs>
+  <rect x="5" y="9" width="30" height="12" rx="6" fill="url(#gelstackg)"/>
+  <rect x="5" y="26" width="42" height="12" rx="6" fill="url(#gelstackg)"/>
+  <rect x="5" y="43" width="54" height="12" rx="6" fill="url(#gelstackg)"/>
+</svg></div><small>32 · 16 px</small></div>
+  </div>
+</article>
+<article class="card">
+  <header><h2>C · Riser</h2></header>
+  <p>One line steps up onto a riser: the move the agent makes for you. The dot is the artist, front of stage.</p>
+  <div class="hero"><svg class="big" viewBox="0 0 64 64" fill="none" aria-hidden="true">
+  <defs><linearGradient id="gelrisera" x1="8" y1="6" x2="58" y2="60" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#ff4fa3"/><stop offset="0.5" stop-color="#7b5cff"/><stop offset="1" stop-color="#38d3ff"/></linearGradient></defs>
+  <path d="M8 46H22a7 7 0 0 0 7-7V27a7 7 0 0 1 7-7H56" stroke="url(#gelrisera)" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="56" cy="46" r="5" fill="#10132b"/>
+</svg></div>
+  <div class="row">
+    <div class="tile light"><div class="lockup"><svg class="m" viewBox="0 0 64 64" fill="none" aria-hidden="true">
+  <defs><linearGradient id="gelriserb" x1="8" y1="6" x2="58" y2="60" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#ff4fa3"/><stop offset="0.5" stop-color="#7b5cff"/><stop offset="1" stop-color="#38d3ff"/></linearGradient></defs>
+  <path d="M8 46H22a7 7 0 0 0 7-7V27a7 7 0 0 1 7-7H56" stroke="url(#gelriserb)" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="56" cy="46" r="5" fill="#10132b"/>
+</svg><span>backline</span></div></div>
+    <div class="tile dark"><div class="lockup"><svg class="m" viewBox="0 0 64 64" fill="none" aria-hidden="true">
+  <defs><linearGradient id="gelriserc" x1="8" y1="6" x2="58" y2="60" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#ff4fa3"/><stop offset="0.5" stop-color="#7b5cff"/><stop offset="1" stop-color="#38d3ff"/></linearGradient></defs>
+  <path d="M8 46H22a7 7 0 0 0 7-7V27a7 7 0 0 1 7-7H56" stroke="url(#gelriserc)" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="56" cy="46" r="5" fill="#ffffff"/>
+</svg><span>backline</span></div></div>
+  </div>
+  <div class="row small">
+    <div class="tile gelbg"><div class="appicon"><svg class="m" viewBox="0 0 64 64" fill="none" aria-hidden="true">
+  <defs><linearGradient id="gelriserd" x1="8" y1="6" x2="58" y2="60" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#ff4fa3"/><stop offset="0.5" stop-color="#7b5cff"/><stop offset="1" stop-color="#38d3ff"/></linearGradient></defs>
+  <path d="M8 46H22a7 7 0 0 0 7-7V27a7 7 0 0 1 7-7H56" stroke="#ffffff" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="56" cy="46" r="5" fill="#ffffff"/>
+</svg></div><small>App icon</small></div>
+    <div class="tile light"><div class="mono"><svg class="m" viewBox="0 0 64 64" fill="none" aria-hidden="true">
+  <defs><linearGradient id="gelrisere" x1="8" y1="6" x2="58" y2="60" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#ff4fa3"/><stop offset="0.5" stop-color="#7b5cff"/><stop offset="1" stop-color="#38d3ff"/></linearGradient></defs>
+  <path d="M8 46H22a7 7 0 0 0 7-7V27a7 7 0 0 1 7-7H56" stroke="#10132b" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="56" cy="46" r="5" fill="#10132b"/>
+</svg></div><small>One colour</small></div>
+    <div class="tile light"><div class="favs"><svg class="f32" viewBox="0 0 64 64" fill="none" aria-hidden="true">
+  <defs><linearGradient id="gelriserf" x1="8" y1="6" x2="58" y2="60" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#ff4fa3"/><stop offset="0.5" stop-color="#7b5cff"/><stop offset="1" stop-color="#38d3ff"/></linearGradient></defs>
+  <path d="M8 46H22a7 7 0 0 0 7-7V27a7 7 0 0 1 7-7H56" stroke="url(#gelriserf)" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="56" cy="46" r="5" fill="#10132b"/>
+</svg><svg class="f16" viewBox="0 0 64 64" fill="none" aria-hidden="true">
+  <defs><linearGradient id="gelriserg" x1="8" y1="6" x2="58" y2="60" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#ff4fa3"/><stop offset="0.5" stop-color="#7b5cff"/><stop offset="1" stop-color="#38d3ff"/></linearGradient></defs>
+  <path d="M8 46H22a7 7 0 0 0 7-7V27a7 7 0 0 1 7-7H56" stroke="url(#gelriserg)" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="56" cy="46" r="5" fill="#10132b"/>
+</svg></div><small>32 · 16 px</small></div>
+  </div>
+</article></div>
+<footer>SVG sources: brand/mark-cone.svg, mark-stack.svg, mark-riser.svg</footer>
+</div></body></html>

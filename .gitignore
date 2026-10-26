@@ -1,0 +1,17 @@
+node_modules
+.next
+out
+.env
+.env.local
+.env*.local
+.vercel
+*.tsbuildinfo
+next-env.d.ts
+.DS_Store
+coverage
+*.log
+evals/results
+
+# Local scratch
+.tmp-transfer/
+_to_delete/

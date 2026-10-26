@@ -1,0 +1,23 @@
+{
+  "name": "backline",
+  "version": "0.1.0",
+  "private": true,
+  "license": "MIT",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev -w @backline/web",
+    "build": "npm run build -w @backline/web",
+    "start": "npm run start -w @backline/web",
+    "test": "npm run test -w @backline/engine && npm run test -w @backline/web",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "check": "node scripts/check.mjs",
+    "check:locations": "node scripts/check-locations.mjs",
+    "check:places": "node scripts/check-places.mjs"
+  },
+  "engines": {
+    "node": ">=20.3"
+  }
+}
