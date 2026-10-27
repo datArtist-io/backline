@@ -140,3 +140,25 @@ The checks run against live Missions, their findings and the resulting fixes are
 13.2 Hotel prices outside Test mode depend on what is listed online for the dates; some hotels show "Not listed".
 13.3 The planner is a model: §5 constrains it and §12 audits it, but its prose can still be imperfect; facts in the plan are traceable to listed places and cited notes.
 13.4 Event schedules are not fetched from ticketing systems; the plan defers to the venue's schedule (§5.5).
+
+## 14. Review before booking
+
+14.1 In "Check with me" mode the finished plan is presented for review. No booking dialog opens by itself; a review bar states that nothing is booked yet.
+
+14.2 The person may (a) remove any planned place, (b) swap it for another place of the same kind found by the agent, ordered by Qloo affinity, excluding places already in the plan, and (c) describe other changes in their own words (at most 500 characters, treated as data).
+
+14.3 Applying changes re-runs only the plan, routes and booking-preparation steps from the sealed run (§7.5). Research, Qloo taste and places are kept. Swaps and removals are enforced after the model writes the plan; the model is told to change nothing else.
+
+14.4 "Review & book" opens the approval step only when no unapplied changes remain.
+
+## 15. Calls that fail, and website bookings
+
+15.1 Each call reports one outcome: live, talked, no answer, busy, voicemail, no audio, or failed (`callOutcome`, tested).
+
+15.2 A call that never really connected is placed once more automatically. Only the person who placed the call may retry it (the call carries their account id; the server checks it).
+
+15.3 After a second failure the row offers the other ways to book that place (website, email, calling themselves). Every other booking continues independently; one failure never stops the rest.
+
+15.4 Before a website is opened for booking, the server checks it: public address only (private and loopback addresses are refused, redirects re-checked), the page answers, and it is not parked or an error page. A slow site is reported as unconfirmed, not dead.
+
+15.5 A site that permits framing opens inside Backline's mini browser; one that forbids it (X-Frame-Options or CSP frame-ancestors) opens in a small window beside the trip.

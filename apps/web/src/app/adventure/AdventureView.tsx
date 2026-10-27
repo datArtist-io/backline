@@ -558,7 +558,7 @@ export default function AdventureView({
             onClose={() => setSelectedId(null)}
             city={city}
             review={review}
-            others={model ? model.nodes.filter((n) => n.kind === selected.kind && n.id !== selected.id && !review?.edits.remove.includes(n.id)).sort((a, b) => (b.affinity ?? b.match ?? 0) - (a.affinity ?? a.match ?? 0)).slice(0, 4) : []}
+            others={model ? model.nodes.filter((n) => n.kind === selected.kind && n.id !== selected.id && n.visits.length === 0 && !review?.edits.remove.includes(n.id) && !review?.edits.swap.some((x) => x.to === n.id)).sort((a, b) => (b.affinity ?? b.match ?? 0) - (a.affinity ?? a.match ?? 0)).slice(0, 4) : []}
           />
         )}
 
