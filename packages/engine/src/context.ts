@@ -45,6 +45,8 @@ const envSchema = z.object({
    * demo places real AI calls without involving real hotels and restaurants.
    */
   CALL_DEMO_TO: z.string().optional(),
+  /** "1" lets AI calls reach real businesses. Off by default: without it, calls ring only CALL_DEMO_TO. */
+  CALLS_LIVE: z.string().optional(),
   /** LiteAPI key for live hotel rates and booking. A sandbox key (sand_…) simulates payment. */
   LITEAPI_API_KEY: z.string().optional(),
   /** Duffel token for flight search and booking. A test token (duffel_test_…) books on Duffel's test airline. */
@@ -174,6 +176,7 @@ export function createContext(env: Record<string, string | undefined>, opts: { l
     email: shared.email,
     calls: shared.calls,
     callDemoTo: e.CALL_DEMO_TO && /^\+[1-9]\d{7,14}$/.test(e.CALL_DEMO_TO.trim()) ? e.CALL_DEMO_TO.trim() : null,
+    callsLive: e.CALLS_LIVE === "1",
     osm: shared.osm,
     hotels: shared.hotels,
     flights: shared.flights,

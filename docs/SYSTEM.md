@@ -77,6 +77,10 @@ A Mission is a dependency graph of Skills run by the orchestrator (`packages/eng
 7.1 Calls are placed through Vapi on the Telnyx numbers attached to the account (`VAPI_PHONE_NUMBER_ID`).
 7.2 The assistant **always discloses** that it is an AI calling on the Person's behalf, **never** gives or asks for card or bank details, **never** agrees to charges, reads back what was agreed (date, time, party, name, reference), and leaves a short voicemail when unanswered (`callInstructions`).
 7.3 **Demo line.** When `CALL_DEMO_TO` is set to an E.164 number, every booking call rings that number, where a person plays the business. The call is real; the business is not involved. The result message states that the Demo line was used. This is the default recommended configuration for demonstrations, so that no real business is asked to hold a reservation for a demo trip.
+
+7.4 **Fail-closed calling.** A real business is dialled only when `CALLS_LIVE=1` and no Demo line is set. In every other configuration the call action returns the number and script for the person to use themselves, and no call is placed (test: `booking.test.ts`, "calls fail closed").
+
+7.5 **Approval binding.** At a checkpoint the server seals the plan and every step result (gzip, HMAC-SHA256 with a server-only key) and returns the seal to the browser. Approval sends the seal back; the server resumes exactly that plan on any instance. A forged, foreign or expired seal is rejected, and an approval whose plan cannot be recovered is refused: nothing is booked, paid or called (`apps/web/src/lib/run-seal.ts`; test: `run-seal.test.ts`).
 7.4 Call status and transcript are fetched from `/api/calls/[id]` (signed-in, rate-limited) and shown live in the Bookings panel.
 
 ## 8. Payments and bookings
@@ -119,6 +123,8 @@ All keys are server-side except those prefixed `NEXT_PUBLIC_`.
 | `RESEND_API_KEY`, `ACTIONS_FROM_EMAIL` | Emails to businesses | For email |
 | `VAPI_API_KEY`, `VAPI_PHONE_NUMBER_ID`, `VAPI_MODEL` | Voice calls | For calls |
 | `CALL_DEMO_TO` | Demo line (§7.3), E.164 | Recommended for demos |
+| `CALLS_LIVE` | `1` permits calls to real businesses (§7.4) | Off |
+| `RUN_SEAL_KEY` | Key for sealing approved plans (§7.5); falls back to the Supabase secret | Recommended |
 | `TRAVEL_DOCS_KEY` | Passport encryption (32 bytes, base64) | For flights |
 | Supabase variables | Sign-in, accounts, trips | For accounts |
 | `NEXT_PUBLIC_GOOGLE_MAPS_KEY` | Photoreal 3D Tiles (Map Tiles API), restricted by HTTP referrer | Optional |

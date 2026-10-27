@@ -781,6 +781,8 @@ export const tripExecute: Skill<BriefInput, TripExecuteOutput> = {
         if (a.channel === "call" && ctx.calls && a.to && a.callOpening && a.callBrief) {
           if (++calls > ACTION_LIMITS.call) return { actionId: a.id, status: "skipped", ref: null, message: "Call limit for one mission reached." };
           const demo = ctx.callDemoTo ?? null;
+          // Fail closed: a real business is only ever dialled when live calling is switched on.
+          if (!demo && !ctx.callsLive) return { actionId: a.id, status: "ready", ref: null, message: "Live calls to businesses are switched off, so here's the number and what to say." };
           const started = await ctx.calls.start({ to: demo ?? a.to, businessName: a.placeName ?? "the business", firstMessage: a.callOpening, instructions: callInstructions(a, profile.name ?? "my client") }, ctx.signal);
           return {
             actionId: a.id,

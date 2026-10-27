@@ -174,3 +174,30 @@ describe("never paying wrongly", () => {
     expect(r.notes?.[0]).toMatch(/Sign in and I'll book/);
   });
 });
+
+describe("calls fail closed", () => {
+  const action = {
+    id: "a1", kind: "reserve_table", channel: "call", title: "Call Z Kitchen", placeId: "D1", placeName: "Z Kitchen", to: "+2349064222222",
+    callOpening: "Hello", callBrief: "Book a table", mode: "auto", recommended: true, missing: null,
+  } as never;
+  const trip = normalizeTrip({ destination: "Lagos, Nigeria", startDate: "2026-10-30", endDate: "2026-10-30" }, "Lagos")!;
+  const deps = { "trip.actions": { data: { actions: [action] }, evidence: [] } };
+  const caller = () => ({ start: vi.fn(async () => ({ id: "call-1" })), status: vi.fn() });
+
+  it("never dials a business without a demo line or live calling switched on", async () => {
+    const calls = caller();
+    const r = await tripExecute.run({ ...ctxWith(), calls, callDemoTo: null, callsLive: false } as never, { artist: "", trip, profile: { name: "Ada", email: "ada@example.com" } }, deps);
+    expect(calls.start).not.toHaveBeenCalled();
+    expect(r.data.results[0].status).toBe("ready");
+  });
+  it("rings the demo line instead of the business", async () => {
+    const calls = caller();
+    await tripExecute.run({ ...ctxWith(), calls, callDemoTo: "+2348000000000", callsLive: false } as never, { artist: "", trip, profile: { name: "Ada", email: "ada@example.com" } }, deps);
+    expect(calls.start).toHaveBeenCalledWith(expect.objectContaining({ to: "+2348000000000" }), undefined);
+  });
+  it("dials the business only when live calling is on and no demo line is set", async () => {
+    const calls = caller();
+    await tripExecute.run({ ...ctxWith(), calls, callDemoTo: null, callsLive: true } as never, { artist: "", trip, profile: { name: "Ada", email: "ada@example.com" } }, deps);
+    expect(calls.start).toHaveBeenCalledWith(expect.objectContaining({ to: "+2349064222222" }), undefined);
+  });
+});

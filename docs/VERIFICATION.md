@@ -40,6 +40,7 @@ Live Missions run against production (`backline-beta-one.vercel.app`), what was 
 | V25 | same | Checkpoint asked a signed-in user to type name and email, and named the venue's number while the demo line would ring | — | **Friction / misleading** | Name and email filled from the account; checkpoint says "I'll call your demo line … as if it were …" — this release |
 | V26 | same | Time asked ("at 8pm") | The request | **Wrong**: the call asked for 19:30 | Asked time read from the request and held on the named meal; planner told; tests — this release |
 | V27 | same | Real call via Telnyx line +1 618 260 1647 | Vapi call status | Vapi accepted and placed the call; it ended with "assistant did not receive customer audio" | Under investigation (audio path between Telnyx and Vapi) |
+| V28 | First dinner run (08:08) | Number dialled | Vapi call log | **Real business number** (+234 810 680 0744) was dialled instead of the demo line; the call failed before connecting, nobody was reached | Calls now fail closed: a business is dialled only with `CALLS_LIVE=1` and no demo line; tests — this release |
 
 ## Automated tests
 
@@ -47,6 +48,7 @@ Live Missions run against production (`backline-beta-one.vercel.app`), what was 
 - `packages/engine/test/trip-travel.test.ts`: travel options keep only sourced prices; one best option; unknown modes.
 - `packages/engine/test/flights.test.ts`: no test-airline fares surfaced.
 - `apps/web/test/adventure.test.ts`: world model geography (airport north of Alfama, Belém west), route coordinates within the city, Qloo zone and heat bounds.
+- `packages/engine/test/booking.test.ts` (calls fail closed): no business is dialled without the live switch; the demo line replaces the business.
 - `apps/web/test/run-seal.test.ts`: a sealed plan round-trips exactly; tampered, foreign and expired seals are rejected.
 - `apps/web/test/place-in.test.ts`: destination read from the request ("…TO LONDON FOR ME…" → London).
 
