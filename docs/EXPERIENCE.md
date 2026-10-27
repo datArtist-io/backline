@@ -17,11 +17,12 @@ The trip interface (`apps/web/src/app/adventure/*`). It replaces a feed of agent
 | 0–2 s | Deep space with a twinkling starfield and a brand nebula; the globe; "Planning / your trip." |
 | 1–3 s | The destination is read from the sentence and geocoded; the title becomes the city |
 | Taste ready | Qloo's taste rises over the city as columns and a heat glow; the taste panel appears |
-| Travel ready | If home is far away, the camera replays the journey along a great-circle arc labelled with the cited fare and flight time |
+| Travel ready | If home is far away, a plane flies the great-circle arc from the traveller's city, labelled with the cited fare and flight time |
 | Places ready | Pins drop onto real streets with 3D beacons; labels declutter by Qloo rank |
 | Plan ready | Day routes drawn on real roads; the dock offers "Fly the trip" |
-| Approval | One checkpoint; "Do it" |
-| Execution | The Bookings panel opens by itself: phones ring, transcripts arrive, receipts land |
+| Review | Review bar: swap or remove stops, or describe a change |
+| Checkout | A centred checkout opens by itself: every booking, the total in the traveller's currency, wallet before and after; "Approve & pay" or "Take a look first" |
+| Execution | The Bookings panel: you → agent → business for each booking (a coin for the payment, a pulse for the call), the call as a conversation, a receipt for each payment, refunds shown when a place can't take it |
 
 ## 3. World rendering
 
@@ -48,7 +49,9 @@ The trip interface (`apps/web/src/app/adventure/*`). It replaces a feed of agent
 | Taste panel | "Because you love …", Qloo's top pick per kind (affinity), vibes and dishes, taste zone, fans also love |
 | Place card | Photo, kind, Qloo affinity and rank, why it fits, a 2×2 facts grid (rating, price, when, Qloo rank), address; Look around (Street View), Directions, Website |
 | Dock | Fly the trip; days as a segmented control with a sliding thumb; View menu (whole trip, fly in again, Photoreal / Satellite / Painted, taste map, theme, classic view) |
-| Bookings | Live status of every action, call status and transcript, receipts with confirmation numbers and test-mode labels |
+| Bookings | Live status of every action, the hand-off animation, the call as chat bubbles, reroutes to Qloo's next best, receipts with confirmation numbers, "Pay & call me" on rows that need a phone |
+| Checkout | Centred glass dialog with totals, wallet before and after, phone field for demo calls |
+| Wallet | Card that turns over, currency switch, any amount, filtered activity, receipts |
 
 ## 6. Motion
 

@@ -11,7 +11,7 @@ Backline accounts run on Supabase: Supabase Auth for sign-in, and Postgres table
 
 ## Steps
 
-1. **Create a Supabase project.** In its SQL editor run `packages/db/migrations/0003_accounts.sql`, then `0004_searches.sql` and `0005_travel_documents.sql`. (0001 and 0002 are an earlier waitlist and are optional.)
+1. **Create a Supabase project.** In its SQL editor run `packages/db/migrations/0003_accounts.sql`, then `0004_searches.sql`, `0005_travel_documents.sql` and `0006_wallet.sql` (wallet ledger, its functions and identity checks; safe to run again). (0001 and 0002 are an earlier waitlist and are optional.)
 2. **Keys.** Supabase → Project Settings → API. In `apps/web/.env.local` set:
    - `NEXT_PUBLIC_SUPABASE_URL` and `SUPABASE_URL`: the project URL
    - `NEXT_PUBLIC_SUPABASE_ANON_KEY`: the `anon` / publishable key (safe in the browser)

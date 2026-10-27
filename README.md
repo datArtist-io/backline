@@ -61,7 +61,7 @@ npm run dev                                  # http://localhost:3000
 | Command | What it does |
 |---|---|
 | `npm run dev` | Start the web app |
-| `npm test` | Engine unit tests (synthetic data, no network) |
+| `npm test` | Engine and web unit tests (synthetic data, no network): 283 + 25 |
 | `npm run typecheck` | Type-check every workspace |
 | `npm run check` | Verify API keys and Qloo capabilities |
 | `npm run check:locations` | Venue coverage across 24 locations worldwide |
@@ -75,14 +75,15 @@ npm run dev                                  # http://localhost:3000
 | `TAVILY_API_KEY` | Live web research |
 | `STT_API_KEY`, `STT_BASE_URL`, `STT_MODEL` | Speech-to-text for the voice prompt |
 | `TRAVEL_DOCS_KEY` | Encrypts saved passports (AES-256-GCM); `openssl rand -base64 32` |
-| `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Accounts: Google and email sign-in, saved details, trips and memory (run migration `0003_accounts.sql`; see `docs/SETUP-AUTH.md`) |
+| `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Accounts: Google and email sign-in, saved details, trips and memory (run migrations `0003`–`0006`; see `docs/SETUP-AUTH.md`) |
 | `ANTHROPIC_API_KEY`, `CLAUDE_SEARCH_MODEL` | Web research and listed hotel prices; Tavily also supported, with Wikivoyage as a free fallback |
 | `DUFFEL_API_KEY` | Flight search, booking and payment (a `duffel_test_` token uses Duffel's test airline) |
 | `LITEAPI_API_KEY` | Live hotel rates, booking and payment (a `sand_` key simulates payment) |
 | `RESEND_API_KEY`, `ACTIONS_FROM_EMAIL` | Emails the agent sends for you (plans, confirmations, restaurant requests); sender must be on a domain verified in Resend |
 | `VAPI_API_KEY`, `VAPI_PHONE_NUMBER_ID`, `VAPI_MODEL` | Outbound AI phone calls through Vapi (imported Telnyx number). Without them the agent writes the call script for you |
-| `CALL_DEMO_TO` | Demo line (E.164). When set, every booking call rings this number instead of the business |
+| `CALL_DEMO_TO` | Optional fixed demo line (E.164). Without it, demo calls ring each signed-in person's own phone |
 | `PERSONA_API_KEY`, `NEXT_PUBLIC_PERSONA_TEMPLATE_ID`, `NEXT_PUBLIC_PERSONA_ENVIRONMENT_ID` | Identity checks with Persona; paid bookings wait for a verified traveller |
+| `RUN_SEAL_KEY` | Seals the approved plan so approval runs exactly what was shown (falls back to the Supabase secret) |
 | `CALLS_LIVE` | `1` lets AI calls reach real businesses. Off by default: without it and without a demo line, no business is ever dialled |
 | `NEXT_PUBLIC_GOOGLE_MAPS_KEY` | Optional Photoreal mode: Google Photorealistic 3D Tiles (Map Tiles API), restricted by website |
 | `UBER_CLIENT_ID`, `UBER_CLIENT_SECRET`, `UBER_SCOPE`, `UBER_ENV` | Optional live Uber price estimates. Used only when `UBER_ENV=production`; otherwise ride fares come from published rates |

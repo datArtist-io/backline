@@ -94,5 +94,25 @@ Account data lives in three tables (`0003_accounts.sql`), all behind row-level s
 | `trips` | A compact record of each finished trip: bookings with references, days, budget |
 | `memories` | What the agent learned: tastes named, cities visited, hotels stayed at |
 | `searches` | Search history: every request, with its mode, title and destination (`0004_searches.sql`) |
+| `travel_documents` | Encrypted passport and a masked summary (`0005_travel_documents.sql`) |
+| `wallet_entries` | Wallet ledger: top-ups and payments with status and receipt details; changed only through `wallet_*` functions (`0006_wallet.sql`) |
+| `kyc_inquiries` | Which Persona inquiry belongs to whom (`0006_wallet.sql`) |
 
 When a signed-in person starts a mission, `/api/mission` merges their saved details with anything newer in the browser and their memories (`mergeProfile`): remembered tastes join the likes Qloo reads, and past stays become notes for the planner. As soon as a request is planned it goes into their search history, and any tastes it names are remembered straight away (`saveSearch`, `rememberTastes`). When a trip finishes, it is saved with what to remember from it (`tripRecord`, `memoriesFrom`).
+
+## Execution: checkout, wallet, calls
+
+```mermaid
+flowchart LR
+  A[trip.actions] -->|seal plan + results| C[Checkout]
+  C -->|Approve & pay| E[trip.execute]
+  E --> H[wallet_hold] --> K[wallet_capture]
+  K --> V[Vapi call<br/>one at a time]
+  V -->|confirmed| R[Receipt]
+  V -->|no place can take it| F[wallet_refund]
+```
+
+- **Approval binding** (`lib/run-seal.ts`): the plan and every step result are sealed (gzip + HMAC-SHA256) at the checkpoint; approval resumes exactly that run on any server instance.
+- **Wallet** (`lib/wallet.ts`, migration `0006`): amounts converted to US cents at the day's rate (open.er-api.com, cached 6 h); every change goes through a `SECURITY DEFINER` function that checks the caller and takes a per-person advisory lock.
+- **Calls** (`clients/calls.ts`): Vapi assistant tuned for phone lines; outcomes classified (`callOutcome`); agreed details read back as data (`bookingFrom`); owner-only status and retry. Demo calls ring the account's own phone; `CALLS_LIVE=1` is required to call a business.
+- **Routes:** `/api/wallet` (balance, top-up), `/api/wallet/pay`, `/api/wallet/refund` (call prepayments from the last day only), `/api/wallet/receipts/[id]`, `/receipt/[id]`, `/api/calls`, `/api/calls/[id]`, `/api/site-check`, `/api/kyc`.
