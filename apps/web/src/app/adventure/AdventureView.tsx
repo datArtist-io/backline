@@ -57,6 +57,23 @@ const CHAPTERS: { id: string; label: string; doing: string }[] = [
   { id: "trip.execute", label: "Booking", doing: "Booking it" },
 ];
 
+/** Reviewing the trip before anything is booked: drop or swap places, say what to change, then book. */
+export type ReviewApi = {
+  /** Bookings and messages prepared and waiting for approval. */
+  ready: number;
+  edits: { remove: string[]; swap: { from: string; to: string }[]; note: string };
+  /** The plan is being rewritten with the changes. */
+  busy: boolean;
+  /** What changed last time, in a sentence. */
+  changed: string | null;
+  onRemove: (id: string) => void;
+  onSwap: (from: string, to: string) => void;
+  onUndo: (kind: "remove" | "swap", id: string) => void;
+  onNote: (note: string) => void;
+  onApply: () => void;
+  onBook: () => void;
+};
+
 export default function AdventureView({
   model,
   steps,
@@ -75,6 +92,7 @@ export default function AdventureView({
   bookLabel = "Trip book",
   toolbar = null,
   homeHref = "/",
+  review = null,
 }: {
   model: AdventureModel | null;
   steps: MissionStep[];
@@ -97,6 +115,8 @@ export default function AdventureView({
   bookLabel?: string;
   toolbar?: ReactNode;
   homeHref?: string;
+  /** Before booking: the person vets the trip and adjusts it. */
+  review?: ReviewApi | null;
 }) {
   const [ok, setOk] = useState<boolean | null>(null);
   const [reduced, setReduced] = useState(false);
@@ -180,6 +200,7 @@ export default function AdventureView({
   const shared = useRef<Shared>({ drone: { pos: new Vector3(), heading: 0 }, focusUntil: 0, homeUntil: 0, follow: false, hours: 21 });
 
   const selected = useMemo(() => model?.nodes.find((n) => n.id === selectedId) ?? null, [model, selectedId]);
+  const nameOf = useCallback((id: string) => model?.nodes.find((n) => n.id === id)?.name ?? "a place", [model]);
   const toast = useCallback((text: string, sub?: string, xp?: number) => {
     const id = ++toastId.current;
     setToasts((t) => [...t.slice(-2), { id, text, sub, xp }]);
@@ -530,7 +551,19 @@ export default function AdventureView({
         )}
 
         {/* the place you're looking at */}
-        {selected && <PlaceCard key={selected.id} node={selected} onClose={() => setSelectedId(null)} city={city} />}
+        {selected && (
+          <PlaceCard
+            key={selected.id}
+            node={selected}
+            onClose={() => setSelectedId(null)}
+            city={city}
+            review={review}
+            others={model ? model.nodes.filter((n) => n.kind === selected.kind && n.id !== selected.id && !review?.edits.remove.includes(n.id)).sort((a, b) => (b.affinity ?? b.match ?? 0) - (a.affinity ?? a.match ?? 0)).slice(0, 4) : []}
+          />
+        )}
+
+        {/* review before booking: vet the trip, adjust it, then book */}
+        {review && !overlay && <ReviewBar review={review} names={nameOf} />}
 
         {/* arrivals */}
         <div className="eq-toasts" aria-live="polite">
@@ -766,7 +799,11 @@ function ring(i: number, n: number, r: number): string {
   return `${(Math.cos(a) * r).toFixed(1)},${(Math.sin(a) * r).toFixed(1)}`;
 }
 
-function PlaceCard({ node, onClose, city }: { node: QuestNode; onClose: () => void; city: string | null }) {
+function PlaceCard({ node, onClose, city, review = null, others = [] }: { node: QuestNode; onClose: () => void; city: string | null; review?: ReviewApi | null; others?: QuestNode[] }) {
+  const [swapping, setSwapping] = useState(false);
+  const removed = review?.edits.remove.includes(node.id) ?? false;
+  const swappedTo = review?.edits.swap.find((x) => x.from === node.id)?.to ?? null;
+  const inPlan = node.visits.length > 0 || node.picked;
   const p = node.place;
   const m = pct(node.match);
   const site = p?.website ?? null;
@@ -801,6 +838,39 @@ function PlaceCard({ node, onClose, city }: { node: QuestNode; onClose: () => vo
         {p?.address && <div className="wide"><dt>Address</dt><dd>{p.address}</dd></div>}
       </dl>
       {node.visits.find((v) => v.note)?.note && <p className="eq-vnote">{node.visits.find((v) => v.note)!.note}</p>}
+      {review && inPlan && node.kind !== "landmark" && node.kind !== "stop" && (
+        <div className="eq-adjust" aria-label="Adjust this stop">
+          {removed ? (
+            <p className="eq-adjust-state">Will be removed when you update the plan. <button type="button" onClick={() => review.onUndo("remove", node.id)}>Keep it</button></p>
+          ) : swappedTo ? (
+            <p className="eq-adjust-state">Will be swapped for <b>{others.find((o) => o.id === swappedTo)?.name ?? "another place"}</b>. <button type="button" onClick={() => review.onUndo("swap", node.id)}>Undo</button></p>
+          ) : (
+            <div className="eq-adjust-row">
+              <button type="button" className="eq-chip-btn" aria-expanded={swapping} onClick={() => setSwapping((v) => !v)} disabled={!others.length || review.busy}>
+                <svg viewBox="0 0 20 20" width="15" height="15" aria-hidden="true"><path d="M4 7h11l-3-3M16 13H5l3 3" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                Swap
+              </button>
+              <button type="button" className="eq-chip-btn" onClick={() => review.onRemove(node.id)} disabled={review.busy}>
+                <svg viewBox="0 0 20 20" width="15" height="15" aria-hidden="true"><path d="M5 5l10 10M15 5 5 15" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" /></svg>
+                Remove
+              </button>
+            </div>
+          )}
+          {swapping && !removed && !swappedTo && (
+            <ul className="eq-swaps">
+              <li className="eq-swaps-head">Qloo&rsquo;s next best {PLURAL[node.kind]}</li>
+              {others.map((o) => (
+                <li key={o.id}>
+                  <button type="button" onClick={() => { review.onSwap(node.id, o.id); setSwapping(false); }}>
+                    <b>{o.name}</b>
+                    <span>{o.affinity != null ? `${o.affinity.toFixed(3)} Qloo affinity` : o.place?.rating ? `${o.place.rating.toFixed(1)} ★` : "Found nearby"}{o.place?.priceLevel ? ` · ${"$".repeat(o.place.priceLevel)}` : ""}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
       <div className="eq-card-acts">
         <a href={street} target="_blank" rel="noreferrer noopener" className="eq-btn gold"><span>Look around</span></a>
         <a href={directions} target="_blank" rel="noreferrer noopener" className="eq-btn"><span>Directions</span></a>
@@ -820,3 +890,71 @@ const hostOf = (u: string) => {
     return "source";
   }
 };
+
+/** The trip is planned and nothing is booked yet: look it over, adjust, then book. */
+function ReviewBar({ review, names }: { review: ReviewApi; names: (id: string) => string }) {
+  const [open, setOpen] = useState(false);
+  const n = review.edits.remove.length + review.edits.swap.length + (review.edits.note.trim() ? 1 : 0);
+  const apply = () => {
+    review.onApply();
+    setOpen(false);
+  };
+  return (
+    <section className={`eq-review${open ? " is-open" : ""}${review.busy ? " is-busy" : ""}`} aria-label="Review your trip before booking">
+      {open && (
+        <div className="eq-review-panel">
+          <h3>Adjust the trip</h3>
+          <p className="eq-review-hint">Tap any place on the map to swap or remove it, or tell me what to change. Nothing is booked until you say so.</p>
+          {(review.edits.remove.length > 0 || review.edits.swap.length > 0) && (
+            <ul className="eq-review-changes">
+              {review.edits.remove.map((id) => (
+                <li key={`r${id}`}>
+                  <span>Remove <b>{names(id)}</b></span>
+                  <button type="button" onClick={() => review.onUndo("remove", id)} aria-label={`Keep ${names(id)}`}>Undo</button>
+                </li>
+              ))}
+              {review.edits.swap.map((x) => (
+                <li key={`s${x.from}`}>
+                  <span><b>{names(x.from)}</b> → <b>{names(x.to)}</b></span>
+                  <button type="button" onClick={() => review.onUndo("swap", x.from)} aria-label={`Keep ${names(x.from)}`}>Undo</button>
+                </li>
+              ))}
+            </ul>
+          )}
+          <label className="eq-review-note">
+            <span>Anything else?</span>
+            <textarea rows={2} maxLength={500} value={review.edits.note} placeholder="e.g. a slower day 2, cheaper dinners, more live music" onChange={(e) => review.onNote(e.target.value)} />
+          </label>
+          <div className="eq-review-acts">
+            <button type="button" className="eq-btn" onClick={() => setOpen(false)}><span>Close</span></button>
+            <button type="button" className="eq-btn gold" disabled={!n || review.busy} onClick={apply}><span>{n ? `Update the plan (${n})` : "Update the plan"}</span></button>
+          </div>
+        </div>
+      )}
+      <div className="eq-review-bar">
+        <span className="eq-review-dot" aria-hidden="true" />
+        <div className="eq-review-txt">
+          {review.busy ? (
+            <b>Updating your plan…</b>
+          ) : review.changed ? (
+            <>
+              <b>Plan updated</b>
+              <span>{review.changed}</span>
+            </>
+          ) : (
+            <>
+              <b>Your trip is ready to review</b>
+              <span>{review.ready ? `${review.ready} booking${review.ready === 1 ? "" : "s"} prepared. Nothing is booked yet.` : "Nothing is booked yet."}</span>
+            </>
+          )}
+        </div>
+        <button type="button" className="eq-review-adjust" aria-expanded={open} onClick={() => setOpen((v) => !v)} disabled={review.busy}>
+          Adjust{n ? <em>{n}</em> : null}
+        </button>
+        <button type="button" className="eq-review-book" onClick={review.onBook} disabled={review.busy || n > 0} title={n > 0 ? "Update the plan first" : undefined}>
+          Review &amp; book
+        </button>
+      </div>
+    </section>
+  );
+}

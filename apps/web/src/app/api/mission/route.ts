@@ -45,6 +45,14 @@ const bodySchema = z.object({
   /** The sealed plan and results from phase 1, so "Do it" runs exactly the plan that was shown. */
   seal: z.string().max(3_000_000).optional(),
   selections: z.record(z.array(z.string().max(80)).max(12)).optional(),
+  /** Changes after reviewing the plan: re-plans from the plan step on, keeping the research. */
+  edits: z
+    .object({
+      remove: z.array(z.string().max(80)).max(20).default([]),
+      swap: z.array(z.object({ from: z.string().max(80), to: z.string().max(80) })).max(20).default([]),
+      note: z.string().max(500).nullable().default(null),
+    })
+    .optional(),
   /** What the agent knows about this user (kept in their browser). Validated again by the engine. */
   profile: z.record(z.unknown()).optional(),
   /** The user's local date (YYYY-MM-DD), so "next weekend" means their next weekend. */
@@ -139,6 +147,10 @@ export async function POST(req: Request) {
         const runId = prior && isRunId(body.runId) ? body.runId : crypto.randomUUID();
         // An approval for a plan we can't recover is never applied to a new plan: approvals carry
         // action ids, and a fresh plan could give the same id to a different restaurant or day.
+        if (!prior && body.runId && body.edits) {
+          send("mission.error", { error: "That plan expired before your changes reached it. Run it again and adjust the fresh plan." });
+          return;
+        }
         if (!prior && body.runId && body.selections && Object.keys(body.selections).length) {
           send("mission.error", { error: "That plan expired before you approved it, so nothing was booked or called. Run it again to get a fresh plan to approve." });
           return;
@@ -256,12 +268,29 @@ export async function POST(req: Request) {
           compareBrands: plan.compareBrands ?? undefined,
           selections,
           alreadyBooked,
+          edits: prior && body.edits ? { ...body.edits, previous: previousPlan(prior.results) } : undefined,
         };
         const seed: Record<string, SkillResult<unknown>> = prior ? { ...prior.results } : {};
         // A new choice must re-run the checkpointed skill and everything downstream of it.
         for (const cp of def.checkpoints) {
           if (!selections[cp.id]) continue;
           const stale = new Set<string>([cp.before]);
+          let grew = true;
+          while (grew) {
+            grew = false;
+            for (const s of skills) {
+              if (stale.has(s.id)) continue;
+              if ([...s.dependsOn, ...(s.optionalDeps ?? [])].some((d) => stale.has(d))) {
+                stale.add(s.id);
+                grew = true;
+              }
+            }
+          }
+          for (const id of stale) delete seed[id];
+        }
+        // Reviewed and adjusted: write the plan again (research and places stay), and everything after it.
+        if (input.edits) {
+          const stale = new Set<string>(["trip.plan"]);
           let grew = true;
           while (grew) {
             grew = false;
@@ -341,4 +370,10 @@ function cityFromRequest(req: Request): string | null {
     /* keep the code */
   }
   return [city, countryName].filter(Boolean).join(", ").slice(0, 80);
+}
+
+/** The plan the person reviewed (days and hotel), from a sealed or remembered run. */
+function previousPlan(results: Record<string, SkillResult<unknown>>) {
+  const p = results["trip.plan"]?.data as { days?: { date: string | null; label: string; items: { time: string; title: string; placeId: string | null }[] }[]; stayId?: string | null } | undefined;
+  return p?.days ? { days: p.days, stayId: p.stayId ?? null } : null;
 }

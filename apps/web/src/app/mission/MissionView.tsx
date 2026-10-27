@@ -46,7 +46,7 @@ import TasteCard from "./Taste";
 import AgentTrace from "./AgentTrace";
 import FlightCard from "./FlightCard";
 import TripMap, { type TasteLayer } from "./TripMap";
-import AdventureView from "../adventure/AdventureView";
+import AdventureView, { type ReviewApi } from "../adventure/AdventureView";
 import Codex from "../adventure/Codex";
 import { buildAdventure } from "../adventure/model";
 import HotelLanes from "./HotelLanes";
@@ -101,6 +101,10 @@ export default function MissionView(props: { goal?: string; artist?: string; mis
   const [needs, setNeeds] = useState<{ field: string; message: string; plan: Plan; preview: string[] } | null>(null);
   const [prefsOpen, setPrefsOpen] = useState(false);
   const [view, setView] = useState<"game" | "classic">("game");
+  // Review before booking: the person looks the trip over, adjusts it, then opens the booking step.
+  const [bookOpen, setBookOpen] = useState(false);
+  const [edits, setEdits] = useState<ReviewEdits>(NO_EDITS);
+  const [adjusted, setAdjusted] = useState(false);
   const [reply, setReply] = useState<{ message: string; suggestions: string[] } | null>(null);
   const [workingFor, setWorkingFor] = useState<string | null>(null);
   const router = useRouter();
@@ -119,6 +123,7 @@ export default function MissionView(props: { goal?: string; artist?: string; mis
     setNeeds(null);
     setReply(null);
     setCheckpoints([]);
+    setBookOpen(false);
     setStatus(keepResults ? "running" : "planning");
     if (!keepResults) {
       setResults({});
@@ -179,6 +184,28 @@ export default function MissionView(props: { goal?: string; artist?: string; mis
     start({ goal: props.goal, artist: props.artist, mission: props.mission, autonomy: props.autonomy });
     return () => ctrl.current?.abort();
   }, [start, props.goal, props.artist, props.mission, props.autonomy, props.docs]);
+
+  /** Re-plan with the person's changes, keeping research and Qloo picks; stops at the booking step again. */
+  const adjust = () => {
+    const p = plannedRef.current;
+    if (!p) return;
+    const sent = { remove: edits.remove, swap: edits.swap, note: edits.note.trim() || null };
+    if (!sent.remove.length && !sent.swap.length && !sent.note) return;
+    setAdjusted(true);
+    setEdits(NO_EDITS);
+    start(
+      {
+        runId: p.runId,
+        seal: sealRef.current?.runId === p.runId ? sealRef.current.seal : undefined,
+        goal: p.plan.goal,
+        mission: p.plan.mission,
+        location: p.plan.location ?? undefined,
+        autonomy: "check",
+        edits: sent,
+      },
+      true
+    );
+  };
 
   const resume = (cpId: string, ids: string[], profile?: Profile) => {
     const p = plannedRef.current;
@@ -317,7 +344,35 @@ export default function MissionView(props: { goal?: string; artist?: string; mis
           goal={planned?.goal ?? props.goal ?? ""}
           trip={shownTrip}
           where={agentOut?.where ?? null}
-          overlay={hasPrompt ? <div className="eq-ask">{prompts}{cpNodes}</div> : null}
+          overlay={
+            Boolean(error || needs || reply) || (bookOpen && checkpoints.length) ? (
+              <div className="eq-ask">
+                {prompts}
+                {bookOpen && checkpoints.length > 0 && (
+                  <>
+                    <button type="button" className="eq-ask-back" onClick={() => setBookOpen(false)}>← Back to the trip</button>
+                    {cpNodes}
+                  </>
+                )}
+              </div>
+            ) : null
+          }
+          review={
+            checkpoints.some((c) => c.id === "actions") || (adjusted && running)
+              ? {
+                  ready: r<TripActionsOutput>("trip.actions")?.data.actions.filter((a) => a.recommended).length ?? 0,
+                  edits,
+                  busy: running,
+                  changed: adjusted && !running ? (r<TripPlanOutput>("trip.plan")?.data.summary.split(/(?<=\.)\s/)[0] ?? null) : null,
+                  onRemove: (id) => setEdits((e) => ({ ...e, remove: e.remove.includes(id) ? e.remove : [...e.remove, id], swap: e.swap.filter((x) => x.from !== id) })),
+                  onSwap: (from, to) => setEdits((e) => ({ ...e, swap: [...e.swap.filter((x) => x.from !== from), { from, to }], remove: e.remove.filter((x) => x !== from) })),
+                  onUndo: (kind, id) => setEdits((e) => (kind === "remove" ? { ...e, remove: e.remove.filter((x) => x !== id) } : { ...e, swap: e.swap.filter((x) => x.from !== id) })),
+                  onNote: (note) => setEdits((e) => ({ ...e, note })),
+                  onApply: adjust,
+                  onBook: () => setBookOpen(true),
+                }
+              : null
+          }
           onClassic={() => setView("classic")}
           toolbar={
             <>
@@ -782,6 +837,7 @@ function TripGame({
   trip,
   where,
   overlay,
+  review,
   onClassic,
   toolbar,
   book,
@@ -793,6 +849,7 @@ function TripGame({
   trip: TripAgentOutput["trip"] | null;
   where: TripAgentOutput["where"] | null;
   overlay: React.ReactNode;
+  review: ReviewApi | null;
   onClassic: () => void;
   toolbar: React.ReactNode;
   book: React.ReactNode;
@@ -827,6 +884,7 @@ function TripGame({
       origin={origin}
       subtitle={subtitle}
       overlay={overlay}
+      review={review}
       live={live}
       liveBusy={executing}
       book={book}
@@ -834,3 +892,6 @@ function TripGame({
     />
   );
 }
+
+type ReviewEdits = { remove: string[]; swap: { from: string; to: string }[]; note: string };
+const NO_EDITS: ReviewEdits = { remove: [], swap: [], note: "" };

@@ -180,6 +180,17 @@ export type BriefInput = {
   selections?: Record<string, string[]>;
   /** This same request was already booked and paid for recently (when, and the references). Nothing is booked twice. */
   alreadyBooked?: { at: string; refs: string[] } | null;
+  /** Changes the person asked for after reviewing the plan: places to drop, swaps, and their own words. */
+  edits?: PlanEdits;
+};
+
+/** A reviewed plan's changes. Place ids are the agent's own; the note is the person's words (data, not instructions). */
+export type PlanEdits = {
+  remove: string[];
+  swap: { from: string; to: string }[];
+  note: string | null;
+  /** The plan they reviewed, so only what they asked for changes. */
+  previous?: { days: { date: string | null; label: string; items: { time: string; title: string; placeId: string | null }[] }[]; stayId: string | null } | null;
 };
 
 /** An attached file, read into plain text. */

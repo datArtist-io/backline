@@ -33,6 +33,8 @@ export type MissionRequest = {
   runId?: string;
   /** The server's seal of the plan being approved (see run-seal.ts). */
   seal?: string;
+  /** Changes after reviewing the plan. */
+  edits?: { remove: string[]; swap: { from: string; to: string }[]; note: string | null };
   selections?: Record<string, string[]>;
   defaultArtist?: string;
   profile?: import("@backline/engine").Profile;
