@@ -7,10 +7,10 @@ describe("buildAdventure", () => {
   const m = buildAdventure(sampleSource())!;
 
   it("builds a world from what the agent found", () => {
-    expect(m.city).toBe("Lagos, Nigeria");
+    expect(m.city).toBe("Lisbon, Portugal");
     expect(m.sample).toBe(true);
     expect(m.nodes.length).toBeGreaterThanOrEqual(10);
-    expect(m.nodes.find((n) => n.id === "v1")).toMatchObject({ kind: "venue", name: "New Afrika Shrine", picked: true, fromQloo: true });
+    expect(m.nodes.find((n) => n.id === "v1")).toMatchObject({ kind: "venue", name: "Tasca do Chico", picked: true, fromQloo: true });
     expect(m.nodes.find((n) => n.id === "p1")).toMatchObject({ kind: "stop", picked: true });
   });
 
@@ -19,20 +19,22 @@ describe("buildAdventure", () => {
       expect(Math.abs(n.x)).toBeLessThanOrEqual(m.extent);
       expect(Math.abs(n.z)).toBeLessThanOrEqual(m.extent);
     }
-    const airport = m.nodes.find((n) => n.id === "p1")!; // north of the islands
+    const airport = m.nodes.find((n) => n.id === "p1")!; // the airport is the northernmost place
     const hotel = m.nodes.find((n) => n.id === "s1")!;
     expect(airport.z).toBeLessThan(hotel.z);
-    const shrine = m.nodes.find((n) => n.id === "v1")!; // the Shrine is the northernmost place
-    expect(shrine.z).toBeLessThan(airport.z);
+    expect(Math.min(...m.nodes.map((n) => n.z))).toBe(airport.z);
+    const tower = m.nodes.find((n) => n.id === "a4")!; // Belém is west of Alfama
+    expect(tower.x).toBeLessThan(hotel.x);
   });
 
   it("turns each plan day into a route of quests in order, with stops along the path", () => {
     expect(m.routes).toHaveLength(3);
     const day1 = m.routes[0];
-    expect(day1.label).toBe("Land and tune in");
-    expect(day1.quests.map((q) => q.nodeId)).toEqual(["p1", "s1", "d1", "d2"]);
-    expect(day1.path).toHaveLength(4);
-    expect(day1.stops.map((s) => s.nodeId)).toEqual(["p1", "s1", "d1", "d2"]);
+    expect(day1.label).toBe("Alfama and the castle");
+    expect(day1.quests.map((q) => q.nodeId)).toEqual(["p1", "s1", "a1", "a2", "v1"]);
+    expect(day1.path).toHaveLength(5);
+    expect(day1.geo[0]).toEqual([-9.1318608, 38.7809981]);
+    expect(day1.stops.map((s) => s.nodeId)).toEqual(["p1", "s1", "a1", "a2", "v1"]);
     expect(day1.stops[0].at).toBe(0);
     expect(day1.stops[day1.stops.length - 1].at).toBe(1);
     const ats = day1.stops.map((s) => s.at);
@@ -43,22 +45,36 @@ describe("buildAdventure", () => {
   it("puts Qloo's taste on the map: heat, the strongest zone and the signals", () => {
     expect(m.heat.length).toBeGreaterThan(10);
     expect(m.heat.every((h) => h.w >= 0 && h.w <= 1)).toBe(true);
-    expect(m.zone).toMatchObject({ name: "Victoria Island" });
+    expect(m.zone).toMatchObject({ name: "Alfama", lat: 38.7117704, lon: -9.12838 });
     expect(m.zone!.r).toBeGreaterThanOrEqual(3);
-    expect(m.taste?.signals).toEqual(["Burna Boy", "Afrobeats"]);
-    expect(m.taste?.dishes).toContain("suya");
+    expect(m.taste?.signals).toEqual(["Amália Rodrigues", "fado", "jazz"]);
+    expect(m.taste?.dishes).toContain("pastel de nata");
+    expect(m.heat.every((h) => h.lat > 38.69 && h.lat < 38.73 && h.lon > -9.18 && h.lon < -9.11)).toBe(true);
   });
 
   it("scores stops in XP, with strong taste matches worth more", () => {
     expect(xpFor(0.95)).toBe(195);
     expect(xpFor(0.3)).toBe(130);
     expect(xpFor(null)).toBe(140);
-    const shrine = m.nodes.find((n) => n.id === "v1")!;
-    const market = m.nodes.find((n) => n.id === "a2")!;
-    expect(shrine.xp).toBeGreaterThan(market.xp);
+    const fado = m.nodes.find((n) => n.id === "v1")!;
+    const tower = m.nodes.find((n) => n.id === "a4")!;
+    expect(fado.xp).toBeGreaterThan(tower.xp);
     expect(m.stats.xp).toBeGreaterThan(1000);
     expect(m.stats.days).toBe(3);
     expect(m.stats.match).toBeGreaterThan(70);
+  });
+
+  it("puts the trip on the real map: centre, destination and day routes in lon/lat", () => {
+    expect(m.destination).toMatchObject({ name: "Lisbon, Portugal", lat: 38.7077507, lon: -9.1365919 });
+    expect(m.center.lat).toBeGreaterThan(38.69);
+    expect(m.center.lat).toBeLessThan(38.79);
+    for (const r of m.routes) for (const [lon, lat] of r.geo) {
+      expect(lon).toBeGreaterThan(-9.25);
+      expect(lon).toBeLessThan(-9.1);
+      expect(lat).toBeGreaterThan(38.68);
+      expect(lat).toBeLessThan(38.79);
+    }
+    expect(m.origin).toBeNull();
   });
 
   it("returns nothing until the agent has found something", () => {

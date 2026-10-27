@@ -98,6 +98,7 @@ export default function MissionView(props: { goal?: string; artist?: string; mis
   const [error, setError] = useState<string | null>(null);
   const [needs, setNeeds] = useState<{ field: string; message: string; plan: Plan; preview: string[] } | null>(null);
   const [prefsOpen, setPrefsOpen] = useState(false);
+  const [view, setView] = useState<"game" | "classic">("game");
   const [reply, setReply] = useState<{ message: string; suggestions: string[] } | null>(null);
   const [workingFor, setWorkingFor] = useState<string | null>(null);
   const router = useRouter();
@@ -229,6 +230,118 @@ export default function MissionView(props: { goal?: string; artist?: string; mis
 
   const altHref = (name: string) => `/mission?${new URLSearchParams({ artist: name, ...(mission ? { m: mission } : {}), mode: autonomy, ...(planned?.plan.goal ? { goal: planned.plan.goal.replace(artistName, name) } : {}) })}`;
 
+  const prompts = (
+    <>
+            {error && (
+              <div className="lg notice" role="alert">
+                <p>{error}</p>
+                <button type="button" className="rerun" onClick={() => rerun()}>
+                  Try again
+                </button>
+              </div>
+            )}
+
+            {needs && (
+              <NeedsArtist
+                plan={needs.plan}
+                message={needs.message}
+                preview={needs.preview}
+                placeholder={needs.field === "destination" ? "Lisbon, 3 nights from Friday, 4 people" : "Artist or stage name"}
+                onSubmit={(answer) => {
+                  if (needs.field === "destination") {
+                    start({ goal: `${needs.plan.goal}. ${answer}`, mission: "plan", autonomy });
+                    return;
+                  }
+                  rememberArtist(answer);
+                  start({ goal: needs.plan.goal, artist: answer, mission: needs.plan.mission, location: needs.plan.location ?? undefined, autonomy });
+                }}
+              />
+            )}
+
+            {reply && (
+              <section className="lg agent-card" aria-live="polite">
+                <p className="agent-says">
+                  <span className="agent-dot" aria-hidden="true" />
+                  {reply.message}
+                </p>
+                {reply.suggestions.length > 0 && (
+                  <div className="suggestions">
+                    {reply.suggestions.map((sg) => (
+                      <button key={sg} type="button" className="suggestion" onClick={() => router.push(`/mission?${new URLSearchParams({ goal: sg, mode: autonomy })}`)}>
+                        {sg}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </section>
+            )}
+
+    </>
+  );
+  const cpNodes = (
+    <>
+            {checkpoints.map((cp) =>
+              cp.id === "actions" && r<TripActionsOutput>("trip.actions") ? (
+                <ActionsCheckpoint
+                  key={cp.id + (planned?.runId ?? "")}
+                  actions={r<TripActionsOutput>("trip.actions")!.data.actions}
+                  profile={loadProfile()}
+                  busy={running}
+                  onConfirm={(ids, profile) => resume(cp.id, ids, profile)}
+                />
+              ) : (
+                <CheckpointPanel key={cp.id + (planned?.runId ?? "")} request={cp} busy={running} onConfirm={(ids) => resume(cp.id, ids)} />
+              )
+            )}
+
+    </>
+  );
+  const hasPrompt = Boolean(error || needs || reply || checkpoints.length);
+
+  // Trips open straight into the 3D expedition; music missions keep the page.
+  const tripMission = mission === "plan" || (!mission && !props.artist && status !== "needs");
+  if (tripMission && view === "game") {
+    return (
+      <>
+        <TripGame
+          r={r}
+          steps={steps}
+          running={running}
+          goal={planned?.goal ?? props.goal ?? ""}
+          trip={shownTrip}
+          where={agentOut?.where ?? null}
+          overlay={hasPrompt ? <div className="eq-ask">{prompts}{cpNodes}</div> : null}
+          onClassic={() => setView("classic")}
+          toolbar={
+            <>
+              <button type="button" onClick={() => setPrefsOpen(true)}>Preferences</button>
+              {done && meReady && signInOn && !me && <Link href={`/signin?next=${encodeURIComponent(`/mission?${new URLSearchParams({ ...(props.goal ? { goal: props.goal } : {}), mode: "check" })}`)}`}>Sign in to book</Link>}
+              <Link href="/">New trip</Link>
+            </>
+          }
+          book={
+            <div className="eq-book">
+              <header className="eq-book-head">
+                <h2>Trip book</h2>
+                <p>{planned?.goal ?? props.goal}</p>
+                {done && Object.keys(results).length > 1 && (
+                  <div className="acts">
+                    <button type="button" className="act" onClick={() => downloadFile(`${slug(planned?.goal ?? "trip")}.md`, buildReport(planned?.goal ?? "Trip", results))}>
+                      Download report
+                    </button>
+                  </div>
+                )}
+                {shownTrip && shownTrip.assumptions.length > 0 && <p className="assumed">I assumed: {shownTrip.assumptions.join(". ")}. Change anything by asking again.</p>}
+              </header>
+              <TripView r={r} steps={steps} title={planned?.goal ?? ""} activity={[]} onEditTaste={() => setPrefsOpen(true)} book />
+            </div>
+          }
+        />
+        <Preferences open={prefsOpen} onClose={() => setPrefsOpen(false)} />
+      </>
+    );
+  }
+
   return (
     <>
       <div className="brief">
@@ -356,14 +469,7 @@ export default function MissionView(props: { goal?: string; artist?: string; mis
               )}
             </section>
 
-            {error && (
-              <div className="lg notice" role="alert">
-                <p>{error}</p>
-                <button type="button" className="rerun" onClick={() => rerun()}>
-                  Try again
-                </button>
-              </div>
-            )}
+            {prompts}
 
             {done && mission === "plan" && meReady && signInOn && !me && (
               <div className="lg notice" role="status">
@@ -372,41 +478,6 @@ export default function MissionView(props: { goal?: string; artist?: string; mis
                   Sign in
                 </Link>
               </div>
-            )}
-
-            {needs && (
-              <NeedsArtist
-                plan={needs.plan}
-                message={needs.message}
-                preview={needs.preview}
-                placeholder={needs.field === "destination" ? "Lisbon, 3 nights from Friday, 4 people" : "Artist or stage name"}
-                onSubmit={(answer) => {
-                  if (needs.field === "destination") {
-                    start({ goal: `${needs.plan.goal}. ${answer}`, mission: "plan", autonomy });
-                    return;
-                  }
-                  rememberArtist(answer);
-                  start({ goal: needs.plan.goal, artist: answer, mission: needs.plan.mission, location: needs.plan.location ?? undefined, autonomy });
-                }}
-              />
-            )}
-
-            {reply && (
-              <section className="lg agent-card" aria-live="polite">
-                <p className="agent-says">
-                  <span className="agent-dot" aria-hidden="true" />
-                  {reply.message}
-                </p>
-                {reply.suggestions.length > 0 && (
-                  <div className="suggestions">
-                    {reply.suggestions.map((sg) => (
-                      <button key={sg} type="button" className="suggestion" onClick={() => router.push(`/mission?${new URLSearchParams({ goal: sg, mode: autonomy })}`)}>
-                        {sg}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </section>
             )}
 
             {resolveStep?.status === "failed" && (
@@ -420,22 +491,10 @@ export default function MissionView(props: { goal?: string; artist?: string; mis
 
             {resolved ? <ArtistHeader data={resolved.data} altHref={altHref} /> : planned && mission !== "plan" && resolveStep?.status !== "failed" ? <HeaderSkeleton name={artistName} /> : null}
 
-            {checkpoints.map((cp) =>
-              cp.id === "actions" && r<TripActionsOutput>("trip.actions") ? (
-                <ActionsCheckpoint
-                  key={cp.id + (planned?.runId ?? "")}
-                  actions={r<TripActionsOutput>("trip.actions")!.data.actions}
-                  profile={loadProfile()}
-                  busy={running}
-                  onConfirm={(ids, profile) => resume(cp.id, ids, profile)}
-                />
-              ) : (
-                <CheckpointPanel key={cp.id + (planned?.runId ?? "")} request={cp} busy={running} onConfirm={(ids) => resume(cp.id, ids)} />
-              )
-            )}
+            {cpNodes}
 
             {props.debug && <DebugPanel debug={debugInfo} results={results} steps={steps} />}
-            {mission === "plan" && <TripView r={r} steps={steps} title={planned?.goal ?? ""} activity={activity["trip.agent"] ?? []} onEditTaste={() => setPrefsOpen(true)} />}
+            {mission === "plan" && <TripView r={r} steps={steps} title={planned?.goal ?? ""} activity={activity["trip.agent"] ?? []} onEditTaste={() => setPrefsOpen(true)} onGame={() => setView("game")} />}
 
             {/* Deliverables first: what the mission set out to produce. */}
             {mission === "brand_deal" && (
@@ -541,12 +600,17 @@ function TripView({
   title,
   activity,
   onEditTaste,
+  book = false,
+  onGame,
 }: {
   r: <T>(id: string) => (StepResult & { data: T }) | undefined;
   steps: StepState[];
   title: string;
   activity: StepProgress[];
   onEditTaste: () => void;
+  /** Inside the expedition's trip book: just the itinerary, bookings and places. */
+  book?: boolean;
+  onGame?: () => void;
 }) {
   const taste = r<TasteOutput>("trip.taste")?.data;
   const tasteLayer = useMemo<TasteLayer | null>(() => (taste && taste.heat.length ? { heat: taste.heat, zone: taste.zone } : null), [taste]);
@@ -563,26 +627,21 @@ function TripView({
   const intel = r<TripIntelOutput>("trip.intel")?.data ?? null;
   const intelStep = steps.find((s) => s.id === "trip.intel");
   const travel = r<TripTravelOutput>("trip.travel")?.data ?? null;
-  const [view, setView] = useState<"map" | "classic">("map");
-  const adventure = useMemo(() => buildAdventure({ title, agent: a, plan: plan?.data, routes: routes?.data, taste, intel, travel }), [title, a, plan, routes, taste, intel, travel]);
   const working = steps.some((s) => s.id.startsWith("trip.") && (s.status === "pending" || s.status === "running"));
   const anchor = a?.where.landmark?.name ?? a?.where.zone?.name ?? a?.where.city?.name ?? null;
   const landmarkId = a?.stops.find((s) => s.kind === "landmark")?.id ?? (a?.where.landmark ? a.stops[0]?.id : null) ?? null;
   return (
     <>
-      <div className="adv-wrap">
-        <div className="adv-switch" role="group" aria-label="View">
-          <button type="button" className={view === "map" ? "on" : ""} onClick={() => setView("map")}>Adventure map</button>
-          <button type="button" className={view === "classic" ? "on" : ""} onClick={() => setView("classic")}>Classic view</button>
+      {!book && onGame && (
+        <div className="adv-wrap">
+          <button type="button" className="lg pill" onClick={onGame}>Back to the 3D trip</button>
         </div>
-        {view === "map" && <AdventureView model={adventure} steps={steps} activity={activity} scanning={working && !plan} intelPending={intelStep?.status === "running" || intelStep?.status === "pending"} onClassic={() => setView("classic")} />}
-      </div>
-      {view === "classic" && taste && <TasteCard taste={taste} onEdit={onEditTaste} onShowMap={mapData?.bounds ? showMap : undefined} />}
-      {view === "map" && taste && <button type="button" className="link-btn" onClick={onEditTaste}>Edit your taste</button>}
-      <AgentActivity entries={activity} running={agentStep?.status === "running" || agentStep?.status === "pending"} />
+      )}
+      {!book && taste && <TasteCard taste={taste} onEdit={onEditTaste} onShowMap={mapData?.bounds ? showMap : undefined} />}
+      {!book && <AgentActivity entries={activity} running={agentStep?.status === "running" || agentStep?.status === "pending"} />}
       {exec && actions && <ResultsSection title={title} actions={actions.data} execute={exec} plan={plan?.data} places={places} />}
-      {agent ? <AgentSummary result={agent} /> : (agentStep?.status === "failed" || agentStep?.status === "skipped") && <Placeholder steps={steps} id="trip.agent" label="What I found" />}
-      {a && <AgentTrace agent={a} />}
+      {!book && (agent ? <AgentSummary result={agent} /> : (agentStep?.status === "failed" || agentStep?.status === "skipped") && <Placeholder steps={steps} id="trip.agent" label="What I found" />)}
+      {!book && a && <AgentTrace agent={a} />}
       {r<TripFlightsOutput>("trip.flights")?.data.flight && (
         <FlightCard
           data={r<TripFlightsOutput>("trip.flights")!.data}
@@ -594,9 +653,9 @@ function TripView({
         />
       )}
       {/* Until the plan is written, the map shows what was found; then it moves into the plan. */}
-      {view === "classic" && !plan && mapData?.bounds && <TripMap routes={mapData} landmarkId={landmarkId} title={title} taste={tasteLayer} />}
+      {!plan && mapData?.bounds && <TripMap routes={mapData} landmarkId={landmarkId} title={title} taste={tasteLayer} />}
       {plan ? <PlanSection result={plan} places={places} routes={routes?.data} mapRoutes={mapData} landmarkId={landmarkId} title={title} agent={a} taste={taste} /> : agent && <Placeholder steps={steps} id="trip.plan" label="The plan" />}
-      {view === "classic" && (intel || intelStep) && <Codex intel={intel} travel={travel} pending={intelStep?.status === "running" || intelStep?.status === "pending"} />}
+      {!book && (intel || intelStep) && <Codex intel={intel} travel={travel} pending={intelStep?.status === "running" || intelStep?.status === "pending"} />}
       {a && a.tiers && a.tiers.length > 0 ? (
         <>
           <HotelLanes tiers={a.tiers} scores={a.hotelScores ?? []} places={places} chosenId={plan?.data.stayId ?? a.picks.stays[0]} bookingUrl={(p) => hotelSearchUrl(p, a)} />
@@ -658,4 +717,98 @@ function hotelSearchUrl(p: { name: string }, a: TripAgentOutput): string {
   if (a.trip.startDate) q.set("checkin", a.trip.startDate);
   if (a.trip.endDate) q.set("checkout", a.trip.endDate);
   return `https://www.booking.com/searchresults.html?${q}`;
+}
+
+type Spot = { name: string; lat: number; lon: number };
+
+/** Where a place name is on the globe, from OpenStreetMap, so the journey can start before the agent's results. */
+function usePlace(name: string | null | undefined): Spot | null {
+  const [spot, setSpot] = useState<Spot | null>(null);
+  useEffect(() => {
+    const q = (name ?? "").trim();
+    if (!q) return;
+    const key = `bl.geo.${q.toLowerCase()}`;
+    try {
+      const hit = sessionStorage.getItem(key);
+      if (hit) {
+        setSpot(JSON.parse(hit));
+        return;
+      }
+    } catch {
+      /* storage can be off */
+    }
+    const c = new AbortController();
+    fetch(`https://nominatim.openstreetmap.org/search?${new URLSearchParams({ q, format: "jsonv2", limit: "1", "accept-language": "en" })}`, { signal: c.signal })
+      .then((r) => (r.ok ? r.json() : []))
+      .then((rows: { lat: string; lon: string; display_name: string }[]) => {
+        const r0 = rows[0];
+        if (!r0) return;
+        const s = { name: q, lat: Number(r0.lat), lon: Number(r0.lon) };
+        if (!Number.isFinite(s.lat) || !Number.isFinite(s.lon)) return;
+        setSpot(s);
+        try {
+          sessionStorage.setItem(key, JSON.stringify(s));
+        } catch {
+          /* ignore */
+        }
+      })
+      .catch(() => {});
+    return () => c.abort();
+  }, [name]);
+  return spot;
+}
+
+/** The trip as a full-screen expedition on the real Earth. */
+function TripGame({
+  r,
+  steps,
+  running,
+  goal,
+  trip,
+  where,
+  overlay,
+  onClassic,
+  toolbar,
+  book,
+}: {
+  r: <T>(id: string) => (StepResult & { data: T }) | undefined;
+  steps: StepState[];
+  running: boolean;
+  goal: string;
+  trip: TripAgentOutput["trip"] | null;
+  where: TripAgentOutput["where"] | null;
+  overlay: React.ReactNode;
+  onClassic: () => void;
+  toolbar: React.ReactNode;
+  book: React.ReactNode;
+}) {
+  const agent = r<TripAgentOutput>("trip.agent")?.data;
+  const plan = r<TripPlanOutput>("trip.plan")?.data;
+  const routes = r<TripRoutesOutput>("trip.routes")?.data;
+  const taste = r<TasteOutput>("trip.taste")?.data;
+  const intel = r<TripIntelOutput>("trip.intel")?.data ?? null;
+  const travel = r<TripTravelOutput>("trip.travel")?.data ?? null;
+  const intelStep = steps.find((s) => s.id === "trip.intel");
+  const model = useMemo(() => buildAdventure({ title: goal, agent, plan, routes, taste, intel, travel }), [goal, agent, plan, routes, taste, intel, travel]);
+  const guess = usePlace(where?.city ? null : trip?.destination);
+  const destination: Spot | null = where?.city ? { name: where.city.display ?? where.city.name, lat: where.city.lat, lon: where.city.lon } : travel?.to && travel.destination ? { name: travel.destination, ...travel.to } : guess;
+  const origin: Spot | null = travel?.from && travel.origin ? { name: travel.origin, ...travel.from } : null;
+  const subtitle = trip?.destination ? tripChips(trip, where).slice(1).filter((c) => !/^By /.test(c)).concat(travel?.origin ? [`from ${travel.origin.split(",")[0]}`] : []).join(", ") : goal ? `“${goal}”` : null;
+  const shown = useMemo(() => steps.map((s) => ({ id: s.id, title: s.title, status: s.status })), [steps]);
+  return (
+    <AdventureView
+      fullscreen
+      model={model}
+      steps={shown}
+      scanning={running && !plan}
+      intelPending={intelStep?.status === "running" || intelStep?.status === "pending"}
+      onClassic={onClassic}
+      destination={destination}
+      origin={origin}
+      subtitle={subtitle}
+      overlay={overlay}
+      book={book}
+      toolbar={toolbar}
+    />
+  );
 }

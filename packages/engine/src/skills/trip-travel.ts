@@ -30,6 +30,9 @@ const travelOutput = z.object({
   destination: z.string().nullable(),
   /** Straight-line distance, km. */
   km: z.number().nullable(),
+  /** Coordinates of home and the destination, for drawing the journey. */
+  from: z.object({ lat: z.number(), lon: z.number() }).nullable(),
+  to: z.object({ lat: z.number(), lon: z.number() }).nullable(),
   options: z.array(optionSchema),
   gaps: z.array(z.string()),
 });
@@ -129,16 +132,20 @@ export const tripTravel: Skill<BriefInput, TripTravelOutput> = {
   output: travelOutput,
   async run(ctx, input) {
     const t = input.trip;
-    const none = (gaps: string[] = []) => ({ data: { origin: null, destination: null, km: null, options: [], gaps }, evidence: [] as Evidence[], notes: gaps });
+    const none = (gaps: string[] = []) => ({ data: { origin: null, destination: null, km: null, from: null, to: null, options: [], gaps }, evidence: [] as Evidence[], notes: gaps });
     if (!t?.destination) return none();
     const origin = (t.origin ?? input.profile?.homeCity ?? "").trim();
     if (!origin || city(origin) === city(t.destination)) return none();
     ctx.progress?.({ kind: "act", id: "tr.find", tool: "travel", text: `Working out how to get from ${origin} to ${t.destination}`, by: "autopilot" });
     const t0 = Date.now();
     let km: number | null = null;
+    let from: { lat: number; lon: number } | null = null;
+    let to: { lat: number; lon: number } | null = null;
     if (ctx.osm) {
       try {
         const [a, b] = await Promise.all([ctx.osm.geocode(origin, { limit: 1, signal: ctx.signal }), ctx.osm.geocode(t.destination, { limit: 1, signal: ctx.signal })]);
+        if (a[0]) from = { lat: a[0].lat, lon: a[0].lon };
+        if (b[0]) to = { lat: b[0].lat, lon: b[0].lon };
         if (a[0] && b[0]) km = haversineKm(a[0], b[0]);
       } catch {
         /* distance is a nicety */
@@ -153,7 +160,7 @@ export const tripTravel: Skill<BriefInput, TripTravelOutput> = {
     const sources = [...all, ...fares].filter((r) => (seen.has(r.url) ? false : (seen.add(r.url), true))).slice(0, 10);
     if (!ctx.llm || sources.length === 0) {
       ctx.progress?.({ kind: "saw", id: "tr.find", tool: "travel", ok: false, text: "No travel sources found", ms: Date.now() - t0, by: "autopilot" });
-      return { data: { origin, destination: t.destination, km, options: [], gaps: ["How to get there"] }, evidence: [], notes: [] };
+      return { data: { origin, destination: t.destination, km, from, to, options: [], gaps: ["How to get there"] }, evidence: [], notes: [] };
     }
     try {
       const raw = await ctx.llm.json({
@@ -178,13 +185,13 @@ export const tripTravel: Skill<BriefInput, TripTravelOutput> = {
       const shaped = shapeTravel(rawSchema.parse(raw), sources);
       ctx.progress?.({ kind: "saw", id: "tr.find", tool: "travel", ok: shaped.options.length > 0, text: shaped.options.length ? `${shaped.options.length} ways to get there` : "No reliable options found", ms: Date.now() - t0, by: "autopilot" });
       return {
-        data: { origin, destination: t.destination, km, options: shaped.options, gaps: shaped.options.length ? [] : ["How to get there"] },
+        data: { origin, destination: t.destination, km, from, to, options: shaped.options, gaps: shaped.options.length ? [] : ["How to get there"] },
         evidence: shaped.used.map((s) => webEvidence(s)),
         notes: [],
       };
     } catch (err) {
       ctx.log.warn("Trip travel research failed", { error: String(err) });
-      return { data: { origin, destination: t.destination, km, options: [], gaps: ["How to get there"] }, evidence: [], notes: [] };
+      return { data: { origin, destination: t.destination, km, from, to, options: [], gaps: ["How to get there"] }, evidence: [], notes: [] };
     }
   },
 };

@@ -10,11 +10,11 @@ import { sampleSource } from "./sample";
 
 const STEPS = ["trip.taste", "trip.flights", "trip.agent", "trip.plan", "trip.routes", "trip.intel"];
 const FEED: StepProgress[] = [
-  { kind: "think", text: "Burna Boy and Afrobeats: look for live music, suya and art around Victoria Island." },
-  { kind: "act", id: "1", tool: "locate", text: "Locating Lagos" },
-  { kind: "saw", id: "1", text: "Lagos, Nigeria · 6.45°N 3.40°E", ok: true },
+  { kind: "think", text: "Fado and jazz: look around Alfama and Bairro Alto." },
+  { kind: "act", id: "1", tool: "locate", text: "Locating Lisbon" },
+  { kind: "saw", id: "1", text: "Lisbon, Portugal · 38.71°N 9.14°W", ok: true },
   { kind: "act", id: "2", tool: "search_places", text: "Searching Qloo for venues" },
-  { kind: "saw", id: "2", text: "12 venues, New Afrika Shrine matches 95%", ok: true },
+  { kind: "saw", id: "2", text: "14 places, Tasca do Chico matches 96%", ok: true },
   { kind: "act", id: "3", tool: "research", text: "Reading the web for entry rules and guides" },
   { kind: "saw", id: "3", text: "7 sources read", ok: true },
 ];
@@ -44,7 +44,7 @@ export default function Page() {
       <p style={{ margin: "0 0 12px" }}>
         <Link href="/">← Backline</Link>
       </p>
-      <AdventureView model={model} steps={steps} activity={FEED.slice(0, Math.max(0, Math.min(FEED.length, stage + 1)))} scanning={stage < 8} intelPending={stage < 7} note="Illustrative sample trip. Run a real plan to see your own." />
+      <AdventureView fullscreen model={model} steps={steps} scanning={stage < 8} intelPending={stage < 7} note="Illustrative sample trip. Run a real plan to see your own." />
     </main>
   );
 }

@@ -1,15 +1,19 @@
 "use client";
-// The adventure map: the trip as a game world. Qloo's taste is the terrain; every place is a quest;
-// each day is a route you can fly; the field guide holds everything else a traveller needs.
+// The expedition: the trip played out on the real Earth. You arrive from home across the globe,
+// land in the city, and every place the agent picked stands as a beacon you can visit. Qloo's taste
+// is the terrain. Each day is a route you can fly. Everything else lives in the field guide and
+// the trip book, one tap away.
 import dynamic from "next/dynamic";
 import { Component, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { StepProgress } from "@backline/engine";
 import { Vector3 } from "three";
 import type { Shared } from "./World";
+import type { Spot } from "./Earth";
 import { KIND_COLOR, KIND_LABEL, KIND_NOUN, type AdventureModel, type NodeKind, type QuestNode } from "./model";
 import Codex from "./Codex";
 import "./adventure.css";
 
+const Earth = dynamic(() => import("./Earth"), { ssr: false });
 const World = dynamic(() => import("./World"), { ssr: false });
 
 class Quiet extends Component<{ children: ReactNode; fallback: ReactNode }, { failed: boolean }> {
@@ -33,51 +37,90 @@ function hasWebGL(): boolean {
 
 export type MissionStep = { id: string; title: string; status: string };
 
-type Toast = { id: number; text: string; xp?: number };
+type Toast = { id: number; text: string; sub?: string; xp?: number };
 
 const pct = (v: number | null) => (v == null ? null : Math.round(v * 100));
-const SCAN_LABEL: Record<string, string> = {
-  "trip.taste": "Reading your taste in Qloo",
-  "trip.flights": "Finding flights",
-  "trip.agent": "Scouting places on the ground",
-  "trip.plan": "Writing the plan",
-  "trip.routes": "Drawing the routes",
-  "trip.intel": "Gathering the field guide",
-  "trip.actions": "Lining up what I can do",
-  "trip.execute": "Doing the work",
-};
+
+/** The journey of the agent's work, told as chapters in the order they happen. */
+const CHAPTERS: { id: string; label: string; doing: string }[] = [
+  { id: "trip.taste", label: "Taste", doing: "Reading your taste in Qloo" },
+  { id: "trip.travel", label: "Getting there", doing: "Working out how you'll get there" },
+  { id: "trip.flights", label: "Flights", doing: "Checking flights" },
+  { id: "trip.agent", label: "Places", doing: "Scouting the places your taste points to" },
+  { id: "trip.plan", label: "Plan", doing: "Shaping your days" },
+  { id: "trip.routes", label: "Routes", doing: "Drawing the routes on real streets" },
+  { id: "trip.intel", label: "Field guide", doing: "Gathering weather, money, rules and guides" },
+  { id: "trip.actions", label: "Bookings", doing: "Lining up what I can book" },
+  { id: "trip.execute", label: "Booking", doing: "Booking it" },
+];
 
 export default function AdventureView({
   model,
   steps,
-  activity,
   scanning,
   intelPending,
   onClassic,
   note,
+  destination = null,
+  origin = null,
+  subtitle = null,
+  fullscreen = false,
+  overlay = null,
+  book = null,
+  bookLabel = "Trip book",
+  toolbar = null,
+  homeHref = "/",
 }: {
   model: AdventureModel | null;
   steps: MissionStep[];
-  activity: StepProgress[];
+  activity?: StepProgress[];
   scanning: boolean;
   intelPending: boolean;
   onClassic?: () => void;
   note?: string;
+  destination?: Spot | null;
+  origin?: Spot | null;
+  subtitle?: string | null;
+  fullscreen?: boolean;
+  /** Something that needs the person's answer (a question, a confirmation): shown over the map. */
+  overlay?: ReactNode;
+  /** The detailed itinerary, bookings and every place found. */
+  book?: ReactNode;
+  bookLabel?: string;
+  toolbar?: ReactNode;
+  homeHref?: string;
 }) {
   const [ok, setOk] = useState<boolean | null>(null);
   const [reduced, setReduced] = useState(false);
+  const [narrow, setNarrow] = useState(false);
   useEffect(() => {
     setOk(hasWebGL());
     setReduced(window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false);
+    const mq = window.matchMedia?.("(max-width: 860px)");
+    const on = () => setNarrow(Boolean(mq?.matches));
+    on();
+    mq?.addEventListener?.("change", on);
+    return () => mq?.removeEventListener?.("change", on);
   }, []);
+  // Full screen: lock the page behind the expedition so only the map scrolls and zooms.
+  useEffect(() => {
+    if (!fullscreen) return;
+    const prev = document.documentElement.style.overflow;
+    document.documentElement.style.overflow = "hidden";
+    return () => {
+      document.documentElement.style.overflow = prev;
+    };
+  }, [fullscreen]);
 
+  const [mode, setMode] = useState<"earth" | "taste">("earth");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [hoverId, setHoverId] = useState<string | null>(null);
   const [activeDay, setActiveDay] = useState<number | "all">("all");
   const [play, setPlay] = useState(false);
-  const [guide, setGuide] = useState(false);
-  const [filter, setFilter] = useState<NodeKind | "all">("all");
+  const [sheet, setSheet] = useState<"guide" | "book" | null>(null);
+  const [showTaste, setShowTaste] = useState(true);
   const [introKey, setIntroKey] = useState(0);
+  const [homeKey, setHomeKey] = useState(0);
   const [ready, setReady] = useState(false);
   const [tick, setTick] = useState({ day: -1, t: 0 });
   const [visited, setVisited] = useState<Set<string>>(new Set());
@@ -89,10 +132,10 @@ export default function AdventureView({
   const shared = useRef<Shared>({ drone: { pos: new Vector3(), heading: 0 }, focusUntil: 0, homeUntil: 0, follow: false, hours: 21 });
 
   const selected = useMemo(() => model?.nodes.find((n) => n.id === selectedId) ?? null, [model, selectedId]);
-  const toast = useCallback((text: string, xp?: number) => {
+  const toast = useCallback((text: string, sub?: string, xp?: number) => {
     const id = ++toastId.current;
-    setToasts((t) => [...t.slice(-3), { id, text, xp }]);
-    window.setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 3600);
+    setToasts((t) => [...t.slice(-2), { id, text, sub, xp }]);
+    window.setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 3800);
   }, []);
 
   const select = useCallback((id: string | null) => {
@@ -102,13 +145,13 @@ export default function AdventureView({
       shared.current.follow = false;
     }
   }, []);
-  // The camera flies to the selection until the person grabs the map again (onUserMove).
   useEffect(() => {
     if (selectedId) shared.current.focusUntil = Number.MAX_SAFE_INTEGER;
   }, [selectedId]);
 
   const home = useCallback(() => {
     setSelectedId(null);
+    setHomeKey((k) => k + 1);
     shared.current.homeUntil = Number.MAX_SAFE_INTEGER;
     window.setTimeout(() => (shared.current.homeUntil = 0), 1800);
   }, []);
@@ -118,7 +161,7 @@ export default function AdventureView({
     shared.current.focusUntil = 0;
   }, []);
 
-  const routes = model?.routes ?? [];
+  const routes = useMemo(() => model?.routes ?? [], [model]);
   const day = typeof activeDay === "number" ? routes.find((r) => r.day === activeDay) ?? null : null;
 
   const start = useCallback(() => {
@@ -130,11 +173,12 @@ export default function AdventureView({
     setVisited(new Set());
     setDone(false);
     setSelectedId(null);
+    setSheet(null);
     shared.current.focusUntil = 0;
     shared.current.follow = true;
     setPlay(true);
     const r = routes.find((x) => x.day === first);
-    toast(`Day ${first + 1} · ${r?.label ?? "Go"}`);
+    toast(`Day ${first + 1}`, r?.label);
   }, [routes, activeDay, toast]);
 
   const stop = useCallback(() => {
@@ -148,7 +192,7 @@ export default function AdventureView({
       if (!n) return;
       setVisited((v) => (v.has(`${d}:${nodeId}`) ? v : new Set(v).add(`${d}:${nodeId}`)));
       const q = routes.find((r) => r.day === d)?.quests.find((x) => x.nodeId === nodeId);
-      toast(`${q?.time ? q.time + " · " : ""}${n.name}`, n.xp);
+      toast(n.name, q?.time ? `${q.time} · ${KIND_NOUN[n.kind]}` : KIND_NOUN[n.kind], n.xp);
     },
     [model, routes, toast]
   );
@@ -158,7 +202,7 @@ export default function AdventureView({
       if (next) {
         progress.current = { day: next.day, t: 0 };
         setActiveDay(next.day);
-        toast(`Day ${next.day + 1} · ${next.label}`);
+        toast(`Day ${next.day + 1}`, next.label);
       } else {
         setPlay(false);
         shared.current.follow = false;
@@ -172,10 +216,11 @@ export default function AdventureView({
 
   useEffect(() => {
     const key = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLElement && /INPUT|TEXTAREA|SELECT|BUTTON/.test(e.target.tagName) && e.key === " ") return;
       if (e.target instanceof HTMLElement && /INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) return;
       if (e.key === "Escape") {
         setSelectedId(null);
-        setGuide(false);
+        setSheet(null);
       } else if (e.key === " " && routes.length) {
         e.preventDefault();
         if (play) stop();
@@ -189,10 +234,7 @@ export default function AdventureView({
   const xp = useMemo(() => {
     if (!model) return 0;
     let total = 0;
-    for (const key of visited) {
-      const id = key.split(":")[1];
-      total += model.nodes.find((n) => n.id === id)?.xp ?? 0;
-    }
+    for (const key of visited) total += model.nodes.find((n) => n.id === key.split(":")[1])?.xp ?? 0;
     return total;
   }, [visited, model]);
 
@@ -204,26 +246,38 @@ export default function AdventureView({
     });
   }, [model]);
 
+  const chapters = useMemo(() => CHAPTERS.filter((c) => steps.some((s) => s.id === c.id)).map((c) => ({ ...c, status: steps.find((s) => s.id === c.id)?.status ?? "pending" })), [steps]);
+  const current = chapters.find((c) => c.status === "running") ?? chapters.find((c) => c.status === "pending") ?? null;
+  const dest = destination ?? model?.destination ?? null;
+  const city = model?.city || dest?.name || null;
+  const from = origin ?? model?.origin ?? null;
+
+  const pad = useMemo(() => (narrow ? { top: 150, right: 24, bottom: 220, left: 24 } : { top: 140, right: selected ? 420 : 60, bottom: 230, left: model?.taste ? 330 : 60 }), [narrow, selected, model?.taste]);
+
   if (ok === false) {
     return (
-      <div className="adv adv-fallback">
+      <div className={`eq eq-fallback${fullscreen ? " is-full" : ""}`}>
         <p>Your browser can't show the 3D map, so here's the classic view.</p>
-        {onClassic && <button type="button" onClick={onClassic}>Open classic view</button>}
+        {onClassic && <button type="button" className="eq-btn" onClick={onClassic}>Open classic view</button>}
       </div>
     );
   }
 
-  const listed = (model?.nodes ?? []).filter((n) => n.picked && (filter === "all" || n.kind === filter)).sort((a, b) => (b.match ?? 0) - (a.match ?? 0));
-  const recent = activity.filter((e) => e.kind === "act" || e.kind === "saw" || e.kind === "think").slice(-6);
-  const percent = tick.day === (typeof activeDay === "number" ? activeDay : -1) ? Math.round(tick.t * 100) : 0;
+  const strip = day
+    ? day.quests.map((q) => ({ key: `${day.day}:${q.order}`, time: q.time, title: q.title, node: model?.nodes.find((x) => x.id === q.nodeId) ?? null, seen: q.nodeId ? visited.has(`${day.day}:${q.nodeId}`) : false }))
+    : (model?.nodes ?? []).filter((n) => n.picked).sort((a, b) => (b.match ?? 0) - (a.match ?? 0)).map((n) => ({ key: n.id, time: null as string | null, title: n.name, node: n, seen: false }));
+  const percent = typeof activeDay === "number" && tick.day === activeDay ? tick.t : 0;
+  const matchPct = model?.stats.match ?? null;
 
   return (
-    <section className={`adv${ready ? " is-ready" : ""}`} aria-label="Adventure map">
-      <div className="adv-stage" onDoubleClick={home}>
-        <Quiet fallback={<div className="adv-fallback"><p>The 3D map couldn't start here.</p>{onClassic && <button type="button" onClick={onClassic}>Open classic view</button>}</div>}>
-          {ok && (
-            <World
+    <section className={`eq${fullscreen ? " is-full" : ""}${ready ? " is-ready" : ""}${play ? " is-flying" : ""}`} aria-label={city ? `Your trip to ${city}` : "Your trip"}>
+      <div className="eq-stage">
+        <Quiet fallback={<div className="eq-fallback"><p>The 3D map couldn&rsquo;t start here.</p>{onClassic && <button type="button" className="eq-btn" onClick={onClassic}>Open classic view</button>}</div>}>
+          {ok && mode === "earth" && (
+            <Earth
               model={model}
+              destination={dest}
+              origin={from}
               activeDay={activeDay}
               selectedId={selectedId}
               hoverId={hoverId}
@@ -234,187 +288,211 @@ export default function AdventureView({
               onArrive={onArrive}
               onDayDone={onDayDone}
               onTick={onTick}
-              labels={labels}
-              shared={shared}
               scanning={scanning}
               reduced={reduced}
               introKey={introKey}
+              homeKey={homeKey}
+              showTaste={showTaste}
+              pad={pad}
               onUserMove={onUserMove}
               onReady={() => setReady(true)}
             />
           )}
+          {ok && mode === "taste" && (
+            <>
+              <World model={model} activeDay={activeDay} selectedId={selectedId} hoverId={hoverId} onSelect={select} onHover={setHoverId} play={play} progress={progress} onArrive={onArrive} onDayDone={onDayDone} onTick={onTick} labels={labels} shared={shared} scanning={scanning} reduced={reduced} introKey={introKey} onUserMove={onUserMove} onReady={() => setReady(true)} />
+              <div className="adv-labels" aria-hidden="true">
+                {model?.nodes.map((n) => (
+                  <div key={n.id} className={`adv-label k-${n.kind}${selectedId === n.id ? " sel" : ""}`} ref={(el) => { if (el) labels.current.set(n.id, el); else labels.current.delete(n.id); }} style={{ ["--c" as string]: KIND_COLOR[n.kind] }}>
+                    <i />
+                    {n.name}
+                    {n.match != null && n.picked && <b>{pct(n.match)}</b>}
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
         </Quiet>
-        <div className="adv-labels" aria-hidden="true">
-          {model?.nodes.map((n) => (
-            <div key={n.id} className={`adv-label k-${n.kind}${selectedId === n.id ? " sel" : ""}`} ref={(el) => { if (el) labels.current.set(n.id, el); else labels.current.delete(n.id); }} style={{ ["--c" as string]: KIND_COLOR[n.kind] }}>
-              <i />
-              {n.name}
-              {n.match != null && n.picked && <b>{pct(n.match)}</b>}
-            </div>
-          ))}
-        </div>
-        <div className="adv-vignette" aria-hidden="true" />
+        <div className="eq-shade" aria-hidden="true" />
 
-        {/* top left: where you are */}
-        <header className="adv-title">
-          <span className="adv-eyebrow">{model?.sample ? "Sample data · " : ""}Adventure map</span>
-          <h2>{model?.city || model?.title || "Scanning the world…"}</h2>
-          {model?.title && model.city && <p>{model.title}</p>}
+        {/* where you're going */}
+        <header className="eq-head">
+          <a className="eq-home" href={homeHref} aria-label="Backline home">
+            <span aria-hidden="true">‹</span> Backline
+          </a>
+          <h1 className={city ? "" : "is-waiting"}>{city ? city.split(",")[0] : "Finding your destination"}</h1>
+          <p>
+            {model?.sample && <span className="eq-tag">Sample trip</span>}
+            {subtitle ?? (city && city.includes(",") ? city.split(",").slice(1).join(",").trim() : model?.title ?? "")}
+          </p>
         </header>
 
-        {/* top right: score */}
-        {model && (
-          <div className="adv-score" aria-label="Trip stats">
-            <div><b>{model.stats.picked}</b><span>quests</span></div>
-            <div><b>{model.stats.days || "–"}</b><span>days</span></div>
-            <div><b>{model.stats.km ? Math.round(model.stats.km) : "–"}</b><span>km</span></div>
-            <div className="hl"><b>{model.stats.match ?? "–"}{model.stats.match != null ? "%" : ""}</b><span>Qloo match</span></div>
-            <div className="xp"><b>{xp.toLocaleString("en")}</b><span>/ {model.stats.xp.toLocaleString("en")} XP</span><i style={{ width: `${model.stats.xp ? Math.min(100, (xp / model.stats.xp) * 100) : 0}%` }} /></div>
-          </div>
-        )}
+        {/* the score and the doors to everything else */}
+        <div className="eq-top">
+          {model && (
+            <div className="eq-score">
+              <svg viewBox="0 0 44 44" className="eq-dial" role="img" aria-label={matchPct != null ? `Qloo taste match ${matchPct} percent` : "No taste match yet"}>
+                <circle cx="22" cy="22" r="19" className="track" />
+                <circle cx="22" cy="22" r="19" className="val" style={{ strokeDasharray: `${((matchPct ?? 0) / 100) * 119.4} 200` }} />
+                <text x="22" y="23.5" textAnchor="middle" dominantBaseline="middle">{matchPct ?? "–"}</text>
+              </svg>
+              <div className="eq-score-txt">
+                <b>Qloo taste match</b>
+                <span>{model.stats.picked} places · {model.stats.days ? `${model.stats.days} days` : "plan coming"}{model.stats.km ? ` · ${Math.round(model.stats.km)} km` : ""}</span>
+                <span className="eq-xp" aria-label={`${xp} of ${model.stats.xp} points`}>
+                  <i style={{ width: `${model.stats.xp ? Math.min(100, (xp / model.stats.xp) * 100) : 0}%` }} />
+                </span>
+              </div>
+            </div>
+          )}
+          <nav className="eq-doors" aria-label="Trip">
+            <button type="button" className={sheet === "guide" ? "on" : ""} onClick={() => setSheet((s) => (s === "guide" ? null : "guide"))}>
+              Field guide{intelPending ? <span className="eq-dot" aria-label="still gathering" /> : null}
+            </button>
+            {book && (
+              <button type="button" className={sheet === "book" ? "on" : ""} onClick={() => setSheet((s) => (s === "book" ? null : "book"))}>
+                {bookLabel}
+              </button>
+            )}
+            {toolbar}
+          </nav>
+        </div>
 
-        {/* left: Qloo, king */}
-        {model?.taste && (
-          <aside className="adv-qloo">
-            <h3><span className="q-dot" aria-hidden="true" /> Powered by Qloo</h3>
-            {model.taste.signals.length > 0 && <p className="q-sig">Because you love <b>{model.taste.signals.join(", ")}</b></p>}
-            <svg viewBox="-72 -66 144 132" className="q-radar" role="img" aria-label="Taste match by category">
+        {/* Qloo: the reason for every pick */}
+        {model?.taste && !narrow && (
+          <aside className="eq-qloo" aria-label="Your taste, from Qloo">
+            <h2><span className="eq-q" aria-hidden="true" />Your taste, by Qloo</h2>
+            {model.taste.signals.length > 0 && <p className="eq-sig">Because you love {model.taste.signals.slice(0, 4).join(", ")}</p>}
+            <svg viewBox="-72 -66 144 132" className="eq-radar" role="img" aria-label="How well each kind of place matches your taste">
               {[0.33, 0.66, 1].map((s) => <polygon key={s} points={matchByKind.map((_, i) => ring(i, matchByKind.length, 46 * s)).join(" ")} />)}
-              {matchByKind.map((_, i) => <line key={i} x1="0" y1="0" x2={ring(i, matchByKind.length, 46).split(",")[0]} y2={ring(i, matchByKind.length, 46).split(",")[1]} />)}
-              <polygon className="q-fill" points={matchByKind.map((m, i) => ring(i, matchByKind.length, 6 + 40 * m.v)).join(" ")} />
+              {matchByKind.map((_, i) => { const [x, y] = ring(i, matchByKind.length, 46).split(","); return <line key={i} x1="0" y1="0" x2={x} y2={y} />; })}
+              <polygon className="fill" points={matchByKind.map((m, i) => ring(i, matchByKind.length, 6 + 40 * m.v)).join(" ")} />
               {matchByKind.map((m, i) => {
-                const [x, y] = ring(i, matchByKind.length, 56).split(",").map(Number);
+                const [x, y] = ring(i, matchByKind.length, 57).split(",").map(Number);
                 return <text key={m.k} x={x} y={y} textAnchor="middle" dominantBaseline="middle">{KIND_LABEL[m.k as NodeKind].split(" ")[0]}</text>;
               })}
             </svg>
-            <div className="q-tags">
-              {[...model.taste.vibes.slice(0, 3), ...model.taste.scenes.slice(0, 2), ...model.taste.dishes.slice(0, 3)].map((t) => <span key={t}>{t}</span>)}
-            </div>
-            {model.zone?.name && <p className="q-zone"><i aria-hidden="true" /> Hottest zone: <b>{model.zone.name}</b></p>}
+            {[...model.taste.vibes.slice(0, 3), ...model.taste.dishes.slice(0, 3)].length > 0 && (
+              <ul className="eq-tags">
+                {[...model.taste.vibes.slice(0, 3), ...model.taste.scenes.slice(0, 2), ...model.taste.dishes.slice(0, 3)].map((t) => <li key={t}>{t}</li>)}
+              </ul>
+            )}
+            {model.zone?.name && <p className="eq-zone">Your taste peaks around <b>{model.zone.name}</b></p>}
+            {model.taste.alsoLoved.length > 0 && <p className="eq-also">Fans like you also love {model.taste.alsoLoved.slice(0, 3).join(", ")}</p>}
+            <label className="eq-switch">
+              <input type="checkbox" checked={showTaste} onChange={(e) => setShowTaste(e.target.checked)} />
+              <span aria-hidden="true" /> Show taste on the map
+            </label>
           </aside>
         )}
 
-        {/* the agent at work */}
-        {scanning && (
-          <aside className="adv-scan" aria-live="polite">
-            <h3><span className="pulse" aria-hidden="true" /> Agent online</h3>
-            <ul className="scan-steps">
-              {steps.filter((s) => SCAN_LABEL[s.id]).map((s) => (
-                <li key={s.id} className={`st-${s.status}`}>
-                  <i aria-hidden="true" />
-                  {SCAN_LABEL[s.id]}
-                </li>
-              ))}
-            </ul>
-            <ol className="scan-feed">
-              {recent.map((e, i) => (
-                <li key={i} className={`k-${e.kind}${e.ok === false ? " bad" : ""}`}>{e.text}</li>
-              ))}
-            </ol>
-          </aside>
-        )}
+        {/* the place you're looking at */}
+        {selected && <PlaceCard key={selected.id} node={selected} onClose={() => setSelectedId(null)} city={city} />}
 
-        {/* the quest card */}
-        {selected && <QuestCard key={selected.id} node={selected} onClose={() => setSelectedId(null)} routesDays={selected.visits.map((v) => v.day)} />}
-
-        {/* toasts */}
-        <div className="adv-toasts" aria-live="polite">
+        {/* arrivals */}
+        <div className="eq-toasts" aria-live="polite">
           {toasts.map((t) => (
-            <div key={t.id} className="adv-toast">
-              {t.text}
-              {t.xp ? <b>+{t.xp} XP</b> : null}
+            <div key={t.id} className="eq-toast">
+              <b>{t.text}</b>
+              {t.sub && <span>{t.sub}</span>}
+              {t.xp ? <em>+{t.xp}</em> : null}
             </div>
           ))}
         </div>
 
         {done && (
-          <div className="adv-done" role="status">
-            <b>Trip complete</b>
-            <span>{model?.stats.picked} quests · {model?.stats.km ? Math.round(model.stats.km) : 0} km · {xp.toLocaleString("en")} XP</span>
-            <button type="button" onClick={() => setDone(false)}>Nice</button>
+          <div className="eq-done" role="status">
+            <h2>That&rsquo;s the trip</h2>
+            <p>{model?.stats.picked} places across {model?.stats.days} days, {model?.stats.km ? `${Math.round(model.stats.km)} km` : "on foot and by ride"}.</p>
+            <div>
+              {book && <button type="button" className="eq-btn gold" onClick={() => { setDone(false); setSheet("book"); }}>Open the trip book</button>}
+              <button type="button" className="eq-btn" onClick={() => setDone(false)}>Keep exploring</button>
+            </div>
           </div>
         )}
 
-        {!ready && ok && <div className="adv-boot" aria-hidden="true"><span>Booting the map…</span></div>}
-        {note && <p className="adv-note">{note}</p>}
-      </div>
+        {!ready && ok && <div className="eq-boot" aria-hidden="true"><span /></div>}
+        {note && <p className="eq-note">{note}</p>}
+        {overlay && <div className="eq-overlay">{overlay}</div>}
 
-      {/* bottom: days and controls */}
-      <div className="adv-bar">
-        <div className="adv-days" role="tablist" aria-label="Days">
-          <button role="tab" aria-selected={activeDay === "all"} className={activeDay === "all" ? "on" : ""} onClick={() => { setActiveDay("all"); stop(); progress.current = { day: -1, t: 0 }; }}>
-            All days
-          </button>
-          {routes.map((r) => (
-            <button key={r.day} role="tab" aria-selected={activeDay === r.day} className={activeDay === r.day ? "on" : ""} style={{ ["--c" as string]: r.color }} onClick={() => { setActiveDay(r.day); stop(); progress.current = { day: r.day, t: 0 }; setTick({ day: r.day, t: 0 }); }}>
-              <i /> Day {r.day + 1}
-              <small>{r.label}</small>
-            </button>
-          ))}
-        </div>
-        <div className="adv-actions">
-          {routes.length > 0 && (
-            <button type="button" className={`fly${play ? " on" : ""}`} onClick={play ? stop : start}>
-              {play ? `■ Stop · ${percent}%` : done ? "▶ Fly it again" : "▶ Fly the trip"}
-            </button>
+        {/* bottom: the agent at work, then the days to fly */}
+        <div className="eq-dock">
+          {scanning && (
+            <div className="eq-mission" aria-live="polite">
+              <p className="eq-doing">{!chapters.length ? "Reading your request" : current ? (current.id === "trip.agent" && city ? `Scouting ${city.split(",")[0]} for places your taste points to` : current.doing) : "Finishing up"}</p>
+              {chapters.length > 0 && <ol className="eq-chapters">
+                {chapters.map((c) => (
+                  <li key={c.id} className={`is-${c.status}`}>
+                    <i aria-hidden="true" />
+                    <span>{c.label}</span>
+                  </li>
+                ))}
+              </ol>}
+            </div>
           )}
-          <button type="button" onClick={home} title="Back to the overview (double-click the map)">⌖ Overview</button>
-          <button type="button" onClick={() => setIntroKey((k) => k + 1)} title="Replay the dive in">↻</button>
-          <button type="button" className={guide ? "on" : ""} onClick={() => setGuide((g) => !g)}>
-            ✦ Field guide{intelPending ? "…" : ""}
-          </button>
-          {onClassic && <button type="button" onClick={onClassic}>Classic view</button>}
-        </div>
-      </div>
 
-      {/* quest log for the active day, or everything */}
-      <div className="adv-log">
-        <div className="adv-filter" role="group" aria-label="Filter places">
-          {(["all", "stay", "dine", "venue", "activity", "landmark"] as const).map((k) => (
-            <button key={k} className={filter === k ? "on" : ""} style={k === "all" ? undefined : { ["--c" as string]: KIND_COLOR[k] }} onClick={() => setFilter(k)}>
-              {k === "all" ? "Everything" : KIND_LABEL[k]}
-            </button>
-          ))}
-        </div>
-        {day ? (
-          <ol className="adv-quests">
-            {day.quests.map((q, i) => {
-              const n = model?.nodes.find((x) => x.id === q.nodeId) ?? null;
-              const seen = visited.has(`${day.day}:${q.nodeId}`);
-              return (
-                <li key={i} className={`${seen ? "seen" : ""}${n && selectedId === n.id ? " sel" : ""}`}>
-                  <button type="button" disabled={!n} onClick={() => n && select(n.id)} style={{ ["--c" as string]: n ? KIND_COLOR[n.kind] : "#8fa3ff" }}>
-                    <time>{q.time}</time>
-                    <span>{q.title}</span>
-                    {n?.match != null && <b>{pct(n.match)}%</b>}
+          {strip.length > 0 && (
+            <ol className={`eq-strip${day ? " is-day" : ""}`} aria-label={day ? `Day ${day.day + 1} stops` : "Places picked for you"}>
+              {strip.map((s) => (
+                <li key={s.key} className={`${s.seen ? "seen" : ""}${s.node && selectedId === s.node.id ? " sel" : ""}`}>
+                  <button type="button" disabled={!s.node} onClick={() => s.node && select(s.node.id)} onMouseEnter={() => s.node && setHoverId(s.node.id)} onMouseLeave={() => setHoverId(null)} style={{ ["--c" as string]: s.node ? KIND_COLOR[s.node.kind] : "#9fb2d9" }}>
+                    {s.time ? <time>{s.time}</time> : <small>{s.node ? KIND_LABEL[s.node.kind] : ""}</small>}
+                    <span>{s.title}</span>
+                    {s.node?.match != null && <b>{pct(s.node.match)}%</b>}
                   </button>
-                  {q.note && <p>{q.note}</p>}
                 </li>
-              );
-            })}
-          </ol>
-        ) : (
-          <ul className="adv-cards">
-            {listed.map((n) => (
-              <li key={n.id}>
-                <button type="button" className={selectedId === n.id ? "sel" : ""} style={{ ["--c" as string]: KIND_COLOR[n.kind] }} onClick={() => select(n.id)} onMouseEnter={() => setHoverId(n.id)} onMouseLeave={() => setHoverId(null)}>
-                  <small>{KIND_LABEL[n.kind]}</small>
-                  <span>{n.name}</span>
-                  {n.match != null && <i style={{ ["--w" as string]: `${pct(n.match)}%` }}><b>{pct(n.match)}%</b></i>}
+              ))}
+            </ol>
+          )}
+
+          {(routes.length > 0 || model) && (
+            <div className="eq-bar">
+              {routes.length > 0 && (
+                <button type="button" className={`eq-play${play ? " on" : ""}`} onClick={play ? stop : start} aria-label={play ? "Stop" : "Fly the trip"}>
+                  <span aria-hidden="true">{play ? "❚❚" : "▶"}</span>
+                  <em>{play ? "Pause" : done ? "Fly it again" : "Fly the trip"}</em>
                 </button>
-              </li>
-            ))}
-            {listed.length === 0 && <li className="adv-empty">{scanning ? "Places appear here as the agent finds them." : "Nothing here yet."}</li>}
-          </ul>
+              )}
+              <div className="eq-days" role="tablist" aria-label="Days">
+                <button role="tab" aria-selected={activeDay === "all"} className={activeDay === "all" ? "on" : ""} onClick={() => { setActiveDay("all"); stop(); progress.current = { day: -1, t: 0 }; home(); }}>
+                  Overview
+                </button>
+                {routes.map((r) => (
+                  <button key={r.day} role="tab" aria-selected={activeDay === r.day} className={activeDay === r.day ? "on" : ""} style={{ ["--c" as string]: r.color }} onClick={() => { setActiveDay(r.day); stop(); progress.current = { day: r.day, t: 0 }; setTick({ day: r.day, t: 0 }); }}>
+                    <span>Day {r.day + 1}</span>
+                    <small>{r.label}</small>
+                    {activeDay === r.day && (
+                      <i className="eq-track" aria-hidden="true">
+                        <i style={{ width: `${percent * 100}%` }} />
+                        {r.stops.map((s, i) => <b key={i} style={{ left: `${s.at * 100}%` }} className={visited.has(`${r.day}:${s.nodeId}`) ? "seen" : ""} />)}
+                      </i>
+                    )}
+                  </button>
+                ))}
+              </div>
+              <div className="eq-tools">
+                <button type="button" onClick={home} title="See the whole trip">Whole trip</button>
+                <button type="button" onClick={() => setIntroKey((k) => k + 1)} title="Fly in from home again">Fly in again</button>
+                <button type="button" onClick={() => setMode((m) => (m === "earth" ? "taste" : "earth"))} title="Switch between the real city and the taste map">{mode === "earth" ? "Taste map" : "Real world"}</button>
+                {onClassic && <button type="button" onClick={onClassic}>Classic view</button>}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {sheet === "guide" && (
+          <div className="eq-sheet dark" role="dialog" aria-label="Field guide">
+            <button type="button" className="eq-x" onClick={() => setSheet(null)} aria-label="Close field guide">×</button>
+            <Codex intel={model?.intel ?? null} travel={model?.travel ?? null} pending={intelPending} />
+          </div>
+        )}
+        {sheet === "book" && book && (
+          <div className="eq-sheet paper" role="dialog" aria-label={bookLabel}>
+            <button type="button" className="eq-x" onClick={() => setSheet(null)} aria-label={`Close ${bookLabel}`}>×</button>
+            {book}
+          </div>
         )}
       </div>
-
-      {guide && (
-        <div className="adv-guide">
-          <button type="button" className="adv-guide-x" onClick={() => setGuide(false)} aria-label="Close field guide">×</button>
-          <Codex intel={model?.intel ?? null} travel={model?.travel ?? null} pending={intelPending} />
-        </div>
-      )}
     </section>
   );
 }
@@ -424,33 +502,49 @@ function ring(i: number, n: number, r: number): string {
   return `${(Math.cos(a) * r).toFixed(1)},${(Math.sin(a) * r).toFixed(1)}`;
 }
 
-function QuestCard({ node, onClose, routesDays }: { node: QuestNode; onClose: () => void; routesDays: number[] }) {
+function PlaceCard({ node, onClose, city }: { node: QuestNode; onClose: () => void; city: string | null }) {
   const p = node.place;
   const m = pct(node.match);
-  const link = p?.website ?? p?.sources?.[0]?.url ?? null;
+  const site = p?.website ?? null;
+  const source = p?.sources?.[0]?.url ?? null;
+  const q = encodeURIComponent([node.name, p?.address ?? city ?? ""].filter(Boolean).join(", "));
+  const street = `https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${node.lat},${node.lon}`;
+  const directions = `https://www.google.com/maps/dir/?api=1&destination=${node.lat},${node.lon}`;
+  const maps = `https://www.google.com/maps/search/?api=1&query=${q}`;
   return (
-    <aside className="adv-card" style={{ ["--c" as string]: KIND_COLOR[node.kind] }}>
-      <button type="button" className="adv-card-x" onClick={onClose} aria-label="Close">×</button>
-      <small className="kind">{KIND_NOUN[node.kind]}</small>
+    <aside className="eq-card" style={{ ["--c" as string]: KIND_COLOR[node.kind] }} aria-label={node.name}>
+      <button type="button" className="eq-x" onClick={onClose} aria-label="Close">×</button>
+      {p?.image && <div className="eq-card-img" style={{ backgroundImage: `url("${p.image.replace(/["\\]/g, "")}")` }} role="img" aria-label={node.name} />}
+      <small className="eq-kind">{KIND_NOUN[node.kind]}</small>
       <h3>{node.name}</h3>
       {m != null && (
-        <div className="match" aria-label={`Qloo match ${m} percent`}>
+        <div className="eq-match" aria-label={`Qloo taste match ${m} percent`}>
           <div><i style={{ width: `${m}%` }} /></div>
-          <span><b>{m}%</b> Qloo match{node.fromQloo ? "" : " (estimated)"}</span>
+          <span><b>{m}%</b> taste match{node.fromQloo ? ", from Qloo" : ", estimated"}</span>
         </div>
       )}
-      {p?.why?.length ? <ul className="why">{p.why.slice(0, 4).map((w, i) => <li key={i}>{w}</li>)}</ul> : null}
+      {p?.why?.length ? <ul className="eq-why">{p.why.slice(0, 4).map((w, i) => <li key={i}>{w}</li>)}</ul> : null}
       <dl>
-        {p?.address && (<><dt>Where</dt><dd>{p.address}</dd></>)}
-        {p?.rating != null && (<><dt>Rating</dt><dd>{p.rating.toFixed(1)} / 5</dd></>)}
+        {p?.address && (<><dt>Address</dt><dd>{p.address}</dd></>)}
+        {p?.rating != null && (<><dt>Rating</dt><dd>{p.rating.toFixed(1)} out of 5</dd></>)}
         {p?.priceNote && (<><dt>Price</dt><dd>{p.priceNote}</dd></>)}
-        {routesDays.length > 0 && (<><dt>On your trip</dt><dd>{node.visits.map((v) => `Day ${v.day + 1} · ${v.time}`).join(", ")}</dd></>)}
+        {node.visits.length > 0 && (<><dt>When</dt><dd>{node.visits.map((v) => `Day ${v.day + 1}, ${v.time}`).join(" · ")}</dd></>)}
       </dl>
-      {node.visits.some((v) => v.note) && <p className="vnote">{node.visits.find((v) => v.note)?.note}</p>}
-      <footer>
-        <span className="xp">+{node.xp} XP</span>
-        {link && <a href={link} target="_blank" rel="noreferrer noopener">Open ↗</a>}
-      </footer>
+      {node.visits.find((v) => v.note)?.note && <p className="eq-vnote">{node.visits.find((v) => v.note)!.note}</p>}
+      <div className="eq-card-acts">
+        <a href={street} target="_blank" rel="noreferrer noopener" className="eq-btn gold">Look around</a>
+        <a href={directions} target="_blank" rel="noreferrer noopener" className="eq-btn">Directions</a>
+        <a href={site ?? maps} target="_blank" rel="noreferrer noopener" className="eq-btn">{site ? "Website" : "On Google Maps"}</a>
+      </div>
+      {source && !site && <p className="eq-src">Found via <a href={source} target="_blank" rel="noreferrer noopener">{hostOf(source)}</a></p>}
     </aside>
   );
 }
+
+const hostOf = (u: string) => {
+  try {
+    return new URL(u).hostname.replace(/^www\./, "");
+  } catch {
+    return "source";
+  }
+};

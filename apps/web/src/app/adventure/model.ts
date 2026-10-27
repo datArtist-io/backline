@@ -5,9 +5,9 @@ import type { Place, TasteOutput, TripAgentOutput, TripIntelOutput, TripPlanOutp
 
 export type NodeKind = "stay" | "dine" | "venue" | "activity" | "landmark" | "stop";
 
-export const KIND_LABEL: Record<NodeKind, string> = { stay: "Base camp", dine: "Feast", venue: "Main stage", activity: "Discovery", landmark: "Landmark", stop: "Waypoint" };
+export const KIND_LABEL: Record<NodeKind, string> = { stay: "Stay", dine: "Eat & drink", venue: "Venue", activity: "Experiences", landmark: "Landmark", stop: "Stop" };
 export const KIND_NOUN: Record<NodeKind, string> = { stay: "Where you'll stay", dine: "Where you'll eat", venue: "Where you'll host it", activity: "Thing to do", landmark: "Landmark", stop: "Stop" };
-export const KIND_COLOR: Record<NodeKind, string> = { stay: "#38d3ff", dine: "#ffb547", venue: "#ff4fa3", activity: "#9b7bff", landmark: "#ffe08a", stop: "#8fa3ff" };
+export const KIND_COLOR: Record<NodeKind, string> = { stay: "#7cc4ff", dine: "#ffbe5c", venue: "#ff8a5b", activity: "#b39dff", landmark: "#eaf2ff", stop: "#9fb2d9" };
 export const DAY_COLORS = ["#38d3ff", "#ff4fa3", "#ffb547", "#9b7bff", "#6dffb2", "#ff7a59", "#f0f4ff"];
 
 export type Visit = { day: number; order: number; time: string; note: string | null };
@@ -41,6 +41,8 @@ export type DayRoute = {
   color: string;
   /** The line to fly: [x, z] pairs in world units. */
   path: [number, number][];
+  /** The same line on the real map: [lon, lat] pairs. */
+  geo: [number, number][];
   /** Where each stop sits along the path, 0–1, in visiting order. */
   stops: { nodeId: string; at: number }[];
   km: number | null;
@@ -48,7 +50,7 @@ export type DayRoute = {
   quests: Quest[];
 };
 
-export type HeatPoint = { x: number; z: number; w: number };
+export type HeatPoint = { x: number; z: number; w: number; lat: number; lon: number };
 
 export type AdventureModel = {
   title: string;
@@ -57,7 +59,12 @@ export type AdventureModel = {
   nodes: QuestNode[];
   routes: DayRoute[];
   heat: HeatPoint[];
-  zone: { x: number; z: number; r: number; name: string | null } | null;
+  zone: { x: number; z: number; r: number; name: string | null; lat: number; lon: number; km: number } | null;
+  /** The centre of the play area on the real map. */
+  center: { lat: number; lon: number };
+  /** Home and the destination city, when known, for the journey in. */
+  origin: { name: string; lat: number; lon: number } | null;
+  destination: { name: string; lat: number; lon: number } | null;
   /** Half the size of the play area, in world units. */
   extent: number;
   /** World units per kilometre. */
@@ -207,6 +214,7 @@ export function buildAdventure(src: AdventureSource): AdventureModel | null {
     });
     const rd = src.routes?.days.find((d) => d.index === di) ?? null;
     const visited = quests.flatMap((q) => (q.nodeId ? [byId.get(q.nodeId)!] : [])).filter((n, i, arr) => i === 0 || arr[i - 1].id !== n.id);
+    const roadGeo: [number, number][] = (rd?.path ?? []).map(([lat, lon]) => [lon, lat]);
     const roadPath = (rd?.path ?? []).map(([lat, lon]) => toWorld(lat, lon));
     const path: [number, number][] = roadPath.length >= 2 ? roadPath : visited.map((n) => [n.x, n.z] as [number, number]);
     const idx = pathIndex(path);
@@ -218,16 +226,17 @@ export function buildAdventure(src: AdventureSource): AdventureModel | null {
     });
     // Without a road path the stops are the path's own vertices: spread them evenly by distance.
     const evenStops = roadPath.length < 2 && idx.total > 0 ? visited.map((n, i) => ({ nodeId: n.id, at: idx.cum[i] / idx.total })) : stops;
-    routes.push({ day: di, label: day.label, date: day.date, color: DAY_COLORS[di % DAY_COLORS.length], path, stops: evenStops, km: rd?.km ?? null, minutes: rd?.minutes ?? null, quests });
+    const geo: [number, number][] = roadGeo.length >= 2 ? roadGeo : visited.map((n) => [n.lon, n.lat] as [number, number]);
+    routes.push({ day: di, label: day.label, date: day.date, color: DAY_COLORS[di % DAY_COLORS.length], path, geo, stops: evenStops, km: rd?.km ?? null, minutes: rd?.minutes ?? null, quests });
   });
 
   const heat: HeatPoint[] = heatRaw.map(([lat, lon, w]) => {
     const [x, z] = toWorld(lat, lon);
-    return { x, z, w: Math.max(0, Math.min(1, w)) };
+    return { x, z, w: Math.max(0, Math.min(1, w)), lat, lon };
   });
   const zone = taste?.zone ? (() => {
     const [x, z] = toWorld(taste.zone.lat, taste.zone.lon);
-    return { x, z, r: Math.max(3, Math.min(14, taste.zone.radiusKm * scale)), name: taste.zone.name };
+    return { x, z, r: Math.max(3, Math.min(14, taste.zone.radiusKm * scale)), name: taste.zone.name, lat: taste.zone.lat, lon: taste.zone.lon, km: taste.zone.radiusKm };
   })() : null;
 
   const pickedNodes = nodes.filter((n) => n.picked && n.place);
@@ -243,6 +252,9 @@ export function buildAdventure(src: AdventureSource): AdventureModel | null {
     heat,
     zone,
     extent: HALF_WORLD * 1.25,
+    center: { lat: lat0, lon: lon0 },
+    origin: src.travel?.from && src.travel.origin ? { name: src.travel.origin, ...src.travel.from } : null,
+    destination: a.where.city ? { name: a.where.city.display ?? a.where.city.name, lat: a.where.city.lat, lon: a.where.city.lon } : src.travel?.to && src.travel.destination ? { name: src.travel.destination, ...src.travel.to } : null,
     scale,
     taste: taste && (taste.signals.length || taste.tags.length || taste.vibes.length)
       ? { signals: [...taste.signals.map((s) => s.name), ...taste.tags.map((t) => t.name)].slice(0, 6), vibes: taste.vibes, scenes: taste.scenes, dishes: taste.dishes, audience: taste.audience, alsoLoved: taste.alsoLoved.map((x) => x.name).slice(0, 4) }
