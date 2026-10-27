@@ -9,6 +9,7 @@ import PromptBar from "./PromptBar";
 import Capabilities from "./Capabilities";
 import RecentSearches from "./RecentSearches";
 import TryPrompts from "./TryPrompts";
+import { useMe } from "@/lib/auth-client";
 import GlassFilter from "./GlassFilter";
 import { Logo } from "./Logo";
 import { BRAND } from "@/lib/brand";
@@ -18,6 +19,7 @@ import type { DocumentText } from "@backline/engine";
 
 export default function Landing() {
   const router = useRouter();
+  const { me, ready: meReady, configured: signInOn } = useMe();
   const [mode, setMode] = useState<Autonomy>("auto");
   const [launching, setLaunching] = useState(false);
 
@@ -31,11 +33,13 @@ export default function Landing() {
     (text: string, docs: DocumentText[]) => {
       setLaunching(true);
       const key = saveDocs(docs);
-      const url = `/mission?${new URLSearchParams({ ...(text ? { goal: text } : {}), mode, ...(key ? { docs: key } : {}) })}`;
+      const mission = `/mission?${new URLSearchParams({ ...(text ? { goal: text } : {}), mode, ...(key ? { docs: key } : {}) })}`;
+      // Signed out: sign in first (calls, payments and memory need an account), then straight into the trip.
+      const url = signInOn && meReady && !me ? `/signin?${new URLSearchParams({ next: mission })}` : mission;
       const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
       setTimeout(() => router.push(url), reduce ? 0 : 420);
     },
-    [router, mode]
+    [router, mode, me, meReady, signInOn]
   );
 
   return (
