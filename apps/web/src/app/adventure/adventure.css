@@ -647,3 +647,23 @@ button:hover .ki-stop .ki-plane, .eq-card:hover .ki-stop .ki-plane { animation: 
   .eq-time.is-open .eq-scrub { position: fixed; left: 12px; right: 12px; top: 60px; width: auto; }
   .eq-qloo { top: auto; bottom: 150px; left: 12px; right: 12px; width: auto; max-height: 34svh; }
 }
+
+/* ---- Prompts and checkpoints over the map: light paper with dark ink, in either theme ---- */
+.eq .eq-overlay, .eq[data-theme="dark"] .eq-overlay {
+  --ink: #10132b; --ink-soft: #4a4f6e; --ink-faint: #6b7090;
+  color-scheme: light; color: #10132b;
+  background: rgba(9, 10, 24, 0.45);
+}
+.eq .eq-ask > .lg, .eq .eq-ask > section, .eq .eq-ask > div {
+  color: #10132b;
+  background: linear-gradient(180deg, #ffffff, #f7f7fb);
+  box-shadow: 0 0 0 1px rgba(16, 19, 43, 0.06), 0 40px 90px -30px rgba(0, 0, 0, 0.65);
+}
+.eq .eq-ask .cp-title, .eq .eq-ask h2, .eq .eq-ask .cp-label, .eq .eq-ask b, .eq .eq-ask strong { color: #10132b; }
+.eq .eq-ask p, .eq .eq-ask .cp-detail, .eq .eq-ask small { color: #3d4263; }
+.eq .eq-ask input, .eq .eq-ask textarea { color: #10132b; background: #fff; }
+.eq .eq-ask input::placeholder { color: #8a8fa8; }
+@media (max-width: 860px) {
+  .eq-overlay { padding: 12px; align-items: end; }
+  .eq-overlay > * { max-height: calc(100svh - 24px); }
+}
