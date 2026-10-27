@@ -124,6 +124,9 @@ All keys are server-side except those prefixed `NEXT_PUBLIC_`.
 | `VAPI_API_KEY`, `VAPI_PHONE_NUMBER_ID`, `VAPI_MODEL` | Voice calls | For calls |
 | `CALL_DEMO_TO` | Demo line (§7.3), E.164 | Recommended for demos |
 | `CALLS_LIVE` | `1` permits calls to real businesses (§7.4) | Off |
+| `PERSONA_API_KEY` | Persona server key (§18) | For identity checks |
+| `NEXT_PUBLIC_PERSONA_TEMPLATE_ID` | Persona inquiry template (`itmpl_…`) | For identity checks |
+| `NEXT_PUBLIC_PERSONA_ENVIRONMENT_ID` | Persona environment (`env_…`); sandbox when absent | Optional |
 | `RUN_SEAL_KEY` | Key for sealing approved plans (§7.5); falls back to the Supabase secret | Recommended |
 | `TRAVEL_DOCS_KEY` | Passport encryption (32 bytes, base64) | For flights |
 | Supabase variables | Sign-in, accounts, trips | For accounts |
@@ -162,3 +165,27 @@ The checks run against live Missions, their findings and the resulting fixes are
 15.4 Before a website is opened for booking, the server checks it: public address only (private and loopback addresses are refused, redirects re-checked), the page answers, and it is not parked or an error page. A slow site is reported as unconfirmed, not dead.
 
 15.5 A site that permits framing opens inside Backline's mini browser; one that forbids it (X-Frame-Options or CSP frame-ancestors) opens in a small window beside the trip.
+
+## 16. Demo calling, one call at a time
+
+16.1 With live calling off (the default), every booking call rings the signed-in person's own phone (saved in their details or entered at approval); they play the business. In demo mode every reservation gets a call, even where the business lists no number.
+
+16.2 Calls ring one at a time in plan order. Up to six meals across the trip are reserved, plus the hotel where a call applies.
+
+16.3 Each call is tuned for real phone lines (accent-robust transcription, quick turn-taking, 30 s silence allowance) and captures what was agreed as data: confirmed, date, time, party size, name, reference, notes. A confirmed call shows a reservation card; a "fully booked" answer or a call that doesn't connect moves on to Qloo's next best place of the same kind, up to three, then to the website.
+
+16.4 Demo calls are capped per person per day.
+
+## 17. Backline Wallet (test funds)
+
+17.1 Each person has a ledger (`wallet_entries`, migration 0006). They can read it; every change goes through database functions that check the caller, cap top-ups ($1,000 at a time, $2,000 a day) and check the balance under a per-person lock.
+
+17.2 A paid booking holds the amount (converted to US dollars at the day's rate), pays the provider, then captures the hold on confirmation or releases it on failure. Insufficient funds stop the booking with a message to top up; nothing is paid.
+
+17.3 All funds are test funds. No real money moves.
+
+## 18. Identity checks (Persona)
+
+18.1 When `PERSONA_API_KEY` and `NEXT_PUBLIC_PERSONA_TEMPLATE_ID` are set, paid bookings (flights, hotel rooms) wait until the traveller is verified.
+
+18.2 Verification runs in Persona's embedded flow with the account id as the reference. The server records the inquiry id only after confirming with Persona's API that the inquiry was made for this account, and reads the result from Persona each time (cached for one minute). The browser's word is never trusted.

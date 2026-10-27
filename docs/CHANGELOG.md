@@ -3,6 +3,10 @@
 ## 2026-10-27
 
 ### Execution
+- Demo calls ring each signed-in person's own phone; every reservation across the days, one call at a time; agreed details captured as a reservation card; "fully booked" or no connection moves on to Qloo's next best.
+- Backline Wallet (test funds) with database-checked holds and captures for hotel and flight payments.
+- Identity checks with Persona; paid bookings wait for a verified traveller.
+- Home page example requests.
 - Review before booking: swap (Qloo's next best first) or remove any stop, or describe a change; only the plan is rewritten, in seconds; nothing is booked until "Review & book".
 - Calls report a plain outcome, retry once automatically, then offer the website, email or calling yourself; other bookings carry on.
 - Mini browser for website bookings, after a live check of the site (public hosts only).

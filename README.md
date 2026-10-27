@@ -81,6 +81,7 @@ npm run dev                                  # http://localhost:3000
 | `RESEND_API_KEY`, `ACTIONS_FROM_EMAIL` | Emails the agent sends for you (plans, confirmations, restaurant requests); sender must be on a domain verified in Resend |
 | `VAPI_API_KEY`, `VAPI_PHONE_NUMBER_ID`, `VAPI_MODEL` | Outbound AI phone calls through Vapi (imported Telnyx number). Without them the agent writes the call script for you |
 | `CALL_DEMO_TO` | Demo line (E.164). When set, every booking call rings this number instead of the business |
+| `PERSONA_API_KEY`, `NEXT_PUBLIC_PERSONA_TEMPLATE_ID`, `NEXT_PUBLIC_PERSONA_ENVIRONMENT_ID` | Identity checks with Persona; paid bookings wait for a verified traveller |
 | `CALLS_LIVE` | `1` lets AI calls reach real businesses. Off by default: without it and without a demo line, no business is ever dialled |
 | `NEXT_PUBLIC_GOOGLE_MAPS_KEY` | Optional Photoreal mode: Google Photorealistic 3D Tiles (Map Tiles API), restricted by website |
 | `UBER_CLIENT_ID`, `UBER_CLIENT_SECRET`, `UBER_SCOPE`, `UBER_ENV` | Optional live Uber price estimates. Used only when `UBER_ENV=production`; otherwise ride fares come from published rates |
