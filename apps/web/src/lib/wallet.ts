@@ -25,15 +25,20 @@ const rpc = <T>(s: Session, fn: string, body: Record<string, unknown> = {}) => r
 /** The balance (US cents) and the latest entries; ready is false until the migration has run. */
 export async function loadWallet(s: Session, currency = "USD"): Promise<Wallet> {
   try {
-    // First open: the $20,000 welcome balance (granted once, in the database).
-    await rpc<number>(s, "wallet_welcome").catch(() => undefined);
-    const per = currency === "USD" ? 1 : ((await usdRates())?.[currency] ?? null);
-    const shown = per ? currency : "USD";
-    const [balance, entries] = await Promise.all([
-      rpc<number>(s, "wallet_balance"),
-      rest<WalletEntry[]>(s.cfg, s.accessToken, "wallet_entries?select=id,kind,status,amount_minor,original_amount,original_currency,label,ref,details,created_at&order=created_at.desc&limit=50"),
-    ]);
-    return { ready: true, balance: Number(balance) || 0, entries, currency: shown, perUsd: per ?? 1, rates: (await usdRates()) ?? { USD: 1 } };
+    // Balance, activity and exchange rates all at once; the rates are cached, so this is one round trip.
+    const ledger = () =>
+      Promise.all([
+        rpc<number>(s, "wallet_balance"),
+        rest<WalletEntry[]>(s.cfg, s.accessToken, "wallet_entries?select=id,kind,status,amount_minor,original_amount,original_currency,label,ref,details,created_at&order=created_at.desc&limit=50"),
+      ]);
+    let [[balance, entries], rates] = await Promise.all([ledger(), usdRates()]);
+    // First open: the $20,000 welcome balance (granted once, in the database), then read again.
+    if (!entries.length) {
+      await rpc<number>(s, "wallet_welcome").catch(() => undefined);
+      [balance, entries] = await ledger();
+    }
+    const per = currency === "USD" ? 1 : (rates?.[currency] ?? null);
+    return { ready: true, balance: Number(balance) || 0, entries, currency: per ? currency : "USD", perUsd: per ?? 1, rates: rates ?? { USD: 1 } };
   } catch (err) {
     if (/404|PGRST202|PGRST205|does not exist/i.test(String(err))) return { ready: false, balance: 0, entries: [], currency: "USD", perUsd: 1, rates: { USD: 1 } };
     throw err;
@@ -49,7 +54,8 @@ let fx: { at: number; usd: Record<string, number> } | null = null;
 async function usdRates(): Promise<Record<string, number> | null> {
   if (fx && Date.now() - fx.at < 6 * 3600_000) return fx.usd;
   try {
-    const r = await fetch("https://open.er-api.com/v6/latest/USD", { signal: AbortSignal.timeout(5000) });
+    // Shared across server instances by the platform's data cache, so a cold instance doesn't wait on it.
+    const r = await fetch("https://open.er-api.com/v6/latest/USD", { signal: AbortSignal.timeout(4000), next: { revalidate: 21600 } } as RequestInit);
     const j = (await r.json()) as { result?: string; rates?: Record<string, number> };
     if (j.result === "success" && j.rates) fx = { at: Date.now(), usd: j.rates };
   } catch {

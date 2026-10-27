@@ -66,6 +66,7 @@ import { rememberArtist, rememberedArtist } from "@/lib/memory";
 import { useRouter } from "next/navigation";
 import FollowUp from "./FollowUp";
 import BookingsLive, { type Reach } from "./BookingsLive";
+import { readTrip, saveTrip } from "@/lib/trip-snapshot";
 import WalletPanel from "./Wallet";
 import ModeSwitch from "../ModeSwitch";
 import { ArtistHeader, DemographicsSection, DnaSection, HeaderSkeleton, Placeholder, ProfileSection } from "./sections";
@@ -183,11 +184,32 @@ export default function MissionView(props: { goal?: string; artist?: string; mis
     );
   }, [props.debug]);
 
+  // Coming back to a trip (from Account, a receipt…) picks up where it was, without planning again.
+  type Snap = { planned: Planned; steps: StepState[]; results: Record<string, StepResult>; checkpoints: CheckpointRequest[]; status: Status; seal: { runId: string; seal: string } | null; adjusted: boolean };
+  const here = () => (typeof window === "undefined" ? "" : `${location.pathname}${location.search}`);
   useEffect(() => {
     docsRef.current = loadDocs(props.docs);
+    const snap = readTrip<Snap>(here());
+    if (snap?.planned && (snap.status === "done" || snap.status === "waiting")) {
+      plannedRef.current = snap.planned;
+      sealRef.current = snap.seal;
+      askedFor.current = snap.planned.runId;
+      setPlanned(snap.planned);
+      setSteps(snap.steps);
+      setResults(snap.results);
+      setCheckpoints(snap.checkpoints);
+      setAdjusted(snap.adjusted);
+      setStatus(snap.status);
+      return;
+    }
     start({ goal: props.goal, artist: props.artist, mission: props.mission, autonomy: props.autonomy });
     return () => ctrl.current?.abort();
   }, [start, props.goal, props.artist, props.mission, props.autonomy, props.docs]);
+  // Keep the trip as it is whenever it settles, so stepping away never costs the person their trip.
+  useEffect(() => {
+    if (!planned || (status !== "done" && status !== "waiting")) return;
+    saveTrip<Snap>(here(), { planned, steps, results, checkpoints, status, seal: sealRef.current, adjusted });
+  }, [planned, steps, results, checkpoints, status, adjusted]);
 
   /** Re-plan with the person's changes, keeping research and Qloo picks; stops at the booking step again. */
   const adjust = () => {
@@ -351,6 +373,7 @@ export default function MissionView(props: { goal?: string; artist?: string; mis
     return (
       <>
         <TripGame
+          runKey={planned?.runId ?? null}
           signedIn={Boolean(me)}
           r={r}
           steps={steps}
@@ -836,6 +859,7 @@ function usePlace(name: string | null | undefined): Spot | null {
 
 /** The trip as a full-screen expedition on the real Earth. */
 function TripGame({
+  runKey = null,
   r,
   steps,
   running,
@@ -849,6 +873,7 @@ function TripGame({
   toolbar,
   book,
 }: {
+  runKey?: string | null;
   r: <T>(id: string) => (StepResult & { data: T }) | undefined;
   steps: StepState[];
   running: boolean;
@@ -889,7 +914,7 @@ function TripGame({
     const map = new Map<string, Place>([...agent.stays, ...agent.dines, ...agent.venues, ...agent.activities].map((p) => [p.id, p]));
     downloadFile(`${slug(goal || "trip")}.ics`, buildIcs(goal || "Trip", plan, map), "text/calendar;charset=utf-8");
   };
-  const live = actionsOut && (execOut || executing) ? <BookingsLive actions={actionsOut} execute={execOut} running={executing} places={reach} onCalendar={calendar} /> : null;
+  const live = actionsOut && (execOut || executing) ? <BookingsLive runKey={runKey} actions={actionsOut} execute={execOut} running={executing} places={reach} onCalendar={calendar} /> : null;
   const origin: Spot | null = travel?.from && travel.origin ? { name: travel.origin, ...travel.from } : null;
   const subtitle = trip?.destination ? tripChips(trip, where).slice(1).filter((c) => !/^By /.test(c)).concat(travel?.origin ? [`from ${travel.origin.split(",")[0]}`] : []).join(", ") : goal ? `“${goal}”` : null;
   const shown = useMemo(() => steps.map((s) => ({ id: s.id, title: s.title, status: s.status })), [steps]);

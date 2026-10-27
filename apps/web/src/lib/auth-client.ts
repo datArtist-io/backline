@@ -78,6 +78,13 @@ async function carryOverLocalDetails() {
 export async function signOut() {
   await fetch("/api/auth/session", { method: "DELETE" }).catch(() => undefined);
   saveProfile({});
+  // Nothing of this account stays behind in the browser.
+  try {
+    localStorage.removeItem("bl.wallet");
+    sessionStorage.clear();
+  } catch {
+    /* blocked storage */
+  }
 }
 
 /** Who's signed in, if anyone. */

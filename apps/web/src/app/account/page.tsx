@@ -5,6 +5,7 @@ import { Logo } from "../Logo";
 import { BRAND } from "@/lib/brand";
 import { getSession } from "@/lib/session";
 import AccountView from "./AccountView";
+import BackToTrip from "../BackToTrip";
 
 export const metadata: Metadata = { title: "Your account", robots: { index: false } };
 export const dynamic = "force-dynamic";
@@ -18,9 +19,12 @@ export default async function AccountPage() {
         <Link href="/" className="wordmark" aria-label={`${BRAND.name} home`}>
           <Logo />
         </Link>
-        <Link href="/" className="lg pill">
-          New trip
-        </Link>
+        <div className="nav-acts">
+          <BackToTrip />
+          <Link href="/" className="lg pill">
+            New trip
+          </Link>
+        </div>
       </header>
       <main className="account">
         <AccountView />

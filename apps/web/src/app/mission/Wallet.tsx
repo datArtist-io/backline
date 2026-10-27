@@ -32,8 +32,33 @@ const pick = () => {
   }
 };
 
+/** The last wallet seen in this browser, so the card paints at once and refreshes in place. */
+const CACHE = "bl.wallet";
+const cached = (): W | null => {
+  try {
+    const raw = localStorage.getItem(CACHE);
+    return raw ? (JSON.parse(raw) as W) : null;
+  } catch {
+    return null;
+  }
+};
+
 export function useWallet() {
-  const [w, setW] = useState<W | null>(null);
+  const [w, setWState] = useState<W | null>(null);
+  const setW = useCallback((v: W | null) => {
+    setWState(v);
+    try {
+      if (v?.ready) localStorage.setItem(CACHE, JSON.stringify({ ...v, entries: v.entries.slice(0, 20) }));
+      else if (!v) localStorage.removeItem(CACHE);
+    } catch {
+      /* the cache is a nicety */
+    }
+  }, []);
+  // Paint from the cache straight away (after mount, so server and browser agree on the first frame).
+  useEffect(() => {
+    const c = cached();
+    if (c) setWState((cur) => cur ?? c);
+  }, []);
   const [err, setErr] = useState<string | null>(null);
   const load = useCallback(async (currency?: string | null) => {
     try {
