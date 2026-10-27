@@ -481,6 +481,15 @@ export default function Earth(props: EarthProps) {
   live.current = props;
   const state = useRef({ loaded: false, introAt: -1, introDone: false, introFor: "", originFor: "", user: false, orbit: false, touchedAt: 0, bearing: 0, raf: 0, last: 0, dwell: 0, nextStop: 0, playDay: -2, trailAt: 0 });
 
+  // Space views are framed for a laptop; on a phone the whole globe sits inside the screen with
+  // its atmosphere showing, instead of a cropped ball filling the width.
+  const gz = (z: number) => {
+    const el = box.current;
+    if (!el) return z;
+    const size = Math.min(el.clientWidth, el.clientHeight * 0.9);
+    return z + Math.min(0, Math.log2(Math.max(240, size) / 700) * 0.85);
+  };
+
   // Create the map once.
   useEffect(() => {
     if (!box.current) return;
@@ -488,7 +497,7 @@ export default function Earth(props: EarthProps) {
       container: box.current,
       style: style(),
       center: [props.destination?.lon ?? 10, (props.destination?.lat ?? 20) * 0.6],
-      zoom: 1.35,
+      zoom: gz(1.35),
       pitch: 0,
       maxPitch: 78,
       attributionControl: { compact: true },
@@ -800,12 +809,12 @@ export default function Earth(props: EarthProps) {
     if (from) {
       const path = greatCircle(from, dest);
       const far = kmBetween(from, dest);
-      map.jumpTo({ center: [from.lon, from.lat], zoom: far > 4000 ? 1.6 : 2.6, pitch: 0, bearing: 0 });
+      map.jumpTo({ center: [from.lon, from.lat], zoom: gz(far > 4000 ? 1.6 : 2.6), pitch: 0, bearing: 0 });
       const t0 = performance.now();
       const dur = 3800;
       const mid = path[Math.floor(path.length / 2)];
-      map.easeTo({ center: mid, zoom: far > 4000 ? 1.45 : 2.4, duration: dur * 0.5, easing: (x) => x });
-      window.setTimeout(() => map.easeTo({ center: [dest.lon, dest.lat], zoom: far > 4000 ? 2.6 : 3.6, duration: dur * 0.5, easing: (x) => 1 - (1 - x) * (1 - x) }), dur * 0.5);
+      map.easeTo({ center: mid, zoom: gz(far > 4000 ? 1.45 : 2.4), duration: dur * 0.5, easing: (x) => x });
+      window.setTimeout(() => map.easeTo({ center: [dest.lon, dest.lat], zoom: gz(far > 4000 ? 2.6 : 3.6), duration: dur * 0.5, easing: (x) => 1 - (1 - x) * (1 - x) }), dur * 0.5);
       planeRef.current?.remove();
       const pe = document.createElement("div");
       pe.className = "eq-plane-pin";
@@ -839,8 +848,8 @@ export default function Earth(props: EarthProps) {
       requestAnimationFrame(step);
     } else {
       arc.setData(fc([]));
-      map.jumpTo({ center: [dest.lon - 70, dest.lat * 0.5], zoom: 1.4, pitch: 0, bearing: 0 });
-      map.easeTo({ center: [dest.lon, dest.lat], zoom: 3, duration: 2600 });
+      map.jumpTo({ center: [dest.lon - 70, dest.lat * 0.5], zoom: gz(1.4), pitch: 0, bearing: 0 });
+      map.easeTo({ center: [dest.lon, dest.lat], zoom: gz(3), duration: 2600 });
       window.setTimeout(land, 2700);
     }
   };

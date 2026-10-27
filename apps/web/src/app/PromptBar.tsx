@@ -244,6 +244,12 @@ export default function PromptBar({ onSubmit, placeholder: fullPlaceholder = "Wh
   useEffect(() => {
     const el = inputRef.current;
     if (!el) return;
+    // Empty, it's always the single-line pill (a placeholder must never make it a box).
+    if (!value) {
+      el.style.height = "";
+      setMultiline(false);
+      return;
+    }
     el.style.height = "auto";
     const h = Math.min(el.scrollHeight, 180);
     el.style.height = `${h}px`;

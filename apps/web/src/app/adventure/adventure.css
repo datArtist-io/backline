@@ -1144,3 +1144,21 @@ button:hover .ki-stop .ki-plane, .eq-card:hover .ki-stop .ki-plane { animation: 
 @keyframes bk-brief-ring { 0% { box-shadow: 0 0 0 0 rgba(255, 79, 163, 0.55); } 100% { box-shadow: 0 0 0 14px rgba(255, 79, 163, 0); } }
 @media (max-width: 420px) { .bk-brief { grid-template-columns: auto minmax(0, 1fr); } .bk-brief > .bk-fb { grid-column: 1 / -1; } }
 @media (prefers-reduced-motion: reduce) { .bk-brief.is-busy .bk-brief-ic { animation: none; } }
+
+/* Review bar: buttons never wrap their words, and on phones the stop cards step aside while it waits. */
+.eq-review-adjust, .eq-review-book { white-space: nowrap; }
+@media (max-width: 860px) {
+  .eq:has(.eq-review) .eq-strip { display: none; }
+  .eq-review { bottom: 128px; }
+  .eq-review-bar { gap: 8px; }
+  .eq-doing { font-size: 15px; line-height: 1.35; }
+}
+
+/* Slip ticks: a soft round check, like a premium wallet app. Empty ring when off; when on, a
+   gradient disc with a crisp centred tick that pops in. */
+.ck-tick { position: relative; flex: none; width: 22px; height: 22px; border-radius: 50%; border: 0; background: #fff; box-shadow: inset 0 0 0 1.5px rgba(16, 19, 43, 0.18), 0 1px 2px rgba(16, 19, 43, 0.06); transition: background .25s, box-shadow .25s, transform .35s cubic-bezier(.2, 1.4, .4, 1); }
+.ck-row:hover .ck-tick { box-shadow: inset 0 0 0 1.5px rgba(123, 92, 255, 0.55), 0 1px 2px rgba(16, 19, 43, 0.06); }
+.ck-row.on .ck-tick { background: linear-gradient(140deg, #7b5cff, #c04bd9 55%, #ff4fa3); box-shadow: 0 0 0 3px rgba(123, 92, 255, 0.14), 0 4px 10px -4px rgba(123, 92, 255, 0.7); transform: scale(1.04); }
+.ck-row.on .ck-tick::after { content: ""; position: absolute; inset: 0; margin: 0; width: auto; height: auto; border: 0; transform: none; background: center / 12px 12px no-repeat url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.4 6.3l2.3 2.3 4.9-5' fill='none' stroke='%23fff' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); animation: cktick .3s cubic-bezier(.2, 1.4, .4, 1) both; }
+@keyframes cktick { from { opacity: 0; transform: scale(.4); } }
+@media (prefers-reduced-motion: reduce) { .ck-tick, .ck-row.on .ck-tick::after { transition: none; animation: none; } }

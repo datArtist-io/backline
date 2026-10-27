@@ -2,13 +2,13 @@
 // The live voice demo, in one tidy card: talk to Backline here in the browser, call its number, or
 // have it call you. Trips planned by voice show underneath, once there are any (code and trip only).
 import { useEffect, useRef, useState } from "react";
-import TalkInBrowser from "./TalkInBrowser";
+import TalkInBrowser, { VAPI_KEY } from "./TalkInBrowser";
 import CallMeDemo from "./CallMeDemo";
 
 type Item = { code: string; at: string; live: boolean; destination: string | null; days: number | null; travellers: number | null; loves: string | null; url: string | null };
 type Tab = "talk" | "call" | "callme";
 
-const KEY = Boolean(process.env.NEXT_PUBLIC_VAPI_PUBLIC_KEY);
+const KEY = Boolean(VAPI_KEY);
 
 const pretty = (n: string) => {
   const d = n.replace(/[^\d+]/g, "");
@@ -77,7 +77,7 @@ export default function CallBackline() {
             {tab === "talk" && (
               <>
                 <TalkInBrowser />
-                <p className="voice-hint">Try: &ldquo;4 days in Lisbon for two, we love fado.&rdquo; Your trip opens when you&rsquo;re done.</p>
+                <p className="voice-hint">Try &ldquo;4 days in Lisbon for two, we love fado.&rdquo; Your trip opens when you&rsquo;re done.</p>
               </>
             )}
             {tab === "call" && (

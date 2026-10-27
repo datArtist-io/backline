@@ -5,7 +5,10 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
-const KEY = process.env.NEXT_PUBLIC_VAPI_PUBLIC_KEY ?? "";
+const RAW = process.env.NEXT_PUBLIC_VAPI_PUBLIC_KEY ?? "";
+/** Vapi public keys are UUIDs; anything else (a mistyped value) hides the option instead of failing. */
+export const VAPI_KEY = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(RAW.trim()) ? RAW.trim() : "";
+const KEY = VAPI_KEY;
 
 type Trip = { code: string; destination: string | null; days: number | null; travellers: number | null; loves: string | null; url: string | null };
 type State = "idle" | "connecting" | "live" | "ended" | "error";
@@ -93,7 +96,7 @@ export default function TalkInBrowser() {
       {!live ? (
         <button type="button" className="talk-go" onClick={start}>
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M5 11a7 7 0 0 0 14 0M12 18v3" /></svg>
-          {state === "ended" ? "Talk again" : "Start talking"}
+          <span>{state === "ended" ? "Talk again" : "Tap to talk"}</span>
         </button>
       ) : (
         <div className="talk-live" role="status" aria-live="polite">
