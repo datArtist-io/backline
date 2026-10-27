@@ -767,6 +767,7 @@ export default function Earth(props: EarthProps) {
     const dest = p.destination ?? (p.model ? { name: p.model.city, lat: p.model.center.lat, lon: p.model.center.lon } : null);
     if (!map || !s.loaded || !dest) return;
     s.introFor = `${dest.lat.toFixed(2)},${dest.lon.toFixed(2)}`;
+    s.introAt = performance.now();
     s.originFor = p.origin ? `${p.origin.lat.toFixed(2)},${p.origin.lon.toFixed(2)}` : "";
     s.user = false;
     const arc = map.getSource("arc") as GeoJSONSource;
@@ -806,6 +807,28 @@ export default function Earth(props: EarthProps) {
       window.setTimeout(land, 2700);
     }
   };
+
+  // Back from another tab mid-journey: the browser paused the flight, so land in the city now.
+  useEffect(() => {
+    const back = () => {
+      const map = mapRef.current;
+      const s = state.current;
+      if (document.visibilityState !== "visible" || !map || !s.loaded || s.user || !s.introFor) return;
+      if (map.getZoom() < 7 && !map.isMoving() && performance.now() - s.introAt > 9000) {
+        s.introDone = true;
+        const p = live.current;
+        if (p.model && (p.model.nodes.length || p.model.heat.length)) overview(2600);
+        else if (p.destination) map.flyTo({ center: [p.destination.lon, p.destination.lat], zoom: 10.6, pitch: 48, bearing: -12, duration: 2600, essential: true });
+      }
+    };
+    document.addEventListener("visibilitychange", back);
+    const t = window.setInterval(back, 4000);
+    return () => {
+      document.removeEventListener("visibilitychange", back);
+      window.clearInterval(t);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     sync();
