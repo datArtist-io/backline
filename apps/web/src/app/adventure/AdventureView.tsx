@@ -13,6 +13,7 @@ import { GOOGLE_KEY } from "./Earth";
 import { skyKind, type Sky } from "./world";
 import { KIND_COLOR, KIND_LABEL, KIND_NOUN, hoursOf, type AdventureModel, type NodeKind, type QuestNode } from "./model";
 import Codex from "./Codex";
+import Background from "../Background";
 import "./adventure.css";
 
 const Earth = dynamic(() => import("./Earth"), { ssr: false });
@@ -133,6 +134,14 @@ export default function AdventureView({
   const [done, setDone] = useState(false);
   const daysRef = useRef<HTMLDivElement>(null);
   const [ink, setInk] = useState<{ x: number; w: number; c: string } | null>(null);
+  const arrived = Boolean(model && (model.nodes.length > 0 || model.heat.length > 0));
+  const [blobs, setBlobs] = useState(true);
+  // Let the blobs fade, then unmount them so the GPU is all the map's.
+  useEffect(() => {
+    if (!arrived) return setBlobs(true);
+    const t = window.setTimeout(() => setBlobs(false), 1600);
+    return () => window.clearTimeout(t);
+  }, [arrived]);
   const progress = useRef({ day: -1, t: 0 });
   const labels = useRef(new Map<string, HTMLElement>());
   const toastId = useRef(0);
@@ -305,6 +314,12 @@ export default function AdventureView({
   return (
     <section className={`eq${fullscreen ? " is-full" : ""}${ready ? " is-ready" : ""}${play ? " is-flying" : ""}`} aria-label={city ? `Your trip to ${city}` : "Your trip"}>
       <div className="eq-stage">
+        {/* The landing page's light sculpture carries on behind the globe until you arrive. */}
+        {blobs && (
+          <div className={`eq-blobs${arrived ? " is-gone" : ""}`} aria-hidden="true">
+            <Background />
+          </div>
+        )}
         <Quiet fallback={<div className="eq-fallback"><p>The 3D map couldn&rsquo;t start here.</p>{onClassic && <button type="button" className="eq-btn" onClick={onClassic}><span>Open classic view</span></button>}</div>}>
           {ok && mode === "earth" && (
             <Earth
@@ -356,7 +371,14 @@ export default function AdventureView({
             <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M10 3 5 8l5 5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
             Backline
           </a>
-          <h1 className={city ? "" : "is-waiting"}>{city ? city.split(",")[0] : "Finding your destination"}</h1>
+          {city ? (
+            <h1 key={city}>{city.split(",")[0]}</h1>
+          ) : (
+            <h1 className="is-waiting">
+              <span>Planning</span>
+              <span className="eq-accent">your trip.</span>
+            </h1>
+          )}
           <p>
             {model?.sample && <span className="eq-tag">Sample trip</span>}
             {subtitle ?? (city && city.includes(",") ? city.split(",").slice(1).join(",").trim() : model?.title ?? "")}
@@ -466,7 +488,7 @@ export default function AdventureView({
           </div>
         )}
 
-        {!ready && ok && <div className="eq-boot" aria-hidden="true"><span /></div>}
+
         {note && <p className="eq-note">{note}</p>}
         {overlay && <div className="eq-overlay">{overlay}</div>}
 
