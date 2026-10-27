@@ -16,6 +16,7 @@ const LABEL: Record<Result["status"], string> = {
   held: "Held for you",
   sent: "Sent",
   calling: "On the phone",
+  queued: "Next in line",
   ready: "Your turn",
   needs_info: "Needs your details",
   failed: "Didn't go through",
@@ -66,7 +67,8 @@ function ChannelIcon({ channel, status }: { channel: Action["channel"]; status: 
 
 /** Where else a place can be reached, and how well it fits (Qloo affinity), for rerouting. */
 export type Reach = { name: string; website: string | null; email: string | null; phone: string | null; kind: string; affinity: number | null };
-type CallState = { id: string; status: string; ended: boolean; outcome: string; retryable: boolean; summary: string | null; transcript: string | null; endedReason: string | null };
+type Booking = { confirmed: boolean; date: string | null; time: string | null; partySize: number | null; name: string | null; reference: string | null; notes: string | null };
+type CallState = { id: string; status: string; ended: boolean; outcome: string; retryable: boolean; summary: string | null; transcript: string | null; endedReason: string | null; booking?: Booking | null };
 type Leg = { placeId: string | null; name: string; id: string | null; state: CallState | null; note: string | null };
 
 /** Short, calm words for how a call ended. Never an error code. */
@@ -95,6 +97,7 @@ const poll = async (id: string): Promise<CallState | null> => {
  */
 function LiveCall({
   id: first,
+  active = true,
   action,
   alternates,
   phone,
@@ -103,7 +106,9 @@ function LiveCall({
   onWebsite,
   onDone,
 }: {
-  id: string;
+  id: string | null;
+  /** Its turn to ring (demo calls go one at a time). */
+  active?: boolean;
   action: Action;
   reachOf: (id: string | null) => Reach | null;
   alternates: (Reach & { id: string })[];
@@ -115,18 +120,33 @@ function LiveCall({
   const [legs, setLegs] = useState<Leg[]>([{ placeId: action.placeId, name: action.placeName ?? "the place", id: first, state: null, note: null }]);
   const [open, setOpen] = useState(false);
   const cur = legs[legs.length - 1];
-  const finished = legs.some((l) => l.state?.outcome === "talked" || l.state?.outcome === "voicemail") || (cur.state?.ended && legs.length > alternates.length) || cur.note === "end";
+  // A queued call places itself the moment its turn comes.
+  useEffect(() => {
+    if (!active || first || legs.length !== 1 || legs[0].id || legs[0].note) return;
+    fetch("/api/calls", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ placeName: action.placeName ?? "the place", opening: action.callOpening, brief: action.callBrief, to: action.to, phone, client }),
+    })
+      .then((r) => r.json())
+      .then((d: { id?: string }) => setLegs((ls) => ls.map((l, i) => (i === 0 ? { ...l, id: d.id ?? null, note: d.id ? null : "end" } : l))))
+      .catch(() => setLegs((ls) => ls.map((l, i) => (i === 0 ? { ...l, note: "end" } : l))));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active]);
+  const finished = legs.some((l) => (l.state?.outcome === "talked" && l.state?.booking?.confirmed !== false) || l.state?.outcome === "voicemail") || Boolean(cur.state?.ended && legs.length > alternates.length) || cur.note === "end";
 
   // Follow the current call every 3 seconds until it ends.
   useEffect(() => {
     if (!cur.id) return;
     let stop = false;
     let n = 0;
+    let after = 0;
     const tick = async () => {
       const st = await poll(cur.id!);
       if (stop) return;
       if (st) setLegs((ls) => ls.map((l, i) => (i === ls.length - 1 ? { ...l, state: st } : l)));
-      if (st?.ended) return;
+      // After hanging up, keep looking a little longer for the read-back of what was agreed.
+      if (st?.ended && (st.booking || st.outcome !== "talked" || ++after > 6)) return;
       if (++n < 150) setTimeout(tick, 3000);
     };
     tick();
@@ -139,7 +159,8 @@ function LiveCall({
   useEffect(() => {
     const st = cur.state;
     if (!st?.ended) return;
-    const ok = st.outcome === "talked" || st.outcome === "voicemail";
+    // A finished conversation counts unless the place said it couldn't take the booking.
+    const ok = (st.outcome === "talked" && st.booking?.confirmed !== false) || st.outcome === "voicemail";
     if (ok) {
       onDone(true);
       return;
@@ -164,7 +185,7 @@ function LiveCall({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cur.state?.ended]);
 
-  const talked = legs.find((l) => l.state?.outcome === "talked" || l.state?.outcome === "voicemail");
+  const talked = legs.find((l) => (l.state?.outcome === "talked" && l.state?.booking?.confirmed !== false) || l.state?.outcome === "voicemail");
   const live = !finished && cur.id && !cur.state?.ended;
   const lastWithSite = [...legs].reverse().map((l) => reachOf(l.placeId)).find((r) => r?.website);
   const site = lastWithSite?.website ?? null;
@@ -173,7 +194,7 @@ function LiveCall({
       <ol className="bk-legs">
         {legs.map((l, i) => {
           const st = l.state;
-          const label = !l.id && l.note !== "end" ? "Dialling…" : l.note === "end" ? "Skipped" : !st ? "Connecting…" : st.ended ? (LEG_TEXT[st.outcome] ?? "Finished") : st.status === "in-progress" ? "On the call" : st.status === "ringing" ? "Ringing" : "Dialling…";
+          const label = !active && !l.id && !l.note ? "Next in line" : st?.ended && st.outcome === "talked" && st.booking?.confirmed === false ? "Fully booked" : st?.ended && st.outcome === "talked" && st.booking?.confirmed ? "Reserved" : !l.id && l.note !== "end" ? "Dialling…" : l.note === "end" ? "Skipped" : !st ? "Connecting…" : st.ended ? (LEG_TEXT[st.outcome] ?? "Finished") : st.status === "in-progress" ? "On the call" : st.status === "ringing" ? "Ringing" : "Dialling…";
           const state = st?.ended ? (st.outcome === "talked" || st.outcome === "voicemail" ? "ok" : "moved") : "live";
           return (
             <li key={i} className={`bk-leg is-${state}`} style={{ ["--i" as string]: i }}>
@@ -185,7 +206,19 @@ function LiveCall({
         })}
       </ol>
       {live && legs.length > 1 && <p className="bk-callnote">{legs[legs.length - 2].name} couldn&rsquo;t take the call, so I&rsquo;m trying {cur.name}, Qloo&rsquo;s next best.</p>}
-      {talked?.state?.summary && <p className="bk-callsum">{talked.state.summary}</p>}
+      {talked?.state?.booking?.confirmed && (
+        <div className="bk-resv" role="status">
+          <span className="bk-resv-check" aria-hidden="true">✓</span>
+          <div>
+            <b>Reserved at {talked.name}</b>
+            <span>{[talked.state.booking.partySize ? `Table for ${talked.state.booking.partySize}` : null, talked.state.booking.date, talked.state.booking.time, talked.state.booking.name ? `under ${talked.state.booking.name}` : null].filter(Boolean).join(" · ")}</span>
+            {talked.state.booking.reference && <code>Ref {talked.state.booking.reference}</code>}
+            {talked.state.booking.notes && <small>{talked.state.booking.notes}</small>}
+          </div>
+        </div>
+      )}
+      {talked?.state?.summary && !talked.state.booking?.confirmed && <p className="bk-callsum">{talked.state.summary}</p>}
+      {talked && !talked.state?.booking && talked.state?.ended && <p className="bk-callnote">Reading back what was agreed…</p>}
       {legs.some((l) => l.state?.transcript) && (
         <details className="bk-transcript" open={open} onToggle={(e) => setOpen((e.target as HTMLDetailsElement).open)}>
           <summary>Transcript</summary>
@@ -232,8 +265,10 @@ export default function BookingsLive({
   const results = execute?.results ?? [];
   const [browse, setBrowse] = useState<{ url: string; title: string } | null>(null);
   const [calls, setCalls] = useState<Record<string, boolean>>({});
+  // Calls ring one at a time, in plan order.
+  const queue = results.filter((r) => r.status === "calling" || r.status === "queued").map((r) => r.actionId);
   // A call only counts as done once it has actually connected and finished.
-  const done = results.filter((r) => (r.status === "calling" ? calls[r.actionId] === true : DONE.has(r.status))).length;
+  const done = results.filter((r) => (r.status === "calling" || r.status === "queued" ? calls[r.actionId] === true : DONE.has(r.status))).length;
   const total = Math.max(1, results.length);
   const failedCalls = Object.values(calls).filter((x) => x === false).length;
   const test = results.some((r) => /test (booking|mode)|no real money/i.test(r.message));
@@ -293,9 +328,10 @@ export default function BookingsLive({
                       {testPay && <span className="bk-test">Test mode · no money moved</span>}
                     </div>
                   )}
-                  {r.status === "calling" && r.ref && (
+                  {(r.status === "calling" || r.status === "queued") && (
                     <LiveCall
-                      id={r.ref}
+                      id={r.status === "calling" ? r.ref : null}
+                      active={r.status === "calling" || queue.slice(0, queue.indexOf(r.actionId)).every((id) => calls[id] !== undefined)}
                       action={a}
                       alternates={alternatesFor(a.placeId)}
                       phone={me.phone ?? null}

@@ -556,6 +556,7 @@ export function ResultsSection({
 const STATUS_LABEL: Record<ActionResult["status"], string> = {
   sent: "Sent",
   calling: "Calling",
+  queued: "Next in line",
   ready: "Your turn",
   needs_info: "Needs your details",
   failed: "Didn't work",

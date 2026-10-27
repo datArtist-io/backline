@@ -23,7 +23,17 @@ export type CallStatus = {
   outcome: CallOutcome;
   /** The same call is worth placing again (it never really connected). */
   retryable: boolean;
+  /** What was agreed, read from the call (null until the call's analysis is ready). */
+  booking: CallBooking | null;
 };
+export type CallBooking = { confirmed: boolean; date: string | null; time: string | null; partySize: number | null; name: string | null; reference: string | null; notes: string | null };
+
+/** The agreed booking from a call's structured analysis. Pure. */
+export function bookingFrom(x: Record<string, unknown> | undefined | null): CallBooking | null {
+  if (!x || typeof x !== "object" || typeof x.confirmed !== "boolean") return null;
+  const str = (v: unknown) => (typeof v === "string" && v.trim() ? v.trim().slice(0, 120) : null);
+  return { confirmed: x.confirmed, date: str(x.date), time: str(x.time), partySize: typeof x.partySize === "number" ? x.partySize : null, name: str(x.name), reference: str(x.reference), notes: str(x.notes) };
+}
 
 /** What a Vapi ended reason means for the person. Pure. */
 export function callOutcome(status: string, endedReason: string | null, transcript: string | null): CallOutcome {
@@ -97,30 +107,54 @@ export class VapiCaller implements CallPlacer {
 
   async start(call: CallRequest, signal?: AbortSignal): Promise<{ id: string }> {
     if (!E164_RE.test(call.to)) throw new UpstreamError("calls", 400, "Invalid number", "That phone number doesn't look right.");
-    const data = await this.req(
-      "/call",
-      {
-        method: "POST",
-        body: JSON.stringify({
-          phoneNumberId: this.config.phoneNumberId,
-          customer: { number: call.to, name: call.businessName.slice(0, 40) },
-          assistant: {
-            firstMessage: call.firstMessage,
-            model: { provider: "openai", model: this.config.model || "gpt-4o-mini", messages: [{ role: "system", content: call.instructions }] },
-            endCallFunctionEnabled: true,
-            maxDurationSeconds: 300,
-            metadata: { app: "backline", owner: call.owner ?? null },
+    const base = {
+      firstMessage: call.firstMessage,
+      model: { provider: "openai", model: this.config.model || "gpt-4o-mini", temperature: 0.3, maxTokens: 160, messages: [{ role: "system", content: call.instructions }] },
+      endCallFunctionEnabled: true,
+      maxDurationSeconds: 300,
+      metadata: { app: "backline", owner: call.owner ?? null },
+    };
+    // Tuned for real phone lines: a transcriber that copes with accents and noise, quick turn-taking,
+    // patience with silence, and the outcome captured as data.
+    const tuned = {
+      ...base,
+      transcriber: { provider: "deepgram", model: "nova-3", language: "en" },
+      startSpeakingPlan: { waitSeconds: 0.3 },
+      stopSpeakingPlan: { numWords: 1, voiceSeconds: 0.2, backoffSeconds: 0.8 },
+      silenceTimeoutSeconds: 30,
+      analysisPlan: {
+        structuredDataPrompt: "From the call, extract whether the booking was confirmed and its details exactly as agreed.",
+        structuredDataSchema: {
+          type: "object",
+          properties: {
+            confirmed: { type: "boolean", description: "The business agreed to the booking" },
+            date: { type: "string", description: "Agreed date, as said" },
+            time: { type: "string", description: "Agreed time, as said" },
+            partySize: { type: "number" },
+            name: { type: "string", description: "Name the booking is under" },
+            reference: { type: "string", description: "Reference or confirmation number, if any" },
+            notes: { type: "string", description: "Anything else agreed (deposit, dress code, call back)" },
           },
-        }),
+          required: ["confirmed"],
+        },
       },
-      signal
-    );
+    };
+    const place = (assistant: object) =>
+      this.req("/call", { method: "POST", body: JSON.stringify({ phoneNumberId: this.config.phoneNumberId, customer: { number: call.to, name: call.businessName.slice(0, 40) }, assistant }) }, signal);
+    let data: Record<string, unknown>;
+    try {
+      data = await place(tuned);
+    } catch (err) {
+      // A setting Vapi doesn't accept must never stop the call: place it with the basics.
+      if ((err as { status?: number }).status === 400) data = await place(base);
+      else throw err;
+    }
     return { id: String(data.id ?? "") };
   }
 
   async status(id: string, signal?: AbortSignal): Promise<CallStatus> {
     const d = await this.req(`/call/${encodeURIComponent(id)}`, { method: "GET" }, signal);
-    const analysis = (d.analysis ?? {}) as { summary?: string };
+    const analysis = (d.analysis ?? {}) as { summary?: string; structuredData?: Record<string, unknown> };
     const artifact = (d.artifact ?? {}) as { transcript?: string };
     const status = String(d.status ?? "unknown");
     const transcript = ((artifact.transcript ?? (d.transcript as string | undefined)) || null)?.slice(0, 6000) ?? null;
@@ -135,6 +169,7 @@ export class VapiCaller implements CallPlacer {
       summary: (analysis.summary ?? (d.summary as string | undefined) ?? null) || null,
       transcript,
       endedReason,
+      booking: bookingFrom(analysis.structuredData),
     };
   }
 

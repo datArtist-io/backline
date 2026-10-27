@@ -214,3 +214,12 @@ describe("call outcomes", () => {
     expect(callOutcome("ended", "call.start.error-vapifault", null)).toBe("failed");
   });
 });
+
+import { bookingFrom } from "../src/clients/calls";
+describe("booking read from a call", () => {
+  it("reads what was agreed", () => {
+    expect(bookingFrom({ confirmed: true, date: "Friday 30 October", time: "8pm", partySize: 2, name: "Josiah", reference: "" })).toEqual({ confirmed: true, date: "Friday 30 October", time: "8pm", partySize: 2, name: "Josiah", reference: null, notes: null });
+    expect(bookingFrom({ date: "x" })).toBeNull();
+    expect(bookingFrom(undefined)).toBeNull();
+  });
+});

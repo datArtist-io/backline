@@ -568,7 +568,7 @@ export function buildActions(
   const meals = plan.days.flatMap((d) => d.items.map((it) => ({ ...it, date: d.date }))).filter((it) => it.placeId && places.dines.some((p) => p.id === it.placeId));
   const seen = new Set<string>();
   for (const m of meals) {
-    if (seen.size >= 3) break;
+    if (seen.size >= 6) break;
     const p = places.dines.find((x) => x.id === m.placeId)!;
     if (seen.has(p.id)) continue;
     seen.add(p.id);
@@ -677,7 +677,7 @@ export const tripActions: Skill<BriefInput, TripActionsOutput> = {
 
 const resultSchema = z.object({
   actionId: z.string(),
-  status: z.enum(["sent", "calling", "ready", "needs_info", "failed", "skipped", "held", "booked"]),
+  status: z.enum(["sent", "calling", "queued", "ready", "needs_info", "failed", "skipped", "held", "booked"]),
   ref: z.string().nullable(),
   message: z.string(),
   /** For a held room: where the user pays to confirm, on the provider's secure page. */
@@ -687,7 +687,7 @@ export type ActionResult = z.infer<typeof resultSchema>;
 const executeOutput = z.object({ results: z.array(resultSchema) });
 export type TripExecuteOutput = z.infer<typeof executeOutput>;
 
-export const ACTION_LIMITS = { email: 4, call: 3, reserve: 1 };
+export const ACTION_LIMITS = { email: 4, call: 8, reserve: 1 };
 
 /** The phone agent's instructions. It always discloses it's an AI and never handles payment. */
 export function callInstructions(a: TripAction, clientName: string): string {
@@ -696,7 +696,8 @@ export function callInstructions(a: TripAction, clientName: string): string {
     "Say you're an AI assistant calling on their behalf. Speak naturally and briefly.",
     `Goal: ${a.callBrief}`,
     "Never give or ask for card or bank details, and never agree to charges. If they need payment or the client in person, take the details and say the client will follow up.",
-    "Before ending, read back what was agreed: date, time, party size, name and any reference number. If it's voicemail, leave a short message asking them to call back, then end the call.",
+    "Keep each turn to one or two short sentences, and wait for them to finish.",
+    "Once they confirm, read back what was agreed once (date, time, party size, name), ask for a reference number once (it's fine if there isn't one), thank them and end the call. If they can't take the booking, thank them and end the call. If it's voicemail, leave a short message asking them to call back, then end the call.",
   ].join("\n");
 }
 
@@ -828,6 +829,8 @@ export const tripExecute: Skill<BriefInput, TripExecuteOutput> = {
         if (a.channel === "call" && ctx.calls && (a.to || ctx.callDemoTo) && a.callOpening && a.callBrief) {
           if (++calls > ACTION_LIMITS.call) return { actionId: a.id, status: "skipped", ref: null, message: "Call limit for one mission reached." };
           const demo = ctx.callDemoTo ?? null;
+          // Demo calls all ring the same phone, so they go one at a time: the first now, the rest queued.
+          if (demo && calls > 1) return { actionId: a.id, status: "queued", ref: null, message: "Next in line: I'll call as soon as the one before finishes." };
           // Fail closed: a real business is only ever dialled when live calling is switched on.
           if (!demo && !ctx.callsLive) return { actionId: a.id, status: "needs_info", ref: null, message: "Add your phone number and I'll call you to show the booking call (you play the business)." };
           const started = await ctx.calls.start({ to: (demo ?? a.to)!, owner: ctx.userId ?? null, businessName: a.placeName ?? "the business", firstMessage: a.callOpening, instructions: callInstructions(a, profile.name ?? "my client") }, ctx.signal);
