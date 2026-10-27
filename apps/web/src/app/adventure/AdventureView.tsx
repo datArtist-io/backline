@@ -130,6 +130,8 @@ export default function AdventureView({
   const [visited, setVisited] = useState<Set<string>>(new Set());
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [done, setDone] = useState(false);
+  const daysRef = useRef<HTMLDivElement>(null);
+  const [ink, setInk] = useState<{ x: number; w: number; c: string } | null>(null);
   const progress = useRef({ day: -1, t: 0 });
   const labels = useRef(new Map<string, HTMLElement>());
   const toastId = useRef(0);
@@ -273,11 +275,21 @@ export default function AdventureView({
 
   const pad = useMemo(() => (narrow ? { top: 250, right: 24, bottom: 230, left: 24 } : { top: 140, right: selected ? 420 : 60, bottom: 230, left: model?.taste ? 330 : 60 }), [narrow, selected, model?.taste]);
 
+  // The day selector's indicator glides to the active day.
+  useEffect(() => {
+    const box = daysRef.current;
+    const el = box?.querySelector<HTMLElement>(`[data-day="${activeDay}"]`);
+    if (!box || !el) return setInk(null);
+    setInk({ x: el.offsetLeft, w: el.offsetWidth, c: typeof activeDay === "number" ? routes.find((r) => r.day === activeDay)?.color ?? "#ff3d9a" : "#ff3d9a" });
+  }, [activeDay, routes, narrow, ready]);
+  const shownMatch = useCountUp(model?.stats.match ?? null, ready);
+  const shownXp = useCountUp(xp, true);
+
   if (ok === false) {
     return (
       <div className={`eq eq-fallback${fullscreen ? " is-full" : ""}`}>
         <p>Your browser can't show the 3D map, so here's the classic view.</p>
-        {onClassic && <button type="button" className="eq-btn" onClick={onClassic}>Open classic view</button>}
+        {onClassic && <button type="button" className="eq-btn" onClick={onClassic}><span>Open classic view</span></button>}
       </div>
     );
   }
@@ -291,7 +303,7 @@ export default function AdventureView({
   return (
     <section className={`eq${fullscreen ? " is-full" : ""}${ready ? " is-ready" : ""}${play ? " is-flying" : ""}`} aria-label={city ? `Your trip to ${city}` : "Your trip"}>
       <div className="eq-stage">
-        <Quiet fallback={<div className="eq-fallback"><p>The 3D map couldn&rsquo;t start here.</p>{onClassic && <button type="button" className="eq-btn" onClick={onClassic}>Open classic view</button>}</div>}>
+        <Quiet fallback={<div className="eq-fallback"><p>The 3D map couldn&rsquo;t start here.</p>{onClassic && <button type="button" className="eq-btn" onClick={onClassic}><span>Open classic view</span></button>}</div>}>
           {ok && mode === "earth" && (
             <Earth
               model={model}
@@ -355,12 +367,13 @@ export default function AdventureView({
               <svg viewBox="0 0 44 44" className="eq-dial" role="img" aria-label={matchPct != null ? `Qloo taste match ${matchPct} percent` : "No taste match yet"}>
                 <circle cx="22" cy="22" r="19" className="track" />
                 <circle cx="22" cy="22" r="19" className="val" style={{ strokeDasharray: `${((matchPct ?? 0) / 100) * 119.4} 200` }} />
-                <text x="22" y="23.5" textAnchor="middle" dominantBaseline="middle">{matchPct ?? "–"}</text>
+                <text x="22" y="23.5" textAnchor="middle" dominantBaseline="middle">{shownMatch ?? "–"}</text>
               </svg>
               <div className="eq-score-txt">
                 <b>Qloo taste match</b>
                 {narrow && model.taste?.signals.length ? <span className="eq-because">Because you love {model.taste.signals.slice(0, 2).join(", ")}</span> : null}
                 <span>{model.stats.picked} places · {model.stats.days ? `${model.stats.days} days` : "plan coming"}{model.stats.km ? ` · ${Math.round(model.stats.km)} km` : ""}</span>
+                <span className="eq-xpn">{(shownXp ?? 0).toLocaleString("en")} <small>/ {model.stats.xp.toLocaleString("en")} XP</small></span>
                 <span className="eq-xp" aria-label={`${xp} of ${model.stats.xp} points`}>
                   <i style={{ width: `${model.stats.xp ? Math.min(100, (xp / model.stats.xp) * 100) : 0}%` }} />
                 </span>
@@ -435,8 +448,8 @@ export default function AdventureView({
             <h2>That&rsquo;s the trip</h2>
             <p>{model?.stats.picked} places across {model?.stats.days} days, {model?.stats.km ? `${Math.round(model.stats.km)} km` : "on foot and by ride"}.</p>
             <div>
-              {book && <button type="button" className="eq-btn gold" onClick={() => { setDone(false); setSheet("book"); }}>Open the trip book</button>}
-              <button type="button" className="eq-btn" onClick={() => setDone(false)}>Keep exploring</button>
+              {book && <button type="button" className="eq-btn gold" onClick={() => { setDone(false); setSheet("book"); }}><span>Open the trip book</span></button>}
+              <button type="button" className="eq-btn" onClick={() => setDone(false)}><span>Keep exploring</span></button>
             </div>
           </div>
         )}
@@ -463,8 +476,8 @@ export default function AdventureView({
 
           {strip.length > 0 && (
             <ol className={`eq-strip${day ? " is-day" : ""}`} aria-label={day ? `Day ${day.day + 1} stops` : "Places picked for you"}>
-              {strip.map((s) => (
-                <li key={s.key} className={`${s.seen ? "seen" : ""}${s.node && selectedId === s.node.id ? " sel" : ""}`}>
+              {strip.map((s, i) => (
+                <li key={s.key} className={`${s.seen ? "seen" : ""}${s.node && selectedId === s.node.id ? " sel" : ""}`} style={{ ["--i" as string]: Math.min(i, 12) }}>
                   <button type="button" disabled={!s.node} onClick={() => s.node && select(s.node.id)} onMouseEnter={() => s.node && setHoverId(s.node.id)} onMouseLeave={() => setHoverId(null)} style={{ ["--c" as string]: s.node ? KIND_COLOR[s.node.kind] : "#9fb2d9" }}>
                     {s.time ? <time>{s.time}</time> : <small>{s.node ? KIND_LABEL[s.node.kind] : ""}</small>}
                     <span>{s.title}</span>
@@ -478,17 +491,26 @@ export default function AdventureView({
           {(routes.length > 0 || model) && (
             <div className="eq-bar">
               {routes.length > 0 && (
-                <button type="button" className={`eq-play${play ? " on" : ""}`} onClick={play ? stop : start} aria-label={play ? "Stop" : "Fly the trip"}>
-                  <span aria-hidden="true">{play ? "❚❚" : "▶"}</span>
-                  <em>{play ? "Pause" : done ? "Fly it again" : "Fly the trip"}</em>
+                <button type="button" className={`eq-play${play ? " on" : ""}`} onClick={play ? stop : start} aria-label={play ? "Pause" : "Fly the trip"}>
+                  <span className="eq-face">
+                    <span className="eq-ico" aria-hidden="true">
+                      {play ? (
+                        <svg viewBox="0 0 16 16" width="14" height="14"><rect x="3" y="2.5" width="3.4" height="11" rx="1" fill="currentColor" /><rect x="9.6" y="2.5" width="3.4" height="11" rx="1" fill="currentColor" /></svg>
+                      ) : (
+                        <svg viewBox="0 0 16 16" width="14" height="14"><path d="M4.5 2.8c0-.8.9-1.3 1.6-.9l7.4 4.6c.6.4.6 1.3 0 1.7l-7.4 4.6c-.7.4-1.6-.1-1.6-.9z" fill="currentColor" /></svg>
+                      )}
+                    </span>
+                    <em>{play ? "Pause" : done ? "Fly it again" : "Fly the trip"}</em>
+                  </span>
                 </button>
               )}
-              <div className="eq-days" role="tablist" aria-label="Days">
-                <button role="tab" aria-selected={activeDay === "all"} className={activeDay === "all" ? "on" : ""} onClick={() => { setActiveDay("all"); stop(); setClock(null); progress.current = { day: -1, t: 0 }; home(); }}>
+              <div className="eq-days" role="tablist" aria-label="Days" ref={daysRef}>
+                <i className="eq-ink" aria-hidden="true" style={ink ? { transform: `translateX(${ink.x}px)`, width: ink.w, ["--c" as string]: ink.c } : { opacity: 0 }} />
+                <button role="tab" data-day="all" aria-selected={activeDay === "all"} className={activeDay === "all" ? "on" : ""} onClick={() => { setActiveDay("all"); stop(); setClock(null); progress.current = { day: -1, t: 0 }; home(); }}>
                   Overview
                 </button>
                 {routes.map((r) => (
-                  <button key={r.day} role="tab" aria-selected={activeDay === r.day} className={activeDay === r.day ? "on" : ""} style={{ ["--c" as string]: r.color }} onClick={() => { setActiveDay(r.day); stop(); progress.current = { day: r.day, t: 0 }; setTick({ day: r.day, t: 0 }); }}>
+                  <button key={r.day} role="tab" data-day={r.day} aria-selected={activeDay === r.day} className={activeDay === r.day ? "on" : ""} style={{ ["--c" as string]: r.color }} onClick={() => { setActiveDay(r.day); stop(); progress.current = { day: r.day, t: 0 }; setTick({ day: r.day, t: 0 }); }}>
                     <span>Day {r.day + 1}</span>
                     <small>{r.label}</small>
                     {activeDay === r.day && (
@@ -528,6 +550,32 @@ export default function AdventureView({
   );
 }
 
+/** Counts a number up to its value, with an ease-out, for a scoreboard feel. */
+function useCountUp(target: number | null, run: boolean): number | null {
+  const [v, setV] = useState<number | null>(target == null ? null : 0);
+  const from = useRef(0);
+  useEffect(() => {
+    if (target == null) return setV(null);
+    if (!run) return;
+    const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    if (reduce) return setV(target);
+    const start = performance.now();
+    const a = from.current;
+    let raf = 0;
+    const step = (now: number) => {
+      const t = Math.min(1, (now - start) / 1100);
+      const e = 1 - Math.pow(1 - t, 3);
+      const val = Math.round(a + (target - a) * e);
+      setV(val);
+      if (t < 1) raf = requestAnimationFrame(step);
+      else from.current = target;
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [target, run]);
+  return v;
+}
+
 const fmtHour = (h: number) => `${String(Math.floor(h)).padStart(2, "0")}:${String(Math.round((h % 1) * 60)).padStart(2, "0")}`;
 
 function WxIcon({ kind, night }: { kind: Sky; night: boolean }) {
@@ -559,7 +607,7 @@ function PlaceCard({ node, onClose, city }: { node: QuestNode; onClose: () => vo
   const directions = `https://www.google.com/maps/dir/?api=1&destination=${node.lat},${node.lon}`;
   const maps = `https://www.google.com/maps/search/?api=1&query=${q}`;
   return (
-    <aside className="eq-card" style={{ ["--c" as string]: KIND_COLOR[node.kind] }} aria-label={node.name}>
+    <aside className="eq-card is-in" style={{ ["--c" as string]: KIND_COLOR[node.kind] }} aria-label={node.name}>
       <button type="button" className="eq-x" onClick={onClose} aria-label="Close">×</button>
       {p?.image && <div className="eq-card-img" style={{ backgroundImage: `url("${p.image.replace(/["\\]/g, "")}")` }} role="img" aria-label={node.name} />}
       <small className="eq-kind">{KIND_NOUN[node.kind]}</small>
@@ -579,9 +627,9 @@ function PlaceCard({ node, onClose, city }: { node: QuestNode; onClose: () => vo
       </dl>
       {node.visits.find((v) => v.note)?.note && <p className="eq-vnote">{node.visits.find((v) => v.note)!.note}</p>}
       <div className="eq-card-acts">
-        <a href={street} target="_blank" rel="noreferrer noopener" className="eq-btn gold">Look around</a>
-        <a href={directions} target="_blank" rel="noreferrer noopener" className="eq-btn">Directions</a>
-        <a href={site ?? maps} target="_blank" rel="noreferrer noopener" className="eq-btn">{site ? "Website" : "On Google Maps"}</a>
+        <a href={street} target="_blank" rel="noreferrer noopener" className="eq-btn gold"><span>Look around</span></a>
+        <a href={directions} target="_blank" rel="noreferrer noopener" className="eq-btn"><span>Directions</span></a>
+        <a href={site ?? maps} target="_blank" rel="noreferrer noopener" className="eq-btn"><span>{site ? "Website" : "On Google Maps"}</span></a>
       </div>
       {source && !site && <p className="eq-src">Found via <a href={source} target="_blank" rel="noreferrer noopener">{hostOf(source)}</a></p>}
     </aside>

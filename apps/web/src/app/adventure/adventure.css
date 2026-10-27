@@ -312,3 +312,116 @@
 .eq-earth .eq-pin.quiet span { opacity: 0 !important; pointer-events: none; }
 .eq-earth .eq-pin.quiet { z-index: 0; }
 .eq-earth .eq-pin.sel, .eq-earth .eq-pin.hov { z-index: 3; }
+
+/* ---------- premium pass: depth, light and motion ---------- */
+.eq { --spring: cubic-bezier(0.34, 1.56, 0.64, 1); --glide: cubic-bezier(0.2, 0.9, 0.2, 1); }
+
+/* Buttons are two layers: the button carries the glow (filter), the face carries the slanted cut. */
+.eq-play, .eq-btn { position: relative; padding: 0; border: 0; background: none; clip-path: none; filter: drop-shadow(0 10px 18px rgba(0, 0, 0, 0.35)); transition: filter 0.35s var(--glide), transform 0.35s var(--spring); -webkit-tap-highlight-color: transparent; }
+.eq-play .eq-face, .eq-btn > span { position: relative; display: inline-flex; align-items: center; gap: 10px; overflow: hidden; clip-path: polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%); transition: background 0.3s, color 0.3s; }
+/* a sheet of light sweeps across on hover */
+.eq-play .eq-face::after, .eq-btn > span::after { content: ""; position: absolute; inset: -20% auto -20% -60%; width: 45%; background: linear-gradient(105deg, transparent, rgba(255, 255, 255, 0.55), transparent); transform: skewX(-18deg) translateX(0); opacity: 0; pointer-events: none; }
+.eq-play:hover .eq-face::after, .eq-btn:hover > span::after, .eq-play:focus-visible .eq-face::after, .eq-btn:focus-visible > span::after { animation: eqsheen 0.85s var(--glide); }
+.eq-play:hover, .eq-btn:hover { transform: translateY(-2px); }
+.eq-play:active, .eq-btn:active { transform: translateY(0) scale(0.96); transition-duration: 0.08s; }
+
+.eq-btn > span { padding: 11px 22px 11px 18px; font-size: 13px; font-weight: 700; letter-spacing: 0.01em; color: var(--ice); background: linear-gradient(180deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.08)); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3); }
+.eq-btn:hover > span { background: linear-gradient(180deg, rgba(255, 255, 255, 0.3), rgba(255, 255, 255, 0.14)); }
+.eq-btn.gold { filter: drop-shadow(0 10px 22px rgba(255, 196, 40, 0.45)); }
+.eq-btn.gold > span { color: #241a00; background: linear-gradient(180deg, #ffe680 0%, #ffd23f 45%, #f2b712 100%); }
+.eq-btn.gold:hover { filter: drop-shadow(0 14px 28px rgba(255, 196, 40, 0.65)); }
+.eq-btn.gold:hover > span { background: linear-gradient(180deg, #fff09e 0%, #ffdb55 45%, #f7c21f 100%); }
+
+.eq-play { flex: none; height: 58px; filter: drop-shadow(0 12px 24px rgba(255, 61, 154, 0.5)); animation: eqcall 3.2s ease-in-out infinite; }
+.eq-play .eq-face { height: 100%; padding: 0 34px 0 14px; clip-path: polygon(0 0, 100% 0, calc(100% - 16px) 100%, 0 100%); color: #fff; background: linear-gradient(180deg, #ff6cb4 0%, #ff3d9a 48%, #e01677 100%); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45); }
+.eq-play:hover { filter: drop-shadow(0 16px 32px rgba(255, 61, 154, 0.75)); }
+.eq-play .eq-ico { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; color: #e01677; background: #fff; box-shadow: 0 4px 10px rgba(120, 0, 50, 0.35); transition: transform 0.45s var(--spring); }
+.eq-play:hover .eq-ico { transform: scale(1.12) rotate(-8deg); }
+.eq-play .eq-ico svg { margin-left: 2px; }
+.eq-play.on { animation: none; filter: drop-shadow(0 10px 20px rgba(0, 0, 0, 0.4)); }
+.eq-play.on .eq-face { color: #0b0d14; background: linear-gradient(180deg, #ffffff, #e4e8f0); }
+.eq-play.on .eq-ico { color: #fff; background: #0b0d14; }
+.eq-play.on .eq-ico svg { margin-left: 0; }
+.eq-play em { font-style: normal; font-family: var(--font-display, inherit); font-weight: 500; font-size: 14px; text-transform: uppercase; letter-spacing: 0.03em; }
+
+/* doors and tools: an underline that draws itself */
+.eq-doors button, .eq-doors a { position: relative; transition: background 0.3s, color 0.3s, transform 0.35s var(--spring); }
+.eq-doors button::after, .eq-doors a::after { content: ""; position: absolute; left: 18px; right: 22px; bottom: 5px; height: 2px; background: var(--hot); transform: scaleX(0); transform-origin: left; transition: transform 0.4s var(--glide); }
+.eq-doors button:hover::after, .eq-doors a:hover::after { transform: scaleX(1); }
+.eq-doors button:hover, .eq-doors a:hover { transform: translateY(-1px); }
+.eq-doors button:active, .eq-doors a:active { transform: scale(0.96); }
+.eq-tools button { position: relative; transition: color 0.25s, background 0.25s; }
+.eq-tools button::after { content: ""; position: absolute; left: 12px; right: 12px; bottom: 6px; height: 1.5px; background: currentColor; transform: scaleX(0); transform-origin: right; transition: transform 0.4s var(--glide); }
+.eq-tools button:hover::after { transform: scaleX(1); transform-origin: left; }
+
+/* the day selector: one indicator glides between days */
+.eq-days { position: relative; }
+.eq-days button.on { background: transparent; box-shadow: none; }
+.eq-days button:first-child.on { box-shadow: none; }
+.eq-ink { position: absolute; left: 0; top: 0; bottom: 0; z-index: 0; background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.12)); box-shadow: inset 0 -3px 0 var(--c, var(--hot)); transition: transform 0.55s var(--spring), width 0.55s var(--spring), box-shadow 0.4s; pointer-events: none; }
+.eq-days button { z-index: 1; }
+.eq-days button span, .eq-days button small { transition: color 0.3s, transform 0.4s var(--spring); }
+.eq-days button:hover span { transform: translateX(2px); }
+
+/* strip cards: rise in one after another, lift on hover */
+.eq-strip li { animation: eqrise 0.6s var(--glide) both; animation-delay: calc(var(--i, 0) * 45ms + 0.15s); }
+.eq-strip button { position: relative; overflow: hidden; transition: background 0.3s, transform 0.4s var(--spring), border-color 0.3s; }
+.eq-strip button::after { content: ""; position: absolute; left: 0; bottom: 0; height: 3px; width: 100%; background: var(--c); transform: scaleX(0); transform-origin: left; transition: transform 0.45s var(--glide); }
+.eq-strip button:hover:not(:disabled)::after, .eq-strip .sel button::after { transform: scaleX(1); }
+.eq-strip button:hover:not(:disabled), .eq-strip .sel button { border-bottom-color: transparent; }
+.eq-strip button:active:not(:disabled) { transform: translateY(-1px) scale(0.97); }
+
+/* the HUD assembles once you land */
+.eq-top > *, .eq-qloo, .eq-dock > * { animation: eqenter 0.8s var(--glide) both; }
+.eq-top > :nth-child(1) { animation-delay: 0.35s; }
+.eq-top > :nth-child(2) { animation-delay: 0.45s; }
+.eq-top > :nth-child(3) { animation-delay: 0.55s; }
+.eq-qloo { animation-name: eqenterleft; animation-delay: 0.5s; }
+.eq-dock > * { animation-name: eqenterup; animation-delay: 0.6s; }
+.eq-dial .val { animation: eqdial 1.4s var(--glide) 0.4s both; }
+.eq-xpn { font-size: 13px; font-weight: 700; color: var(--sun); }
+.eq-xpn small { font-weight: 500; color: var(--mute); font-size: 11.5px; }
+.eq-radar .fill { transform-origin: center; animation: eqbloom 1.1s var(--spring) 0.7s both; }
+.eq-tags li { animation: eqpop 0.5s var(--spring) both; }
+.eq-tags li:nth-child(2) { animation-delay: 0.05s; } .eq-tags li:nth-child(3) { animation-delay: 0.1s; } .eq-tags li:nth-child(4) { animation-delay: 0.15s; } .eq-tags li:nth-child(5) { animation-delay: 0.2s; } .eq-tags li:nth-child(6) { animation-delay: 0.25s; } .eq-tags li:nth-child(7) { animation-delay: 0.3s; } .eq-tags li:nth-child(8) { animation-delay: 0.35s; }
+
+/* the place card: details cascade in */
+.eq-card.is-in > * { animation: eqrise 0.55s var(--glide) both; }
+.eq-card.is-in > :nth-child(2) { animation-delay: 0.04s; } .eq-card.is-in > :nth-child(3) { animation-delay: 0.08s; } .eq-card.is-in > :nth-child(4) { animation-delay: 0.12s; } .eq-card.is-in > :nth-child(5) { animation-delay: 0.16s; } .eq-card.is-in > :nth-child(6) { animation-delay: 0.2s; } .eq-card.is-in > :nth-child(7) { animation-delay: 0.24s; } .eq-card.is-in > :nth-child(8) { animation-delay: 0.28s; } .eq-card.is-in > :nth-child(9) { animation-delay: 0.32s; }
+.eq-card-img { animation: eqreveal 0.9s var(--glide) both !important; }
+.eq-x { transition: background 0.25s, transform 0.4s var(--spring); }
+.eq-x:hover { transform: rotate(90deg); }
+
+/* pins drop onto the map */
+.eq-pin i { animation: eqdrop 0.6s var(--spring) backwards; }
+.eq-pin.sel i { animation: eqring 1.6s ease-out infinite; }
+
+/* arrivals: a sheen runs across the banner */
+.eq-toast { overflow: hidden; }
+.eq-toast::after { content: ""; position: absolute; inset: 0 auto 0 -40%; width: 30%; background: linear-gradient(105deg, transparent, rgba(255, 255, 255, 0.3), transparent); transform: skewX(-18deg); animation: eqsheen 1.2s var(--glide) 0.25s both; }
+.eq-toast { position: relative; }
+.eq-toast em { animation: eqpop 0.6s var(--spring) 0.3s both; }
+
+/* chapters: the running one breathes, the line fills */
+.eq-chapters li::before { transform-origin: left; transition: background 0.5s; }
+.eq-chapters .is-succeeded::before, .eq-chapters .is-running::before { animation: eqfill 0.7s var(--glide) both; }
+
+@keyframes eqsheen { 0% { opacity: 0; transform: skewX(-18deg) translateX(0); } 20% { opacity: 1; } 100% { opacity: 0; transform: skewX(-18deg) translateX(420%); } }
+@keyframes eqcall { 0%, 100% { filter: drop-shadow(0 12px 24px rgba(255, 61, 154, 0.45)); } 50% { filter: drop-shadow(0 12px 34px rgba(255, 61, 154, 0.85)); } }
+@keyframes eqrise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+@keyframes eqenter { from { opacity: 0; transform: translateX(40px); } to { opacity: 1; transform: none; } }
+@keyframes eqenterleft { from { opacity: 0; transform: translate(-40px, -46%); } to { opacity: 1; transform: translate(0, -46%); } }
+@keyframes eqenterup { from { opacity: 0; transform: translateY(40px); } to { opacity: 1; transform: none; } }
+@keyframes eqdial { from { stroke-dasharray: 0 200; } }
+@keyframes eqbloom { from { transform: scale(0.2); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes eqpop { from { opacity: 0; transform: scale(0.6); } to { opacity: 1; transform: none; } }
+@keyframes eqreveal { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
+@keyframes eqdrop { from { opacity: 0; transform: translateY(-18px) rotate(45deg) scale(0.4); } to { opacity: 1; transform: rotate(45deg); } }
+@keyframes eqring { 0% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.7), 0 0 16px var(--c); } 100% { box-shadow: 0 0 0 14px rgba(255, 255, 255, 0), 0 0 16px var(--c); } }
+@keyframes eqfill { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@media (max-width: 860px) {
+  .eq-qloo { animation-name: eqenter; }
+  .eq-play { height: 50px; }
+  .eq-play .eq-face { padding: 0 24px 0 10px; }
+}
+@media (prefers-reduced-motion: reduce) { .eq-play { animation: none; } }

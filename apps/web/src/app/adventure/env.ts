@@ -35,12 +35,13 @@ function cloudTexture(): THREE.Texture {
   c.height = 128;
   const g = c.getContext("2d")!;
   const r = rng(7);
-  for (let i = 0; i < 26; i++) {
+  for (let i = 0; i < 60; i++) {
     const x = 40 + r() * 176;
     const y = 50 + r() * 40 - Math.abs(x - 128) * 0.12;
     const rad = 18 + r() * 34;
     const grd = g.createRadialGradient(x, y, 0, x, y, rad);
-    grd.addColorStop(0, "rgba(255,255,255,0.55)");
+    grd.addColorStop(0, "rgba(255,255,255,0.22)");
+    grd.addColorStop(0.5, "rgba(255,255,255,0.12)");
     grd.addColorStop(1, "rgba(255,255,255,0)");
     g.fillStyle = grd;
     g.beginPath();
@@ -146,7 +147,7 @@ export class Environment {
       c.visible = i < n;
       const m = (c as THREE.Sprite).material as THREE.SpriteMaterial;
       m.color.setRGB(shade, shade, shade * (s.day < 0.2 ? 1.1 : 1));
-      m.opacity = 0.35 + w.cloud * 0.35;
+      m.opacity = 0.22 + w.cloud * 0.3;
     });
     this.rain.visible = w.rain > 0;
     (this.rain.material as THREE.LineBasicMaterial).opacity = 0.25 + w.rain * 0.35;
@@ -258,7 +259,8 @@ export class Environment {
       if (u.x > 7000) u.x -= 14000;
       c.position.set(base.x + u.x, base.y + u.y, base.z + u.z);
     }
-    this.clouds.visible = zoom > 9;
+    // From high above, painted clouds just hide the city; they belong to the street-level sky.
+    this.clouds.visible = zoom > 13.2;
     const near = zoom >= 13;
     this.rain.visible = near && w.rain > 0;
     this.snow.visible = near && w.snow > 0;
