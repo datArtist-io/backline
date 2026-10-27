@@ -119,6 +119,29 @@ export default function AdventureView({
   const [look, setLook] = useState<"photoreal" | "real" | "painted">(GOOGLE_KEY ? "photoreal" : "real");
   /** The hour on the trip's clock: follows the stops as you fly, so the light does too. */
   const [clock, setClock] = useState<number | null>(null);
+  /** The time someone dragged to on the day's clock (Immersive View style), or null to follow the plan. */
+  const [scrub, setScrub] = useState<number | null>(null);
+  const [timeOpen, setTimeOpen] = useState(false);
+  const [viewOpen, setViewOpen] = useState(false);
+  // Light or dark: the system's choice until someone picks, then theirs (remembered on this device).
+  const [theme, setTheme] = useState<"light" | "dark">("light");
+  useEffect(() => {
+    let saved: string | null = null;
+    try {
+      saved = localStorage.getItem("bl.theme");
+    } catch {
+      /* storage can be off */
+    }
+    setTheme(saved === "dark" || saved === "light" ? saved : window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+  }, []);
+  const pickTheme = (t: "light" | "dark") => {
+    setTheme(t);
+    try {
+      localStorage.setItem("bl.theme", t);
+    } catch {
+      /* fine */
+    }
+  };
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [hoverId, setHoverId] = useState<string | null>(null);
   const [activeDay, setActiveDay] = useState<number | "all">("all");
@@ -211,7 +234,7 @@ export default function AdventureView({
       const q = routes.find((r) => r.day === d)?.quests.find((x) => x.nodeId === nodeId);
       const h = hoursOf(q?.time);
       if (h != null) setClock(h);
-      toast(n.name, q?.time ? `${q.time} · ${KIND_NOUN[n.kind]}` : KIND_NOUN[n.kind], n.xp);
+      toast(n.name, q?.time ? `${q.time} · ${KIND_NOUN[n.kind]}` : KIND_NOUN[n.kind]);
     },
     [model, routes, toast]
   );
@@ -241,6 +264,8 @@ export default function AdventureView({
       if (e.key === "Escape") {
         setSelectedId(null);
         setSheet(null);
+        setViewOpen(false);
+        setTimeOpen(false);
       } else if (e.key === " " && routes.length) {
         e.preventDefault();
         if (play) stop();
@@ -251,6 +276,7 @@ export default function AdventureView({
     return () => window.removeEventListener("keydown", key);
   }, [play, routes.length, start, stop]);
 
+  // Kept for the stylised taste map's internal scoring; never shown.
   const xp = useMemo(() => {
     if (!model) return 0;
     let total = 0;
@@ -275,7 +301,7 @@ export default function AdventureView({
   }, [model, activeDay, routes]);
   const sky: Sky = skyKind(weatherDay?.code ?? null, weatherDay?.label ?? null);
   const selectedHour = selected ? hoursOf((selected.visits.find((v) => v.day === activeDay) ?? selected.visits[0])?.time) : null;
-  const hour = selectedHour ?? clock ?? 13;
+  const hour = scrub ?? selectedHour ?? clock ?? 13;
   const weather = useMemo(() => ({ kind: sky, hour }), [sky, hour]);
 
   const chapters = useMemo(() => CHAPTERS.filter((c) => steps.some((s) => s.id === c.id)).map((c) => ({ ...c, status: steps.find((s) => s.id === c.id)?.status ?? "pending" })), [steps]);
@@ -291,10 +317,10 @@ export default function AdventureView({
     const box = daysRef.current;
     const el = box?.querySelector<HTMLElement>(`[data-day="${activeDay}"]`);
     if (!box || !el) return setInk(null);
+    el.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "smooth" });
     setInk({ x: el.offsetLeft, w: el.offsetWidth, c: typeof activeDay === "number" ? routes.find((r) => r.day === activeDay)?.color ?? "#ff3d9a" : "#ff3d9a" });
   }, [activeDay, routes, narrow, ready]);
   const shownMatch = useCountUp(model?.stats.match ?? null, ready);
-  const shownXp = useCountUp(xp, true);
 
   if (ok === false) {
     return (
@@ -312,7 +338,7 @@ export default function AdventureView({
   const matchPct = model?.stats.match ?? null;
 
   return (
-    <section className={`eq${fullscreen ? " is-full" : ""}${ready ? " is-ready" : ""}${play ? " is-flying" : ""}`} aria-label={city ? `Your trip to ${city}` : "Your trip"}>
+    <section data-theme={theme} style={gradeVars(sky, hour)} className={`eq${fullscreen ? " is-full" : ""}${ready ? " is-ready" : ""}${play ? " is-flying" : ""}`} aria-label={city ? `Your trip to ${city}` : "Your trip"}>
       <div className="eq-stage">
         {/* The landing page's light sculpture carries on behind the globe until you arrive. */}
         {blobs && (
@@ -363,6 +389,9 @@ export default function AdventureView({
             </>
           )}
         </Quiet>
+        <div className="eq-grade" aria-hidden="true" />
+        <div className="eq-tilt top" aria-hidden="true" />
+        <div className="eq-tilt bottom" aria-hidden="true" />
         <div className="eq-shade" aria-hidden="true" />
 
         {/* where you're going */}
@@ -372,7 +401,7 @@ export default function AdventureView({
             Backline
           </a>
           {city ? (
-            <h1 key={city}>{city.split(",")[0]}</h1>
+            <h1 key={city}>{city.split(",")[0].replace(/^(Greater|City of|Metropolitan)\s+/i, "")}</h1>
           ) : (
             <h1 className="is-waiting">
               <span>Planning</span>
@@ -405,19 +434,35 @@ export default function AdventureView({
                 <b>Qloo affinity</b>
                 {narrow && model.taste?.signals.length ? <span className="eq-because">Because you love {model.taste.signals.slice(0, 2).join(", ")}</span> : null}
                 <span>{model.stats.picked} places · {model.stats.days ? `${model.stats.days} days` : "plan coming"}{model.stats.km ? ` · ${Math.round(model.stats.km)} km` : ""}</span>
-                <span className="eq-xpn">{(shownXp ?? 0).toLocaleString("en")} <small>/ {model.stats.xp.toLocaleString("en")} XP</small></span>
-                <span className="eq-xp" aria-label={`${xp} of ${model.stats.xp} points`}>
-                  <i style={{ width: `${model.stats.xp ? Math.min(100, (xp / model.stats.xp) * 100) : 0}%` }} />
-                </span>
               </div>
             </div>
           )}
           {weatherDay && (
-            <div className={`eq-wx sky-${sky}`} aria-label={`${weatherDay.label}, high ${Math.round(weatherDay.tmax ?? 0)} degrees`}>
-              <WxIcon kind={sky} night={hour < 6.5 || hour > 19} />
-              <b>{weatherDay.tmax != null ? `${Math.round(weatherDay.tmax)}°` : "–"}</b>
-              <span>{weatherDay.label}</span>
-              <em>{typeof activeDay === "number" ? `Day ${activeDay + 1}, ` : ""}{fmtHour(hour)}</em>
+            <div className={`eq-time${timeOpen ? " is-open" : ""}`}>
+              <button type="button" className={`eq-wx sky-${sky}`} aria-expanded={timeOpen} onClick={() => setTimeOpen((o) => !o)} title="Change the time of day">
+                <WxIcon kind={sky} night={hour < 6.5 || hour > 19} />
+                <b>{tempAt(weatherDay, hour) != null ? `${tempAt(weatherDay, hour)}°` : "–"}</b>
+                <span>{weatherDay.label}</span>
+                <em>{typeof activeDay === "number" ? `Day ${activeDay + 1}, ` : ""}{fmtHour(hour)}</em>
+              </button>
+              {timeOpen && (
+                <div className="eq-scrub">
+                  <label htmlFor="eq-hour">See the day at</label>
+                  <input id="eq-hour" type="range" min={5} max={23.75} step={0.25} value={hour} onChange={(e) => setScrub(Number(e.target.value))} style={{ ["--p" as string]: `${((hour - 5) / 18.75) * 100}%` }} />
+                  <div className="eq-scrub-ticks" aria-hidden="true">
+                    <span>Dawn</span>
+                    <span>Noon</span>
+                    <span>Dusk</span>
+                    <span>Night</span>
+                  </div>
+                  <p>
+                    {weatherDay.sunrise ? `Sunrise ${weatherDay.sunrise}` : ""}
+                    {weatherDay.sunset ? ` · sunset ${weatherDay.sunset}` : ""}
+                    {weatherDay.rainChance != null ? ` · ${Math.round(weatherDay.rainChance)}% chance of rain` : ""}
+                  </p>
+                  {scrub != null && <button type="button" className="eq-scrub-reset" onClick={() => setScrub(null)}>Follow the plan</button>}
+                </div>
+              )}
             </div>
           )}
           <nav className="eq-doors" aria-label="Trip">
@@ -442,6 +487,7 @@ export default function AdventureView({
               {topPicks.map((n) => (
                 <li key={n.id} style={{ ["--c" as string]: KIND_COLOR[n.kind] }}>
                   <button type="button" onClick={() => select(n.id)}>
+                    <KindIcon kind={n.kind} />
                     <small>{KIND_LABEL[n.kind]}</small>
                     <span>{n.name}</span>
                     <b>{n.affinity!.toFixed(3)}</b>
@@ -472,7 +518,6 @@ export default function AdventureView({
             <div key={t.id} className="eq-toast">
               <b>{t.text}</b>
               {t.sub && <span>{t.sub}</span>}
-              {t.xp ? <em>+{t.xp}</em> : null}
             </div>
           ))}
         </div>
@@ -513,6 +558,7 @@ export default function AdventureView({
               {strip.map((s, i) => (
                 <li key={s.key} className={`${s.seen ? "seen" : ""}${s.node && selectedId === s.node.id ? " sel" : ""}`} style={{ ["--i" as string]: Math.min(i, 12) }}>
                   <button type="button" disabled={!s.node} onClick={() => s.node && select(s.node.id)} onMouseEnter={() => s.node && setHoverId(s.node.id)} onMouseLeave={() => setHoverId(null)} style={{ ["--c" as string]: s.node ? KIND_COLOR[s.node.kind] : "#9fb2d9" }}>
+                    <KindIcon kind={s.node?.kind ?? "stop"} />
                     {s.time ? <time>{s.time}</time> : <small>{s.node ? KIND_LABEL[s.node.kind] : ""}</small>}
                     <span>{s.title}</span>
                     {s.node?.rank && <b title={`Qloo ranks it ${s.node.rank.n} of ${s.node.rank.of} for your taste`}>#{s.node.rank.n}</b>}
@@ -556,16 +602,23 @@ export default function AdventureView({
                   </button>
                 ))}
               </div>
-              <div className="eq-tools">
-                <button type="button" onClick={home} title="See the whole trip">Whole trip</button>
-                <button type="button" onClick={() => setIntroKey((k) => k + 1)} title="Fly in from home again">Fly in again</button>
-                {mode === "earth" && (
-                  <button type="button" onClick={() => setLook((l) => nextLook(l))} title="Switch how the world is drawn">
-                    {LOOK_LABEL[nextLook(look)]}
-                  </button>
+              <div className={`eq-tools${viewOpen ? " is-open" : ""}`}>
+                <button type="button" className="eq-view-btn" aria-expanded={viewOpen} aria-haspopup="menu" onClick={() => setViewOpen((o) => !o)}>
+                  <svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><path d="M10 3.5c-4 0-7 3.6-7.6 5.6a1.3 1.3 0 0 0 0 .8C3 11.9 6 15.5 10 15.5s7-3.6 7.6-5.6a1.3 1.3 0 0 0 0-.8C17 7.1 14 3.5 10 3.5z" fill="none" stroke="currentColor" strokeWidth="1.6" /><circle cx="10" cy="9.5" r="2.6" fill="currentColor" /></svg>
+                  View
+                </button>
+                {viewOpen && (
+                  <div className="eq-menu" role="menu" onClick={() => setViewOpen(false)}>
+                    <button type="button" role="menuitem" onClick={home}>Whole trip</button>
+                    <button type="button" role="menuitem" onClick={() => setIntroKey((k) => k + 1)}>Fly in again</button>
+                    {mode === "earth" && LOOKS.map((l) => (
+                      <button key={l} type="button" role="menuitemradio" aria-checked={look === l} className={look === l ? "on" : ""} onClick={() => setLook(l)}>{LOOK_LABEL[l]}</button>
+                    ))}
+                    <button type="button" role="menuitemradio" aria-checked={mode === "taste"} className={mode === "taste" ? "on" : ""} onClick={() => setMode((m) => (m === "earth" ? "taste" : "earth"))}>Taste map</button>
+                    <button type="button" role="menuitem" onClick={() => pickTheme(theme === "dark" ? "light" : "dark")}>{theme === "dark" ? "Light mode" : "Dark mode"}</button>
+                    {onClassic && <button type="button" role="menuitem" onClick={onClassic}>Classic view</button>}
+                  </div>
                 )}
-                <button type="button" onClick={() => setMode((m) => (m === "earth" ? "taste" : "earth"))} title="Switch between the real city and the taste map">{mode === "earth" ? "Taste map" : "Real world"}</button>
-                {onClassic && <button type="button" onClick={onClassic}>Classic view</button>}
               </div>
             </div>
           )}
@@ -619,6 +672,53 @@ const LOOKS: Look[] = GOOGLE_KEY ? ["photoreal", "real", "painted"] : ["real", "
 const nextLook = (l: Look): Look => LOOKS[(LOOKS.indexOf(l) + 1) % LOOKS.length];
 const LOOK_LABEL: Record<Look, string> = { photoreal: "Photoreal 3D", real: "Satellite", painted: "Painted map" };
 
+/** A temperature for the hour from the day's low (around dawn) and high (mid-afternoon). Pure. */
+function tempAt(d: { tmax: number | null; tmin: number | null }, h: number): number | null {
+  if (d.tmax == null) return null;
+  if (d.tmin == null) return Math.round(d.tmax);
+  const f = h <= 6 ? 0 : h <= 15 ? (1 - Math.cos(((h - 6) / 9) * Math.PI)) / 2 : 1 - ((h - 15) / 15) * 0.7;
+  return Math.round(d.tmin + (d.tmax - d.tmin) * Math.max(0, Math.min(1, f)));
+}
+
+/** Little icons with personality: each kind of place does something when you hover it. */
+function KindIcon({ kind }: { kind: NodeKind }) {
+  const paths: Record<NodeKind, ReactNode> = {
+    stay: <><path d="M3 18v-7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v7" /><path d="M3 14h18M3 18v2M21 18v2" /><path className="ki-pillow" d="M6 9V7.5A1.5 1.5 0 0 1 7.5 6h3A1.5 1.5 0 0 1 12 7.5V9" /></>,
+    dine: <><g className="ki-fork"><path d="M7 3v8a2 2 0 0 0 2 2v8M11 3v8a2 2 0 0 1-2 2M9 3v6" /></g><g className="ki-knife"><path d="M17 21V3c-2 1.5-3 4-3 7v3h3" /></g></>,
+    venue: <><g className="ki-note"><path d="M9 18V5l11-2v13" /><circle cx="6" cy="18" r="3" /><circle cx="17" cy="16" r="3" /></g></>,
+    activity: <><circle cx="12" cy="12" r="9" /><path className="ki-needle" d="m15.5 8.5-2 5-5 2 2-5z" /></>,
+    landmark: <><path d="M5 21V4" /><path className="ki-flag" d="M5 4h11l-2 4 2 4H5" /></>,
+    stop: <><path className="ki-plane" d="M2.5 13.5 21 6l-4 13-4.5-4.5L9 18v-5l9-6-11 5.5z" /></>,
+  };
+  return (
+    <svg className={`ki ki-${kind}`} viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      {paths[kind]}
+    </svg>
+  );
+}
+
+/**
+ * The colour grade, the way games do it: a filter on the world plus tinted light and haze, set by the
+ * hour and the weather. Golden hour runs warm, night runs blue, rain runs grey. Pure.
+ */
+export function gradeVars(kind: Sky, hour: number): Record<string, string> {
+  const h = ((hour % 24) + 24) % 24;
+  const night = h < 6 || h >= 20 ? 1 : h < 7 ? 1 - (h - 6) : h >= 19 ? h - 19 : 0;
+  const golden = Math.max(0, 1 - Math.abs(h - 18) / 1.6, 1 - Math.abs(h - 7.2) / 1.2) * (1 - night);
+  const wet = kind === "rain" || kind === "storm" ? 1 : kind === "cloudy" || kind === "fog" ? 0.55 : kind === "snow" ? 0.4 : 0;
+  const sat = 1.28 - wet * 0.32 - night * 0.35 + golden * 0.12;
+  const bright = 1.02 - night * 0.42 - wet * 0.06;
+  const contrast = 1.1 + golden * 0.06 + night * 0.08;
+  const sepia = golden * 0.22 + (1 - wet) * 0.04;
+  const tint = night > 0.5 ? "rgba(40, 60, 150, 0.55)" : golden > 0.2 ? `rgba(255, 150, 70, ${(0.22 + golden * 0.3).toFixed(2)})` : wet > 0.5 ? "rgba(120, 140, 165, 0.32)" : "rgba(255, 205, 140, 0.16)";
+  const haze = night > 0.5 ? "rgba(30, 40, 90, 0.5)" : golden > 0.2 ? "rgba(255, 196, 150, 0.55)" : wet > 0.5 ? "rgba(205, 212, 222, 0.62)" : "rgba(214, 232, 255, 0.5)";
+  return {
+    ["--g-filter" as string]: `saturate(${sat.toFixed(2)}) contrast(${contrast.toFixed(2)}) brightness(${bright.toFixed(2)}) sepia(${sepia.toFixed(2)})`,
+    ["--g-tint" as string]: tint,
+    ["--g-haze" as string]: haze,
+  };
+}
+
 const fmtHour = (h: number) => `${String(Math.floor(h)).padStart(2, "0")}:${String(Math.round((h % 1) * 60)).padStart(2, "0")}`;
 
 function WxIcon({ kind, night }: { kind: Sky; night: boolean }) {
@@ -653,7 +753,7 @@ function PlaceCard({ node, onClose, city }: { node: QuestNode; onClose: () => vo
     <aside className="eq-card is-in" style={{ ["--c" as string]: KIND_COLOR[node.kind] }} aria-label={node.name}>
       <button type="button" className="eq-x" onClick={onClose} aria-label="Close">×</button>
       {p?.image && <div className="eq-card-img" style={{ backgroundImage: `url("${p.image.replace(/["\\]/g, "")}")` }} role="img" aria-label={node.name} />}
-      <small className="eq-kind">{KIND_NOUN[node.kind]}</small>
+      <small className="eq-kind"><KindIcon kind={node.kind} />{KIND_NOUN[node.kind]}</small>
       <h3>{node.name}</h3>
       {node.affinity != null ? (
         <div className="eq-match" aria-label={`Qloo affinity ${node.affinity.toFixed(3)}`}>
@@ -667,11 +767,12 @@ function PlaceCard({ node, onClose, city }: { node: QuestNode; onClose: () => vo
         </div>
       ) : null}
       {p?.why?.length ? <ul className="eq-why">{p.why.slice(0, 4).map((w, i) => <li key={i}>{w}</li>)}</ul> : null}
-      <dl>
-        {p?.address && (<><dt>Address</dt><dd>{p.address}</dd></>)}
-        {p?.rating != null && (<><dt>Rating</dt><dd>{p.rating.toFixed(1)} out of 5</dd></>)}
-        {p?.priceNote && (<><dt>Price</dt><dd>{p.priceNote}</dd></>)}
-        {node.visits.length > 0 && (<><dt>When</dt><dd>{node.visits.map((v) => `Day ${v.day + 1}, ${v.time}`).join(" · ")}</dd></>)}
+      <dl className="eq-facts">
+        <div><dt>Rating</dt><dd>{p?.rating != null ? `${p.rating.toFixed(1)} ★` : "Not rated"}</dd></div>
+        <div><dt>Price</dt><dd>{p?.priceNote ?? (p?.priceLevel ? "$".repeat(p.priceLevel) : "Not listed")}</dd></div>
+        <div><dt>When</dt><dd>{node.visits.length ? node.visits.slice(0, 2).map((v) => `Day ${v.day + 1}, ${v.time}`).join(" · ") + (node.visits.length > 2 ? ` +${node.visits.length - 2}` : "") : "Any time"}</dd></div>
+        <div><dt>Qloo rank</dt><dd>{node.rank ? `#${node.rank.n} of ${node.rank.of}` : "Not ranked"}</dd></div>
+        {p?.address && <div className="wide"><dt>Address</dt><dd>{p.address}</dd></div>}
       </dl>
       {node.visits.find((v) => v.note)?.note && <p className="eq-vnote">{node.visits.find((v) => v.note)!.note}</p>}
       <div className="eq-card-acts">

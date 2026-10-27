@@ -721,6 +721,14 @@ function hotelSearchUrl(p: { name: string }, a: TripAgentOutput): string {
 
 type Spot = { name: string; lat: number; lon: number };
 
+/** "plan a trip to London for me" → "London". A quick read of the request so the globe can fly at once. Pure. */
+export function placeIn(goal: string): string | null {
+  const m = /\b(?:to|in|visit(?:ing)?|around|at)\s+([\p{L}][\p{L}\p{M}' .-]{1,40}?)(?=\s+(?:for|from|with|next|this|on|in|by|and|tomorrow|today|tonight|over|during|\d)\b|[,.!?;]|$)/iu.exec(goal);
+  const raw = m?.[1]?.trim();
+  if (!raw || /^(me|us|my|the|a|an|book|plan|stay|go|eat|see)$/i.test(raw)) return null;
+  return raw.toLowerCase().replace(/(^|[\s-])\p{L}/gu, (c) => c.toUpperCase());
+}
+
 /** Where a place name is on the globe, from OpenStreetMap, so the journey can start before the agent's results. */
 function usePlace(name: string | null | undefined): Spot | null {
   const [spot, setSpot] = useState<Spot | null>(null);
@@ -789,7 +797,8 @@ function TripGame({
   const intel = r<TripIntelOutput>("trip.intel")?.data ?? null;
   const travel = r<TripTravelOutput>("trip.travel")?.data ?? null;
   const intelStep = steps.find((s) => s.id === "trip.intel");
-  const guess = usePlace(where?.city ? null : trip?.destination);
+  // Fly the moment the page opens: the place named in the request, before the agent has even read it.
+  const guess = usePlace(where?.city ? null : trip?.destination ?? placeIn(goal));
   const destination: Spot | null = where?.city ? { name: where.city.display ?? where.city.name, lat: where.city.lat, lon: where.city.lon } : travel?.to && travel.destination ? { name: travel.destination, ...travel.to } : guess;
   const model = useMemo(() => buildAdventure({ title: goal, agent, plan, routes, taste, intel, travel, destination }), [goal, agent, plan, routes, taste, intel, travel, destination]);
   const origin: Spot | null = travel?.from && travel.origin ? { name: travel.origin, ...travel.from } : null;

@@ -54,6 +54,18 @@ const DEM = process.env.NEXT_PUBLIC_TERRAIN_TILES ?? "https://s3.amazonaws.com/e
 
 const GOLD = "#f2cf7a";
 
+// Open connections to the tile hosts before the first tile is asked for.
+if (typeof document !== "undefined") {
+  for (const href of [SAT, VECTOR, GLYPHS, DEM].map((u) => { try { return new URL(u.replace(/\{[^}]+\}/g, "0")).origin; } catch { return null; } }).filter(Boolean) as string[]) {
+    if (document.querySelector(`link[rel="preconnect"][href="${href}"]`)) continue;
+    const l = document.createElement("link");
+    l.rel = "preconnect";
+    l.href = href;
+    l.crossOrigin = "anonymous";
+    document.head.appendChild(l);
+  }
+}
+
 function style(): StyleSpecification {
   const terrain = Boolean(DEM);
   return {
@@ -82,7 +94,7 @@ function style(): StyleSpecification {
     layers: [
       { id: "space", type: "background", paint: { "background-color": "#0b1a2e" } },
       // Graded like a game: richer greens and blues, a touch more contrast.
-      { id: "sat", type: "raster", source: "sat", paint: { "raster-saturation": 0.22, "raster-contrast": 0.1, "raster-brightness-min": 0.03, "raster-brightness-max": 1, "raster-fade-duration": 260 } },
+      { id: "sat", type: "raster", source: "sat", paint: { "raster-saturation": 0.22, "raster-contrast": 0.1, "raster-brightness-min": 0.03, "raster-brightness-max": 1, "raster-fade-duration": 0 } },
       ...(terrain
         ? [{ id: "relief", type: "hillshade" as const, source: "relief", paint: { "hillshade-exaggeration": 0.45, "hillshade-shadow-color": "rgba(20, 38, 20, 0.55)", "hillshade-highlight-color": "rgba(255, 250, 225, 0.25)", "hillshade-accent-color": "rgba(30, 50, 30, 0.2)" } }]
         : []),
@@ -467,7 +479,10 @@ export default function Earth(props: EarthProps) {
       maxPitch: 78,
       attributionControl: { compact: true },
       canvasContextAttributes: { antialias: true },
-      fadeDuration: 200,
+      fadeDuration: 0,
+      // Keep loading imagery while the camera flies, and keep plenty of it, so the city is there on arrival.
+      cancelPendingTileRequestsWhileZooming: false,
+      maxTileCacheSize: 600,
       // Retina at full resolution doubles the work for little visible gain on a moving 3D scene.
       pixelRatio: Math.min(window.devicePixelRatio || 1, 1.5),
     });
@@ -540,6 +555,10 @@ export default function Earth(props: EarthProps) {
           })
           .catch((err) => console.warn("Photoreal tiles unavailable", err));
       }
+      // Map credits start folded away; the ⓘ opens them.
+      const credits = box.current?.querySelector(".maplibregl-ctrl-attrib");
+      credits?.classList.remove("maplibregl-compact-show");
+      credits?.removeAttribute("open");
       sync();
       if (live.current.destination || live.current.model) intro();
       live.current.onReady();
