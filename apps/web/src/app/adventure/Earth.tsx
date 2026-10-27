@@ -6,7 +6,7 @@
 import maplibregl, { type CustomLayerInterface, type GeoJSONSource, type Map as MlMap, type Marker, type StyleSpecification } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import * as THREE from "three";
-import { useEffect, useRef, type MutableRefObject } from "react";
+import { useEffect, useRef, useState, type MutableRefObject } from "react";
 import { GAME_LAYERS, LAND, REAL_LAYERS, dusk, lightFor, skyFor, type Sky } from "./world";
 import { Environment } from "./env";
 import { KIND_COLOR, pathIndex, pointAt, type AdventureModel, type DayRoute, type QuestNode } from "./model";
@@ -34,7 +34,7 @@ export type EarthProps = {
   homeKey: number;
   showTaste: boolean;
   /** Real satellite imagery, or the painted game map. */
-  look: "real" | "painted";
+  look: "photoreal" | "real" | "painted";
   /** The sky to paint: the day's forecast and the hour on the clock. */
   weather: { kind: Sky; hour: number };
   /** Room the HUD takes on each side, so the camera frames the trip inside it. */
@@ -48,6 +48,8 @@ const SAT = process.env.NEXT_PUBLIC_SATELLITE_TILES || "https://server.arcgisonl
 const SAT_CREDIT = process.env.NEXT_PUBLIC_SATELLITE_ATTRIBUTION || "Imagery © Esri, Maxar, Earthstar Geographics";
 const VECTOR = process.env.NEXT_PUBLIC_VECTOR_TILES || "https://tiles.openfreemap.org/planet";
 const GLYPHS = process.env.NEXT_PUBLIC_MAP_GLYPHS || "https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf";
+/** Google Map Tiles API key: turns on Photoreal (Google Earth's 3D city models). */
+export const GOOGLE_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY || "";
 const DEM = process.env.NEXT_PUBLIC_TERRAIN_TILES ?? "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png";
 
 const GOLD = "#f2cf7a";
@@ -446,6 +448,8 @@ export default function Earth(props: EarthProps) {
   const box = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MlMap | null>(null);
   const layerRef = useRef<Scene3D | null>(null);
+  const photoRef = useRef<{ enabled: boolean } | null>(null);
+  const [credit, setCredit] = useState("");
   const markers = useRef(new Map<string, { m: Marker; el: HTMLElement }>());
   const live = useRef(props);
   live.current = props;
@@ -523,6 +527,18 @@ export default function Earth(props: EarthProps) {
         for (const l of [...GAME_LAYERS, ...REAL_LAYERS]) map.addLayer(l, "heat");
       } catch {
         /* the satellite globe is enough on its own */
+      }
+      // Google Earth's photorealistic city, loaded only when a key is set.
+      if (GOOGLE_KEY) {
+        import("./photoreal")
+          .then(({ PhotorealLayer }) => {
+            if (!mapRef.current) return;
+            const pr = new PhotorealLayer(GOOGLE_KEY, (t) => setCredit(t));
+            photoRef.current = pr;
+            map.addLayer(pr, "heat");
+            applyLook();
+          })
+          .catch((err) => console.warn("Photoreal tiles unavailable", err));
       }
       sync();
       if (live.current.destination || live.current.model) intro();
@@ -658,10 +674,20 @@ export default function Earth(props: EarthProps) {
     const layer = layerRef.current;
     const p = live.current;
     if (!map || !layer || !state.current.loaded) return;
-    const real = p.look === "real";
-    for (const l of GAME_LAYERS) if (map.getLayer(l.id)) map.setLayoutProperty(l.id, "visibility", real ? "none" : "visible");
+    const photo = p.look === "photoreal" && Boolean(photoRef.current);
+    const real = p.look === "real" || (p.look === "photoreal" && !photo);
+    for (const l of GAME_LAYERS) if (map.getLayer(l.id)) map.setLayoutProperty(l.id, "visibility", real || photo ? "none" : "visible");
     for (const l of REAL_LAYERS) if (map.getLayer(l.id)) map.setLayoutProperty(l.id, "visibility", real ? "visible" : "none");
-    map.setLayoutProperty("sat", "visibility", real ? "visible" : "none");
+    map.setLayoutProperty("sat", "visibility", real || photo ? "visible" : "none");
+    if (photoRef.current) photoRef.current.enabled = photo;
+    // Google's tiles carry their own terrain; MapLibre's would lift the satellite through them.
+    try {
+      if (photo && map.getTerrain()) map.setTerrain(null);
+      if (!photo && !map.getTerrain() && DEM) map.setTerrain({ source: "dem", exaggeration: 1.15 });
+      if (map.getLayer("relief")) map.setLayoutProperty("relief", "visibility", photo ? "none" : "visible");
+    } catch {
+      /* terrain is optional */
+    }
     const lat = p.model?.center.lat ?? p.destination?.lat ?? 20;
     const { kind, hour } = p.weather;
     const night = dusk(kind, hour, lat);
@@ -676,6 +702,7 @@ export default function Earth(props: EarthProps) {
     }
     layer.env.setWeather(kind, hour, lat);
     box.current?.style.setProperty("--night", String(real ? 0 : night));
+    map.triggerRepaint();
   };
 
   const padding = () => {
@@ -899,7 +926,12 @@ export default function Earth(props: EarthProps) {
     }
   };
 
-  return <div ref={box} className="eq-earth" />;
+  return (
+    <>
+      <div ref={box} className="eq-earth" />
+      {props.look === "photoreal" && credit && <p className="eq-credit">{credit}</p>}
+    </>
+  );
 }
 
 function rankPin(n: QuestNode, p: EarthProps): number {

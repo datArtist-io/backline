@@ -9,6 +9,7 @@ import type { StepProgress } from "@backline/engine";
 import { Vector3 } from "three";
 import type { Shared } from "./World";
 import type { Spot } from "./Earth";
+import { GOOGLE_KEY } from "./Earth";
 import { skyKind, type Sky } from "./world";
 import { KIND_COLOR, KIND_LABEL, KIND_NOUN, hoursOf, type AdventureModel, type NodeKind, type QuestNode } from "./model";
 import Codex from "./Codex";
@@ -114,7 +115,7 @@ export default function AdventureView({
   }, [fullscreen]);
 
   const [mode, setMode] = useState<"earth" | "taste">("earth");
-  const [look, setLook] = useState<"real" | "painted">("real");
+  const [look, setLook] = useState<"photoreal" | "real" | "painted">(GOOGLE_KEY ? "photoreal" : "real");
   /** The hour on the trip's clock: follows the stops as you fly, so the light does too. */
   const [clock, setClock] = useState<number | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -536,7 +537,11 @@ export default function AdventureView({
               <div className="eq-tools">
                 <button type="button" onClick={home} title="See the whole trip">Whole trip</button>
                 <button type="button" onClick={() => setIntroKey((k) => k + 1)} title="Fly in from home again">Fly in again</button>
-                {mode === "earth" && <button type="button" onClick={() => setLook((l) => (l === "real" ? "painted" : "real"))} title="Switch between satellite imagery and the painted map">{look === "real" ? "Painted map" : "Satellite"}</button>}
+                {mode === "earth" && (
+                  <button type="button" onClick={() => setLook((l) => nextLook(l))} title="Switch how the world is drawn">
+                    {LOOK_LABEL[nextLook(look)]}
+                  </button>
+                )}
                 <button type="button" onClick={() => setMode((m) => (m === "earth" ? "taste" : "earth"))} title="Switch between the real city and the taste map">{mode === "earth" ? "Taste map" : "Real world"}</button>
                 {onClassic && <button type="button" onClick={onClassic}>Classic view</button>}
               </div>
@@ -586,6 +591,11 @@ function useCountUp(target: number | null, run: boolean): number | null {
   }, [target, run]);
   return v;
 }
+
+type Look = "photoreal" | "real" | "painted";
+const LOOKS: Look[] = GOOGLE_KEY ? ["photoreal", "real", "painted"] : ["real", "painted"];
+const nextLook = (l: Look): Look => LOOKS[(LOOKS.indexOf(l) + 1) % LOOKS.length];
+const LOOK_LABEL: Record<Look, string> = { photoreal: "Photoreal 3D", real: "Satellite", painted: "Painted map" };
 
 const fmtHour = (h: number) => `${String(Math.floor(h)).padStart(2, "0")}:${String(Math.round((h % 1) * 60)).padStart(2, "0")}`;
 

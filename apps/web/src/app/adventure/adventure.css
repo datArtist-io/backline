@@ -397,3 +397,4 @@
 .adv-switch button { padding: 6px 14px; border: 0; border-radius: 999px; background: transparent; font: inherit; font-size: 13px; cursor: pointer; color: inherit; }
 .adv-switch button.on { background: #10132b; color: #fff; }
 
+.eq-credit { position: absolute; z-index: 3; right: 10px; bottom: 26px; margin: 0; max-width: 60%; padding: 3px 10px; border-radius: 999px; font-size: 10.5px; color: #4a4f6e; background: rgba(255, 255, 255, 0.72); pointer-events: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
