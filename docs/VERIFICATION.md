@@ -59,6 +59,13 @@ Live Missions run against production (`backline-beta-one.vercel.app`), what was 
 | V44 | Code review | Refund endpoint | — | **Could refund any payment** | Call prepayments from the last 24 h only; rate limited |
 | V45 | Live site, signed out | Console | — | **401 errors** from search history and wallet polling | Signed-out history returns empty; wallet stops polling without a session |
 | V46 | Build | `next build` with every route | — | Compiles, no type errors | — |
+| V47 | Live site, account | Saved Tokyo trip summary | — | **"aligning with the client's tastes"** | Summaries speak to the traveller ("your tastes"); older saved summaries rewritten on display; test |
+| V48 | Live site, 375 px | "New trip" in the account header | — | **Label at the top** of its 40 px button | Centred (flex) |
+| V49 | Live site | Receipt tab title | — | **"Receipt · Backline · Backline"** | "Receipt · Backline" |
+| V50 | Live site | Link preview (Open Graph) | — | **No image** on any page | 1200×630 Open Graph and X card image |
+| V51 | Live site | Every page and GET endpoint | — | 200s as expected; 404 only for a missing page; no failed resources on the home page | — |
+| V52 | Live site | Wallet after reset | $20,000.00 | $20,000.00, account currency USD | — |
+| V53 | Build | `next build`, typecheck, tests (engine 302, web 33) | — | Pass | — |
 
 ## Automated tests
 
@@ -70,6 +77,7 @@ Live Missions run against production (`backline-beta-one.vercel.app`), what was 
 - `apps/web/test/run-seal.test.ts`: a sealed plan round-trips exactly; tampered, foreign and expired seals are rejected.
 - `packages/engine/test/booking.test.ts` (prepaid from the wallet): a reservation is held, captured with a BL reference and returned with its receipt before the call; a short wallet stops the call with a clear message.
 - `packages/engine/test/booking.test.ts` (refund on failed call): a prepayment is refunded when the call can't be placed.
+- `packages/engine/test/to-you.test.ts`: trip summaries address the traveller, never "the client".
 - `apps/web/test/place-in.test.ts`: destination read from the request ("…TO LONDON FOR ME…" → London).
 
-Run all: `npm test` (engine 283, web 25 at time of writing).
+Run all: `npm test` (engine 302, web 33 at time of writing).

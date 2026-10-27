@@ -1,5 +1,32 @@
 # Changelog
 
+## 2026-10-28
+
+### Talk to Backline (voice)
+- **Call Backline**: a real phone number (+1 618 260 1647, Telnyx through Vapi) that answers as the agent. Say where you're going and what you love; it plans the trip on the call, reads out a 4-digit code, and the trip appears on the home page under that code (and is emailed when the caller is signed in). Only real inbound calls are accepted, checked with Vapi.
+- **Talk in the browser**: the same agent over the microphone (Vapi Web SDK); when the call ends with a trip, the page opens it. Shown only when a valid Vapi public key is set.
+- **Concierge briefing call**: when every booking of a trip is done, Backline rings the traveller's saved phone once with a short spoken briefing of what was booked; "Call me again" repeats it (4 per person per day).
+
+### Landing and mobile
+- Smoother first load: the 3D scene pauses off screen and in background tabs, and the trip page prefetches only when the browser is idle.
+- Steadier layout: suggestion chips keep fixed slots and cross-fade every 9 s, so nothing jumps.
+- Mobile: a centred voice card, a slim prompt that only grows when you type, a globe framed to the screen, round ticks, and the review bar no longer overlaps the last stop.
+- Link previews: an Open Graph and X card image for the site.
+
+### Accuracy
+- Trips start where the visitor is: the origin is taken from what they said, then their home city, then their connection; a guessed origin is never used.
+- The star and the tastes you name always lead: a trip "the way Pharrell would" uses Pharrell's taste, not likes saved from earlier trips.
+- Flight times that can't fit the distance (New York to Paris in 3 h 30) become a clearly labelled estimate ("about 7 h 30, estimate").
+- Trip summaries speak to the traveller ("your tastes"), never "the client".
+- The demo account's wallet was reset to $20,000 and set to US dollars.
+
+### Account
+- A saved trip can be planned again in "Check with me" mode, so nothing is booked or paid without your approval.
+- Fixed: "New trip" text sat at the top of its button on phones; the receipt page title repeated the brand name.
+
+### Launch film
+- A 42-second launch film built in code (`launch-film/`): every frame is a pure function of time, with an original score synthesised on the same beat grid. See [launch-film/README.md](../launch-film/README.md).
+
 ## 2026-10-27
 
 ### The full payment slip
