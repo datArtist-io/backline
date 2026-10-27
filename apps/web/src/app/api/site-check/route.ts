@@ -12,25 +12,30 @@ export const dynamic = "force-dynamic";
 const rateLimited = rateLimiter(30);
 const PARKED = /domain (is )?for sale|buy this domain|parked (free|domain)|this domain may be for sale|sedoparking|hugedomains|godaddy\.com\/domainsearch|account suspended|site not found|404 not found|coming soon/i;
 
-async function safeUrl(raw: string): Promise<URL | null> {
+type Safe = { url: URL } | { error: "invalid" | "private" | "nodns" };
+
+async function safeUrl(raw: string): Promise<Safe> {
   let u: URL;
   try {
     u = new URL(raw);
   } catch {
-    return null;
+    return { error: "invalid" };
   }
-  if (!/^https?:$/.test(u.protocol) || u.username || u.password) return null;
-  if (/^(localhost|.*\.local|.*\.internal)$/i.test(u.hostname)) return null;
+  if (!/^https?:$/.test(u.protocol) || u.username || u.password) return { error: "invalid" };
+  if (/^(localhost|.*\.local|.*\.internal)$/i.test(u.hostname)) return { error: "private" };
   const ips = isIP(u.hostname) ? [u.hostname] : (await lookup(u.hostname, { all: true }).catch(() => [])).map((x) => x.address);
-  if (!ips.length || ips.some(privateAddress)) return null;
-  return u;
+  if (!ips.length) return { error: "nodns" };
+  if (ips.some(privateAddress)) return { error: "private" };
+  return { url: u };
 }
 
 export async function GET(req: Request) {
   if (rateLimited(clientIp(req))) return Response.json({ error: "Too many checks. Wait a moment." }, { status: 429 });
   const raw = new URL(req.url).searchParams.get("url") ?? "";
-  let url = await safeUrl(raw);
-  if (!url) return Response.json({ ok: false, reason: "That address can't be checked." }, { status: 400 });
+  const first = await safeUrl(raw);
+  if ("error" in first)
+    return Response.json({ ok: false, reason: first.error === "nodns" ? "That website doesn't exist (the address doesn't lead anywhere)." : "That address can't be checked." }, { status: first.error === "nodns" ? 200 : 400 });
+  let url = first.url;
   const started = Date.now();
   try {
     // Follow redirects by hand so every hop is checked against private addresses.
@@ -40,8 +45,8 @@ export async function GET(req: Request) {
       const loc = res.status >= 300 && res.status < 400 ? res.headers.get("location") : null;
       if (!loc) break;
       const next = await safeUrl(new URL(loc, url).toString());
-      if (!next) return Response.json({ ok: false, reason: "The site redirects somewhere that can't be checked." });
-      url = next;
+      if ("error" in next) return Response.json({ ok: false, reason: "The site redirects somewhere that can't be checked." });
+      url = next.url;
     }
     if (!res) throw new Error("no response");
     const type = res.headers.get("content-type") ?? "";
@@ -64,6 +69,8 @@ export async function GET(req: Request) {
       { headers: { "Cache-Control": "no-store" } }
     );
   } catch (err) {
-    return Response.json({ ok: false, reason: err instanceof Error && /timeout|abort/i.test(err.name + err.message) ? "The site didn't answer in time." : "The site couldn't be reached." });
+    // A slow site isn't a dead one: say we couldn't confirm it, and let the person open it.
+    if (err instanceof Error && /timeout|abort/i.test(err.name + err.message)) return Response.json({ ok: true, unconfirmed: true, finalUrl: url.toString(), embeddable: false, reason: "The site is slow to answer, so I couldn't confirm it; it may still work." });
+    return Response.json({ ok: false, reason: "The site couldn't be reached." });
   }
 }

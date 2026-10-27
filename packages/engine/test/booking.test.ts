@@ -201,3 +201,16 @@ describe("calls fail closed", () => {
     expect(calls.start).toHaveBeenCalledWith(expect.objectContaining({ to: "+2349064222222" }), undefined);
   });
 });
+
+import { callOutcome } from "../src/clients/calls";
+describe("call outcomes", () => {
+  it("reads what happened on a call", () => {
+    expect(callOutcome("in-progress", null, null)).toBe("live");
+    expect(callOutcome("ended", "call.in-progress.error-assistant-did-not-receive-customer-audio", null)).toBe("no_audio");
+    expect(callOutcome("ended", "customer-did-not-answer", null)).toBe("no_answer");
+    expect(callOutcome("ended", "customer-busy", null)).toBe("busy");
+    expect(callOutcome("ended", "voicemail", null)).toBe("voicemail");
+    expect(callOutcome("ended", "customer-ended-call", "AI: Hello\nUser: Yes, we have a table")).toBe("talked");
+    expect(callOutcome("ended", "call.start.error-vapifault", null)).toBe("failed");
+  });
+});

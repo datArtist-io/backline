@@ -5,7 +5,7 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 
-type Check = { ok: boolean; status?: number; finalUrl?: string; title?: string | null; ms?: number; embeddable?: boolean; reason?: string | null };
+type Check = { ok: boolean; unconfirmed?: boolean; status?: number; finalUrl?: string; title?: string | null; ms?: number; embeddable?: boolean; reason?: string | null };
 
 const host = (u: string) => {
   try {
@@ -75,7 +75,8 @@ export default function MiniBrowser({ url, title, onClose }: { url: string; titl
         {check?.ok && check.embeddable && <iframe className="mb-frame" src={target} title={`Booking: ${title}`} referrerPolicy="no-referrer" sandbox="allow-forms allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox" />}
         {check?.ok && !check.embeddable && (
           <div className="mb-state good">
-            <b>The site is live{check.ms ? ` (answered in ${(check.ms / 1000).toFixed(1)} s)` : ""}</b>
+            <b>{check.unconfirmed ? "The site is slow to answer" : `The site is live${check.ms ? ` (answered in ${(check.ms / 1000).toFixed(1)} s)` : ""}`}</b>
+            {check.unconfirmed && <p>I couldn&rsquo;t confirm it in time, but it may still work.</p>}
             <p>{host(target)} doesn&rsquo;t allow being shown inside other apps, so it opens in a small window next to your trip. Your dates and party size are already in the link where the site supports it.</p>
             <button type="button" className="mb-btn" onClick={() => openWindow(target)}>Open {host(target)}</button>
           </div>
