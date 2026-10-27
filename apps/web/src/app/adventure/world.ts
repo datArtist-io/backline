@@ -255,21 +255,19 @@ export const REAL_LAYERS: LayerSpecification[] = [
     paint: { "line-color": "#fff6e2", "line-opacity": ["interpolate", ["linear"], ["zoom"], 12, 0.12, 16, 0.3], "line-width": z([[12, 0.6], [17, 6]]) },
   },
   {
+    // An architectural model, not painted boxes: one pearl tone, soft light down the walls, and the
+    // city rising out of the ground as you come in.
     id: "r-buildings",
     type: "fill-extrusion",
     source: "omt",
     "source-layer": "building",
-    minzoom: 13.5,
+    minzoom: 14.6,
     filter: ["!=", ["get", "hide_3d"], true],
     paint: {
-      "fill-extrusion-color": [
-        "to-color",
-        ["coalesce", ["get", "colour"], ""],
-        ["at", ["%", ["floor", ["*", ["coalesce", ["get", "render_height"], 9], 1.37]], REAL_BUILDINGS.length], ["literal", REAL_BUILDINGS]],
-      ],
-      "fill-extrusion-height": ["coalesce", ["get", "render_height"], 9],
-      "fill-extrusion-base": ["coalesce", ["get", "render_min_height"], 0],
-      "fill-extrusion-opacity": ["interpolate", ["linear"], ["zoom"], 13.5, 0, 14.5, 0.92],
+      "fill-extrusion-color": ["interpolate", ["linear"], ["coalesce", ["get", "render_height"], 9], 0, "#e9e4dc", 30, "#f3f0ea", 120, "#fbfaf7"],
+      "fill-extrusion-height": ["interpolate", ["cubic-bezier", 0.2, 0, 0, 1], ["zoom"], 14.6, 0, 15.8, ["coalesce", ["get", "render_height"], 9]],
+      "fill-extrusion-base": ["interpolate", ["linear"], ["zoom"], 14.6, 0, 15.8, ["coalesce", ["get", "render_min_height"], 0]],
+      "fill-extrusion-opacity": ["interpolate", ["linear"], ["zoom"], 14.6, 0, 15.2, 0.86],
       "fill-extrusion-vertical-gradient": true,
     },
   },

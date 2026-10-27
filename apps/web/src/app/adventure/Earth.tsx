@@ -96,7 +96,7 @@ function style(): StyleSpecification {
     layers: [
       { id: "space", type: "background", paint: { "background-color": "#0b1a2e" } },
       // Graded like a game: richer greens and blues, a touch more contrast.
-      { id: "sat", type: "raster", source: "sat", paint: { "raster-saturation": 0.22, "raster-contrast": 0.1, "raster-brightness-min": 0.03, "raster-brightness-max": 1, "raster-fade-duration": 0 } },
+      { id: "sat", type: "raster", source: "sat", paint: { "raster-saturation": 0.12, "raster-contrast": 0.14, "raster-brightness-min": 0.03, "raster-brightness-max": 1, "raster-fade-duration": 0 } },
       ...(terrain
         ? [{ id: "relief", type: "hillshade" as const, source: "relief", paint: { "hillshade-exaggeration": 0.45, "hillshade-shadow-color": "rgba(20, 38, 20, 0.55)", "hillshade-highlight-color": "rgba(255, 250, 225, 0.25)", "hillshade-accent-color": "rgba(30, 50, 30, 0.2)" } }]
         : []),
@@ -475,7 +475,7 @@ export default function Earth(props: EarthProps) {
   const markers = useRef(new Map<string, { m: Marker; el: HTMLElement }>());
   const live = useRef(props);
   live.current = props;
-  const state = useRef({ loaded: false, introAt: -1, introDone: false, introFor: "", originFor: "", user: false, orbit: false, bearing: 0, raf: 0, last: 0, dwell: 0, nextStop: 0, playDay: -2, trailAt: 0 });
+  const state = useRef({ loaded: false, introAt: -1, introDone: false, introFor: "", originFor: "", user: false, orbit: false, touchedAt: 0, bearing: 0, raf: 0, last: 0, dwell: 0, nextStop: 0, playDay: -2, trailAt: 0 });
 
   // Create the map once.
   useEffect(() => {
@@ -503,6 +503,7 @@ export default function Earth(props: EarthProps) {
     const userMoved = (e: { originalEvent?: unknown }) => {
       if (!e.originalEvent) return;
       s.user = true;
+      s.touchedAt = performance.now();
       s.orbit = false;
       live.current.onUserMove();
     };
@@ -722,7 +723,7 @@ export default function Earth(props: EarthProps) {
     const night = dusk(kind, hour, lat);
     map.setPaintProperty("space", "background-color", real ? "#0b1a2e" : LAND);
     map.setPaintProperty("sat", "raster-brightness-max", 1 - night * 0.85);
-    map.setPaintProperty("sat", "raster-saturation", 0.22 - night * 0.4);
+    map.setPaintProperty("sat", "raster-saturation", 0.12 - night * 0.4);
     try {
       map.setSky(skyFor(kind, hour, lat));
       map.setLight(lightFor(kind, hour, lat));
@@ -897,6 +898,8 @@ export default function Earth(props: EarthProps) {
           }
           s.playDay = -2;
           if (s.orbit && !p.reduced && !map.isMoving()) map.setBearing(map.getBearing() + dt * 5);
+          // Left alone in the city, the camera drifts slowly around it, like a film's establishing shot.
+          else if (p.model && !p.reduced && !map.isMoving() && map.getZoom() > 10.5 && now - s.touchedAt > 9000) map.setBearing(map.getBearing() + dt * 1.6);
           else if (!p.destination && !p.model && !s.user && !p.reduced && map.getZoom() < 3 && !map.isMoving()) map.setCenter([map.getCenter().lng + dt * 6, map.getCenter().lat]);
         }
       }
