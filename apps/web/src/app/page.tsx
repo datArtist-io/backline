@@ -64,20 +64,23 @@ export default function Landing() {
             <span className="hero-line hero-accent">We do the rest.</span>
           </h1>
           <PromptBar onSubmit={go} placeholder="Where are you going, and when?" shortPlaceholder="Where to, and when?" />
-          <ModeSwitch
-            value={mode}
-            onChange={(m) => {
-              setMode(m);
-              setHint(Date.now());
-            }}
-            className="hero-switch"
-          />
-          {/* What the chosen mode does: shown for a moment after a tap, then it fades away. */}
-          {hint > 0 && (
-            <p className="mode-hint" key={hint} aria-live="polite">
-              {mode === "check" ? "I plan it, you review and adjust, and nothing is booked until you approve." : "I plan, call, pay and book it end to end, and show you each step live."}
-            </p>
-          )}
+          <div className="switch-wrap">
+            <ModeSwitch
+              value={mode}
+              onChange={(m) => {
+                setMode(m);
+                setHint(Date.now());
+              }}
+              className="hero-switch"
+            />
+            {/* What the chosen mode does: a small tip under the switch for a moment after a tap. */}
+            {hint > 0 && (
+              <p className="mode-tip" key={hint} role="status">
+                <b>{mode === "check" ? "Check with me" : "Just do it"}</b>
+                {mode === "check" ? "You review and adjust the plan. Nothing is booked until you approve." : "I plan, call, pay and book it all, and you watch each step live."}
+              </p>
+            )}
+          </div>
           <TryPrompts onPick={(q) => go(q, [])} extra={<RecentSearches onPick={(q) => go(q, [])} />} />
         </section>
 

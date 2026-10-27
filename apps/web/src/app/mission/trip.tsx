@@ -2,6 +2,8 @@
 // The planning agent's screens: what it found and why, the plan with travel between stops, the
 // places it picked, what it's about to do, and what it did.
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { useWallet, walletMoney } from "./Wallet";
 import TripMap, { DAY_COLORS, type MapDay, type TasteLayer } from "./TripMap";
 import { TasteMatch } from "./Taste";
 import type { ActionResult, Fact, Place, Profile, TasteOutput, TripAction, TripActionsOutput, TripAgentOutput, TripExecuteOutput, TripPlanOutput, TripRequest, TripRoutesOutput } from "@backline/engine";
@@ -428,8 +430,11 @@ export function ActionsCheckpoint({
   profile,
   busy,
   onConfirm,
+  onLook,
 }: {
   actions: TripAction[];
+  /** "Take a look first": back to the trip to vet it before paying. */
+  onLook?: () => void;
   /** Demo mode: the line calls actually ring. */
   demoLine?: string | null;
   profile: Profile;
@@ -465,60 +470,94 @@ export function ActionsCheckpoint({
   const phoneOk = /^\+?[\d\s().-]{8,20}$/.test(me.phone?.trim() ?? "");
   const missing = needsDetails && (!me.name?.trim() || !me.email?.trim() || (demoCall && !phoneOk));
   const toggle = (id: string) => setPicked((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]));
-  return (
-    <section className="lg checkpoint" aria-labelledby="cp-actions">
-      <p className="eyebrow">Your call</p>
-      <h2 id="cp-actions" className="cp-title">
-        Here&rsquo;s what I&rsquo;ll do. Good to go?
-      </h2>
-      <p className="muted">Untick anything you&rsquo;d rather handle yourself. I only pay at the price shown and within your budget.</p>
-      <ul className="action-list">
-        {actions.map((a) => {
-          const on = picked.includes(a.id);
-          return (
-            <li key={a.id}>
-              <button type="button" className={`action-row${on ? " on" : ""}`} aria-pressed={on} onClick={() => toggle(a.id)}>
-                <span className="action-icon" aria-hidden="true">
-                  {CHANNEL_ICON[a.channel]}
-                </span>
-                <span className="cp-text">
-                  <span className="cp-label">{a.title}</span>
-                  <span className="cp-detail">
-                    {a.channel === "reserve" && a.kind === "book_flight" && `${a.subject ? `${a.subject}. ` : ""}I'll book and pay${a.price ? ` ${money(a.price.total, a.price.currency)}` : ""} for the tickets, within your budget. The e-ticket is emailed to you.`}
-                    {a.channel === "reserve" && a.kind !== "book_flight" && `I'll book and pay${a.price ? ` ${money(a.price.total, a.price.currency)} for the whole stay` : ""}, only at this price and within your budget. The confirmation is emailed to you.`}
-                    {a.channel === "email" && (a.mode === "auto" ? `I'll email ${a.to}` : `Opens a ready email to ${a.to}`)}
-                    {a.channel === "call" && (a.mode === "auto" ? (demoLine ? `Demo: I'll call you as ${a.placeName ?? "the place"}. Answer and play the business` : `I'll call ${a.to}`) : `Number and script for ${a.to}`)}
-                    {a.channel === "link" && "Opens with your dates and guests filled in. You pay there."}
-                    {a.channel === "calendar" && "Every stop, in your calendar"}
-                  </span>
-                </span>
-                <span className="cp-check" aria-hidden="true" />
-              </button>
-            </li>
-          );
-        })}
-      </ul>
-      {needsDetails && (
-        <div className="me">
-          <p className="sub">Who I&rsquo;m booking for</p>
-          <div className="me-row">
-            <input aria-label="Your name" placeholder="Your name" value={me.name ?? ""} onChange={(e) => setMe({ ...me, name: e.target.value })} maxLength={80} autoComplete="name" />
-            <input aria-label="Your email" placeholder="Email for replies" type="email" value={me.email ?? ""} onChange={(e) => setMe({ ...me, email: e.target.value })} maxLength={254} autoComplete="email" />
-            <input aria-label="Your phone" placeholder={demoCall ? "Your phone, e.g. +234 811 000 0000" : "Phone (optional)"} type="tel" value={me.phone ?? ""} onChange={(e) => setMe({ ...me, phone: e.target.value })} maxLength={30} autoComplete="tel" required={demoCall} />
+  const { w } = useWallet();
+  const [look, setLook] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  // Everything the agent will pay for, in the person's own currency (prices are quoted in USD or the place's currency).
+  const local = (n: number, c: string) => (c === "USD" ? Math.round(n * 100) : null);
+  const paid = actions.filter((a) => picked.includes(a.id) && a.mode === "auto" && a.price && (a.channel === "reserve" || a.channel === "call"));
+  const totalUsdCents = paid.reduce((n, a) => n + (local(a.price!.total, a.price!.currency) ?? 0), 0);
+  const show = (a: TripAction) => (a.price ? (w && a.price.currency === "USD" ? walletMoney(w)(a.price.total * 100) : money(a.price.total, a.price.currency)) : null);
+  const short = w && w.ready && totalUsdCents > w.balance;
+  const body = (
+    <div className="ck-scrim" role="presentation">
+      <section className="lg checkpoint ck" role="dialog" aria-modal="true" aria-labelledby="cp-actions">
+        <p className="eyebrow">One tap to book it all</p>
+        <h2 id="cp-actions" className="cp-title">Approve the whole trip?</h2>
+        <p className="muted">
+          {paid.length > 0
+            ? `${paid.length} booking${paid.length === 1 ? "" : "s"}, paid from your Backline Wallet. Each agent pays its place, then calls to confirm. Every payment gets a receipt.`
+            : "Here's everything I'll take care of."}
+        </p>
+        {w?.ready && paid.length > 0 && (
+          <div className="ck-sum" aria-live="polite">
+            <div><small>Total</small><b>{walletMoney(w)(totalUsdCents)}</b></div>
+            <div><small>Wallet</small><span>{walletMoney(w)(w.balance)}</span></div>
+            <div><small>After</small><span className={short ? "is-short" : ""}>{walletMoney(w)(w.balance - totalUsdCents)}</span></div>
           </div>
-          {demoCall && <p className="me-hint">This is a demo, so the booking call rings <b>your</b> phone. Pick up and play the restaurant or hotel to hear the agent book it.</p>}
-        </div>
-      )}
-      <div className="cp-foot">
-        <span className="muted small">
-          {picked.length} of {actions.length} selected
-        </span>
-        <button type="button" className="go" disabled={busy || picked.length === 0 || missing} onClick={() => onConfirm(picked, { ...profile, ...me })}>
-          {busy ? "Working…" : "Do it"}
+        )}
+        {short && <p className="ck-warn">Your wallet is short for everything ticked. Untick a booking or add funds in your wallet.</p>}
+        <button type="button" className="ck-toggle" onClick={() => setLook((v) => !v)} aria-expanded={look}>
+          {look ? "Hide the list" : `See every item${actions.length > paid.length ? ` (${actions.length})` : ""}`}
         </button>
-      </div>
-    </section>
+        {look ? (
+          <ul className="action-list">
+            {actions.map((a) => {
+              const on = picked.includes(a.id);
+              return (
+                <li key={a.id}>
+                  <button type="button" className={`action-row${on ? " on" : ""}`} aria-pressed={on} onClick={() => toggle(a.id)}>
+                    <span className="action-icon" aria-hidden="true">{CHANNEL_ICON[a.channel]}</span>
+                    <span className="cp-text">
+                      <span className="cp-label">{a.title}</span>
+                      <span className="cp-detail">
+                        {a.channel === "reserve" && a.kind === "book_flight" && `${a.subject ? `${a.subject}. ` : ""}Booked and paid. The e-ticket is emailed to you.`}
+                        {a.channel === "reserve" && a.kind !== "book_flight" && "Booked and paid for the whole stay. The confirmation is emailed to you."}
+                        {a.channel === "email" && (a.mode === "auto" ? `I'll email ${a.to}` : `Opens a ready email to ${a.to}`)}
+                        {a.channel === "call" && (a.mode === "auto" ? (demoLine ? `Paid, then I call you as ${a.placeName ?? "the place"} to confirm. Answer and play the business` : `Paid, then I call ${a.to} to confirm`) : `Number and script for ${a.to}`)}
+                        {a.channel === "link" && "Opens with your dates and guests filled in. You pay there."}
+                        {a.channel === "calendar" && "Every stop, in your calendar"}
+                      </span>
+                    </span>
+                    {show(a) && a.mode === "auto" ? <span className="ck-amt">{show(a)}</span> : null}
+                    <span className="cp-check" aria-hidden="true" />
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        ) : (
+          <ol className="ck-peek">
+            {paid.slice(0, 4).map((a) => (
+              <li key={a.id}><span>{a.title}</span><b>{show(a)}</b></li>
+            ))}
+            {paid.length > 4 && <li className="ck-more"><span>+ {paid.length - 4} more</span></li>}
+          </ol>
+        )}
+        {needsDetails && (
+          <div className="me">
+            <p className="sub">Who I&rsquo;m booking for</p>
+            <div className="me-row">
+              <input aria-label="Your name" placeholder="Your name" value={me.name ?? ""} onChange={(e) => setMe({ ...me, name: e.target.value })} maxLength={80} autoComplete="name" />
+              <input aria-label="Your email" placeholder="Email for replies" type="email" value={me.email ?? ""} onChange={(e) => setMe({ ...me, email: e.target.value })} maxLength={254} autoComplete="email" />
+              <input aria-label="Your phone" placeholder={demoCall ? "Your phone, e.g. +234 811 000 0000" : "Phone (optional)"} type="tel" value={me.phone ?? ""} onChange={(e) => setMe({ ...me, phone: e.target.value })} maxLength={30} autoComplete="tel" required={demoCall} />
+            </div>
+            {demoCall && <p className="me-hint">This is a demo, so the confirmation calls ring <b>your</b> phone. Pick up and play the restaurant or hotel.</p>}
+          </div>
+        )}
+        <div className="cp-foot ck-foot">
+          <button type="button" className="ck-look" onClick={() => (onLook ? onLook() : setLook((v) => !v))}>
+            Take a look first
+          </button>
+          <button type="button" className="go" disabled={busy || picked.length === 0 || missing || Boolean(short)} onClick={() => onConfirm(picked, { ...profile, ...me })}>
+            {busy ? "Paying…" : paid.length ? `Approve & pay${w?.ready ? ` ${walletMoney(w)(totalUsdCents)}` : ""}` : "Approve"}
+          </button>
+        </div>
+      </section>
+    </div>
   );
+  return mounted ? createPortal(body, document.body) : null;
 }
 
 // ---------- What the agent did ----------

@@ -440,6 +440,11 @@ const dietaryLine = (profile: Profile) => (profile.dietary?.length ? ` Dietary n
 const joinLines = (lines: (string | null | undefined)[]) =>
   lines.filter((l): l is string => l != null).filter((l, i, arr) => l !== "" || (i > 0 && arr[i - 1] !== "")).join("\n").trim();
 
+/** What a table costs, per person, by price level (US dollars), for prepaying a reservation. Pure. */
+export const MEAL_PER_PERSON_USD = [0, 18, 35, 70, 140];
+/** A room for a night by the trip's price tier, when the hotel has no live rate (US dollars). Pure. */
+export const ROOM_PER_NIGHT_USD = [0, 70, 130, 240, 480];
+
 export function buildActions(
   trip: TripRequest,
   plan: TripPlanOutput,
@@ -515,6 +520,7 @@ export function buildActions(
         mode: can.calls ? "auto" : "you",
         recommended: true,
         missing: can.calls ? missingCaller : null,
+        price: { total: ROOM_PER_NIGHT_USD[trip.priceTier ?? 2] * trip.rooms * Math.max(1, tripDates(trip.startDate, trip.endDate).length - 1), currency: "USD" },
       });
   }
 
@@ -590,6 +596,7 @@ export function buildActions(
         mode: can.calls ? "auto" : "you",
         recommended: true,
         missing: can.calls ? missingCaller : null,
+        price: { total: MEAL_PER_PERSON_USD[p.priceLevel ?? 2] * party || 40 * party, currency: "USD" },
       });
     else if (p.email)
       add({
@@ -683,6 +690,8 @@ const resultSchema = z.object({
   message: z.string(),
   /** For a held room: where the user pays to confirm, on the provider's secure page. */
   checkoutUrl: z.string().nullable().optional(),
+  /** Paid from the Backline Wallet: the receipt's entry id and the amount, in the price's currency. */
+  paid: z.object({ entryId: z.string(), total: z.number(), currency: z.string(), ref: z.string() }).nullable().optional(),
 });
 export type ActionResult = z.infer<typeof resultSchema>;
 const executeOutput = z.object({ results: z.array(resultSchema) });
@@ -719,6 +728,25 @@ export function bookingRef(ref: string | null | undefined, seed: string): string
     h = Math.floor(h / abc.length) || Math.imul(h + i + 1, 2654435761) >>> 0;
   }
   return `BL-${out}`;
+}
+
+/** Pays a reservation from the wallet before the agent calls, with a receipt's details. */
+async function prepay(ctx: Parameters<Skill<BriefInput, unknown>["run"]>[0], a: TripAction, input: BriefInput): Promise<{ entryId: string; total: number; currency: string; ref: string } | { reason: string } | null> {
+  if (!ctx.wallet || !a.price || a.price.total <= 0) return null;
+  const when = a.title.match(/, ([A-Z][a-z]{2}, \d{1,2} [A-Z][a-z]{2} \d{4} at \d{2}:\d{2})/)?.[1] ?? null;
+  const party = Number(a.title.match(/for (\d+)/)?.[1] ?? input.trip?.adults ?? 1);
+  const h = await ctx.wallet.hold(a.price.total, a.price.currency, `${a.placeName ?? "Booking"}${a.kind === "reserve_table" ? `, table for ${party}` : ""}`, {
+    kind: a.kind,
+    place: a.placeName,
+    when,
+    party,
+    trip: input.trip?.destination ?? null,
+    title: a.title,
+  });
+  if (!h.ok) return { reason: h.reason };
+  const ref = bookingRef(null, `${h.id}:${a.placeName ?? ""}`);
+  await ctx.wallet.capture(h.id, ref).catch(() => undefined);
+  return { entryId: h.id, total: a.price.total, currency: a.price.currency, ref };
 }
 
 export const tripExecute: Skill<BriefInput, TripExecuteOutput> = {
@@ -773,7 +801,7 @@ export const tripExecute: Skill<BriefInput, TripExecuteOutput> = {
           const traveller = passport
             ? { givenName: passport.givenNames, familyName: passport.familyName, email: profile.email ?? "", phone: toE164(profile.phone ?? null) ?? profile.phone ?? "", bornOn: passport.birthDate, gender: passport.gender, passport: { number: passport.number, issuingCountry: passport.issuingCountry, expiresOn: passport.expiresOn } }
             : { givenName: name.firstName, familyName: name.lastName, email: profile.email ?? "", phone: toE164(profile.phone ?? null) ?? profile.phone ?? "", bornOn: profile.birthDate ?? "", gender: profile.gender ?? "m" };
-          const fw = ctx.wallet ? await ctx.wallet.hold(flight.total, flight.currency, `Flight ${flight.outbound?.from ?? ""} to ${flight.outbound?.to ?? ""}`.trim()) : null;
+          const fw = ctx.wallet ? await ctx.wallet.hold(flight.total, flight.currency, `Flight ${flight.outbound?.from ?? ""} to ${flight.outbound?.to ?? ""}`.trim(), { kind: "book_flight", place: flight.airline ?? "Airline", when: flight.outbound?.departs ?? null, party: input.trip?.adults ?? 1, trip: input.trip?.destination ?? null }) : null;
           if (fw && !fw.ok) return { actionId: a.id, status: "needs_info", ref: null, message: fw.reason };
           let booked: Awaited<ReturnType<NonNullable<typeof ctx.flights>["book"]>>;
           try {
@@ -789,6 +817,7 @@ export const tripExecute: Skill<BriefInput, TripExecuteOutput> = {
             status: "booked",
             ref: bookingRef(booked.reference ?? booked.orderId, `${flight.offerId}:${input.trip?.startDate ?? ""}`),
             message: `Flight booked and paid: ${Math.round(booked.total ?? flight.total).toLocaleString("en")} ${booked.currency ?? flight.currency}, booking reference ${bookingRef(booked.reference ?? booked.orderId, `${flight.offerId}:${input.trip?.startDate ?? ""}`)}. The e-ticket goes to ${profile.email}.${test}`,
+            paid: fw?.ok ? { entryId: fw.id, total: booked.total ?? flight.total, currency: booked.currency ?? flight.currency, ref: bookingRef(booked.reference ?? booked.orderId, `${flight.offerId}:${input.trip?.startDate ?? ""}`) } : null,
           };
         }
         if (a.channel === "reserve" && ctx.hotels && a.offerId) {
@@ -825,7 +854,7 @@ export const tripExecute: Skill<BriefInput, TripExecuteOutput> = {
           const approved = a.price ? held.total <= a.price.total * (swapped ? 1.25 : 1.02) : true;
           if (ctx.hotels.pay && approved && (cap == null || held.total <= cap)) {
             // Paid from the Backline Wallet: held first, captured only once the hotel confirms.
-            const w = ctx.wallet ? await ctx.wallet.hold(held.total, held.currency, `${bookedName}, ${stayNights} night${stayNights === 1 ? "" : "s"}`) : null;
+            const w = ctx.wallet ? await ctx.wallet.hold(held.total, held.currency, `${bookedName}, ${stayNights} night${stayNights === 1 ? "" : "s"}`, { kind: "book_stay", place: bookedName, when: `${input.trip?.startDate ?? ""} to ${input.trip?.endDate ?? ""}`, nights: stayNights, party: input.trip?.adults ?? 1, trip: input.trip?.destination ?? null, cancellation: held.cancellation ?? null }) : null;
             if (w && !w.ok) return { actionId: a.id, status: "needs_info", ref: held.holdId, message: w.reason };
             let booking: Awaited<ReturnType<NonNullable<typeof ctx.hotels.pay>>>;
             try {
@@ -842,6 +871,7 @@ export const tripExecute: Skill<BriefInput, TripExecuteOutput> = {
                 status: "booked",
                 ref: bookingRef(booking.reference ?? booking.bookingId, `${held.holdId}:${bookedName}`),
                 message: `${swapped}${booking.status === "confirmed" ? "Booked and paid" : "Paid; the hotel is confirming"}: ${money(booking.total ?? held.total, booking.currency ?? held.currency)}, confirmation ${bookingRef(booking.reference ?? booking.bookingId, `${held.holdId}:${bookedName}`)}.${held.cancellation ? ` ${held.cancellation}.` : ""} The confirmation goes to ${guest.email}.${test}`,
+                paid: w?.ok ? { entryId: w.id, total: booking.total ?? held.total, currency: booking.currency ?? held.currency, ref: bookingRef(booking.reference ?? booking.bookingId, `${held.holdId}:${bookedName}`) } : null,
               };
             }
           }
@@ -867,15 +897,23 @@ export const tripExecute: Skill<BriefInput, TripExecuteOutput> = {
           if (++calls > ACTION_LIMITS.call) return { actionId: a.id, status: "skipped", ref: null, message: "Call limit for one mission reached." };
           const demo = ctx.callDemoTo ?? null;
           // Demo calls all ring the same phone, so they go one at a time: the first now, the rest queued.
-          if (demo && calls > 1) return { actionId: a.id, status: "queued", ref: null, message: "Next in line: I'll call as soon as the one before finishes." };
+          if (demo && calls > 1) {
+            const paidQ = await prepay(ctx, a, input);
+            if (paidQ && "reason" in paidQ) return { actionId: a.id, status: "needs_info", ref: null, message: paidQ.reason };
+            return { actionId: a.id, status: "queued", ref: null, message: "Paid. Next in line: I'll call as soon as the one before finishes.", paid: paidQ && "entryId" in paidQ ? paidQ : null };
+          }
           // Fail closed: a real business is only ever dialled when live calling is switched on.
           if (!demo && !ctx.callsLive) return { actionId: a.id, status: "needs_info", ref: null, message: "Add your phone number and I'll call you to show the booking call (you play the business)." };
+          // Approved trips are prepaid from the wallet; the agent settles with the business on the call.
+          const paid = await prepay(ctx, a, input);
+          if (paid && "reason" in paid) return { actionId: a.id, status: "needs_info", ref: null, message: paid.reason };
           const started = await ctx.calls.start({ to: (demo ?? a.to)!, owner: ctx.userId ?? null, businessName: a.placeName ?? "the business", firstMessage: a.callOpening, instructions: callInstructions(a, profile.name ?? "my client") }, ctx.signal);
           return {
             actionId: a.id,
             status: "calling",
             ref: started.id,
-            message: demo ? `Calling you as ${a.placeName}: answer and play the business (demo).` : `Calling ${a.placeName}…`,
+            message: demo ? `Calling you as ${a.placeName}: answer and play the business.` : `Calling ${a.placeName}…`,
+            paid: paid && "entryId" in paid ? paid : null,
           };
         }
         return { actionId: a.id, status: "ready", ref: null, message: "Ready for you." };

@@ -254,7 +254,8 @@ export async function POST(req: Request) {
         }
 
         const selections = sanitizeSelections(plan.mission, body.selections);
-        const pending = pendingCheckpoints(plan.mission, body.autonomy, selections);
+        // Trips always stop for one approval before anything is paid ("Just do it" opens it straight away).
+        const pending = pendingCheckpoints(plan.mission, plan.mission === "plan" ? "check" : body.autonomy, selections);
         const def = MISSIONS[plan.mission];
         send("mission.planned", {
           runId,

@@ -233,3 +233,32 @@ describe("booking references", () => {
     expect(bookingRef(null, "a")).not.toBe(bookingRef(null, "b"));
   });
 });
+
+describe("approved reservations are prepaid from the wallet", () => {
+  const action = {
+    id: "a1", kind: "reserve_table", channel: "call", title: "Call Z Kitchen for 2", placeId: "D1", placeName: "Z Kitchen", to: "+2349064222222",
+    callOpening: "Hello", callBrief: "Book a table", mode: "auto", recommended: true, missing: null, price: { total: 70, currency: "USD" },
+  } as never;
+  const trip = normalizeTrip({ destination: "Lagos, Nigeria", startDate: "2026-10-30", endDate: "2026-10-30" }, "Lagos")!;
+  const deps = { "trip.actions": { data: { actions: [action] }, evidence: [] } };
+  const calls = () => ({ start: vi.fn(async () => ({ id: "call-1" })), status: vi.fn() });
+  const profile = { name: "Ada", email: "ada@example.com" };
+
+  it("pays, keeps a receipt, then calls", async () => {
+    const wallet = { hold: vi.fn(async () => ({ ok: true as const, id: "11111111-1111-1111-1111-111111111111", usd: 7000 })), capture: vi.fn(async () => {}), release: vi.fn(async () => {}) };
+    const c = calls();
+    const r = await tripExecute.run({ ...ctxWith(), calls: c, callDemoTo: "+2348000000000", callsLive: false, wallet } as never, { artist: "", trip, profile }, deps);
+    expect(wallet.hold).toHaveBeenCalledWith(70, "USD", expect.stringContaining("Z Kitchen"), expect.objectContaining({ place: "Z Kitchen" }));
+    expect(wallet.capture).toHaveBeenCalledWith("11111111-1111-1111-1111-111111111111", expect.stringMatching(/^BL-/));
+    expect(r.data.results[0].paid).toMatchObject({ entryId: "11111111-1111-1111-1111-111111111111", total: 70, currency: "USD" });
+    expect(c.start).toHaveBeenCalled();
+  });
+  it("doesn't call when the wallet can't cover it", async () => {
+    const wallet = { hold: vi.fn(async () => ({ ok: false as const, reason: "Your Backline Wallet needs $70.00 for this." })), capture: vi.fn(), release: vi.fn() };
+    const c = calls();
+    const r = await tripExecute.run({ ...ctxWith(), calls: c, callDemoTo: "+2348000000000", callsLive: false, wallet } as never, { artist: "", trip, profile }, deps);
+    expect(r.data.results[0].status).toBe("needs_info");
+    expect(r.data.results[0].message).toMatch(/Wallet needs/);
+    expect(c.start).not.toHaveBeenCalled();
+  });
+});

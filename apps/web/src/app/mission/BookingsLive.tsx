@@ -4,7 +4,7 @@
 import { useEffect, useState } from "react";
 import type { TripActionsOutput, TripExecuteOutput } from "@backline/engine";
 import MiniBrowser from "./MiniBrowser";
-import { loadProfile } from "@/lib/profile";
+import { loadProfile, saveProfile } from "@/lib/profile";
 
 type Action = TripActionsOutput["actions"][number];
 type Result = TripExecuteOutput["results"][number];
@@ -219,10 +219,11 @@ function LiveCall({
       )}
       {talked?.state?.summary && !talked.state.booking?.confirmed && <p className="bk-callsum">{talked.state.summary}</p>}
       {talked && !talked.state?.booking && talked.state?.ended && <p className="bk-callnote">Reading back what was agreed…</p>}
+      <Exchange business={(talked ?? cur).name} stage={talked?.state?.booking?.confirmed ? "done" : live ? (cur.state?.status === "in-progress" ? "talking" : "ringing") : finished ? (talked ? "done" : "failed") : "dialling"} />
       {legs.some((l) => l.state?.transcript) && (
         <details className="bk-transcript" open={open} onToggle={(e) => setOpen((e.target as HTMLDetailsElement).open)}>
-          <summary>Transcript</summary>
-          <pre>{(talked ?? cur).state?.transcript ?? ""}</pre>
+          <summary>{live ? "Live conversation" : "Conversation"}</summary>
+          <Bubbles text={(talked ?? cur).state?.transcript ?? ""} business={(talked ?? cur).name} />
         </details>
       )}
       {finished && !talked && (
@@ -237,6 +238,90 @@ function LiveCall({
     </div>
   );
 }
+
+/** The hand-off, drawn: you approve, your agent pays and calls, the business confirms. */
+function Exchange({ business, stage }: { business: string; stage: "dialling" | "ringing" | "talking" | "done" | "failed" }) {
+  const step = { dialling: 1, ringing: 1, talking: 2, done: 3, failed: 1 }[stage];
+  const text = { dialling: "Your agent is dialling", ringing: "Ringing", talking: "Agent and business are talking", done: "Confirmed", failed: "Moving on" }[stage];
+  return (
+    <div className={`bk-x is-${stage}`} aria-label={`${text}: ${business}`} role="img">
+      <span className={`bk-x-node${step >= 0 ? " on" : ""}`}><i aria-hidden="true">●</i>You</span>
+      <span className="bk-x-wire on" aria-hidden="true"><b className="bk-x-coin" /></span>
+      <span className={`bk-x-node${step >= 1 ? " on" : ""}`}><i aria-hidden="true">✦</i>Agent</span>
+      <span className={`bk-x-wire${step >= 2 ? " on" : ""}${stage === "talking" ? " is-live" : ""}`} aria-hidden="true"><b className="bk-x-pulse" /></span>
+      <span className={`bk-x-node${step >= 3 ? " on" : ""}`}><i aria-hidden="true">⌂</i>{business}</span>
+      <small>{text}</small>
+    </div>
+  );
+}
+
+/** A call transcript ("AI: …" / "User: …") as a conversation. */
+function Bubbles({ text, business }: { text: string; business: string }) {
+  const lines = text
+    .split(/\n+/)
+    .map((l) => l.trim())
+    .filter(Boolean)
+    .map((l) => {
+      const m = l.match(/^(AI|Assistant|Bot|User|Customer|Human)\s*:\s*(.*)$/i);
+      return m ? { who: /^(AI|Assistant|Bot)$/i.test(m[1]) ? "agent" : "biz", say: m[2] } : { who: "agent", say: l };
+    });
+  if (!lines.length) return <p className="bk-callnote">Listening…</p>;
+  return (
+    <ol className="bk-bubbles">
+      {lines.map((l, i) => (
+        <li key={i} className={`is-${l.who}`} style={{ ["--i" as string]: Math.min(i, 12) }}>
+          <small>{l.who === "agent" ? "Backline agent" : business}</small>
+          <span>{l.say}</span>
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+/** A call that stopped for a missing phone number: add it here, pay, and the agent rings straight away. */
+function Rescue({ action, phone, onGo }: { action: Action; phone: string | null; onGo: (phone: string, paid: Paid | null) => void }) {
+  const [p, setP] = useState(phone ?? "");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const ok = /^\+?[\d\s().-]{8,20}$/.test(p.trim());
+  const go = async () => {
+    setBusy(true);
+    setErr(null);
+    try {
+      let paid: Paid | null = null;
+      if (action.price && action.price.total > 0) {
+        const r = await fetch("/api/wallet/pay", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ amount: action.price.total, currency: action.price.currency, label: `${action.placeName ?? "Booking"}`, details: { kind: action.kind, place: action.placeName ?? null, title: action.title } }),
+        });
+        const d = await r.json();
+        if (!r.ok) throw new Error(d.error);
+        paid = d;
+      }
+      try {
+        saveProfile({ ...loadProfile(), phone: p.trim() });
+      } catch {
+        /* the number is still used for this call */
+      }
+      onGo(p.trim(), paid);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Couldn't start that.");
+      setBusy(false);
+    }
+  };
+  return (
+    <div className="bk-rescue">
+      <input type="tel" aria-label="Your phone" placeholder="Your phone, e.g. +234 811 000 0000" value={p} onChange={(e) => setP(e.target.value)} maxLength={30} autoComplete="tel" />
+      <button type="button" className="bk-fb primary" disabled={!ok || busy} onClick={go}>
+        {busy ? "Starting…" : action.price ? "Pay & call me" : "Call me"}
+      </button>
+      {err && <p role="alert">{err}</p>}
+    </div>
+  );
+}
+
+type Paid = { entryId: string; total: number; currency: string; ref: string };
 
 export default function BookingsLive({
   actions,
@@ -270,6 +355,8 @@ export default function BookingsLive({
   // A call only counts as done once it has actually connected and finished.
   const done = results.filter((r) => (r.status === "calling" || r.status === "queued" ? calls[r.actionId] === true : DONE.has(r.status))).length;
   const total = Math.max(1, results.length);
+  const [refunded, setRefunded] = useState<Record<string, boolean>>({});
+  const [rescued, setRescued] = useState<Record<string, { phone: string; paid: Paid | null }>>({});
   const failedCalls = Object.values(calls).filter((x) => x === false).length;
   return (
     <section className="bk" aria-live="polite">
@@ -325,6 +412,39 @@ export default function BookingsLive({
                       )}
                     </div>
                   )}
+                  {r.status === "needs_info" && a.channel === "call" && a.callOpening && !rescued[r.actionId] && (
+                    <Rescue action={a} phone={me.phone ?? null} onGo={(phone, paid) => setRescued((m) => ({ ...m, [r.actionId]: { phone, paid } }))} />
+                  )}
+                  {rescued[r.actionId] && (
+                    <LiveCall
+                      id={null}
+                      active
+                      action={a}
+                      alternates={alternatesFor(a.placeId)}
+                      phone={rescued[r.actionId].phone}
+                      client={me.name ?? null}
+                      reachOf={(id) => (id ? (places[id] ?? null) : null)}
+                      onWebsite={(url, title) => setBrowse({ url, title })}
+                      onDone={(ok) => {
+                        setCalls((c) => ({ ...c, [r.actionId]: ok }));
+                        const pd = rescued[r.actionId]?.paid;
+                        if (!ok && pd)
+                          fetch("/api/wallet/refund", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ entryId: pd.entryId }) })
+                            .then((x) => x.ok && setRefunded((m) => ({ ...m, [r.actionId]: true })))
+                            .catch(() => {});
+                      }}
+                    />
+                  )}
+                  {(r.paid ?? rescued[r.actionId]?.paid) && (
+                    <div className={`bk-paid${refunded[r.actionId] ? " is-refunded" : ""}`}>
+                      <span className="bk-coin" aria-hidden="true">●</span>
+                      <div>
+                        <small>{refunded[r.actionId] ? "Refunded to your wallet" : "Paid from your wallet"}</small>
+                        <strong>{Math.round((r.paid ?? rescued[r.actionId]!.paid!).total).toLocaleString("en")} {(r.paid ?? rescued[r.actionId]!.paid!).currency}</strong>
+                      </div>
+                      <a className="bk-fb" href={`/receipt/${(r.paid ?? rescued[r.actionId]!.paid!).entryId}`} target="_blank" rel="noopener">Receipt</a>
+                    </div>
+                  )}
                   {(r.status === "calling" || r.status === "queued") && (
                     <LiveCall
                       id={r.status === "calling" ? r.ref : null}
@@ -335,7 +455,14 @@ export default function BookingsLive({
                       client={me.name ?? null}
                       reachOf={(id) => (id ? (places[id] ?? null) : null)}
                       onWebsite={(url, title) => setBrowse({ url, title })}
-                      onDone={(ok) => setCalls((c) => ({ ...c, [r.actionId]: ok }))}
+                      onDone={(ok) => {
+                        setCalls((c) => ({ ...c, [r.actionId]: ok }));
+                        // No place could take it: the prepayment goes straight back to the wallet.
+                        if (!ok && r.paid && !refunded[r.actionId])
+                          fetch("/api/wallet/refund", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ entryId: r.paid.entryId }) })
+                            .then((x) => x.ok && setRefunded((m) => ({ ...m, [r.actionId]: true })))
+                            .catch(() => {});
+                      }}
                     />
                   )}
                   {a.channel === "calendar" && onCalendar && (

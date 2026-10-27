@@ -34,6 +34,11 @@ export default function AccountView() {
   const [saved, setSaved] = useState(false);
   const [open, setOpen] = useState<string | null>(null);
   const [tab, setTab] = useState<(typeof TABS)[number]["id"]>("trips");
+  // ?tab=wallet (from a receipt) opens that tab.
+  useEffect(() => {
+    const t = TABS.find((x) => x.id === new URLSearchParams(window.location.search).get("tab"));
+    if (t) setTab(t.id);
+  }, []);
   const [showAll, setShowAll] = useState(false);
 
   const load = useCallback(async () => {

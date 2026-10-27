@@ -471,6 +471,8 @@ export default function Earth(props: EarthProps) {
   const layerRef = useRef<Scene3D | null>(null);
   const photoRef = useRef<{ enabled: boolean } | null>(null);
   const journeyRef = useRef<Marker | null>(null);
+  // The plane that flies the arc on the way in.
+  const planeRef = useRef<Marker | null>(null);
   const [credit, setCredit] = useState("");
   const markers = useRef(new Map<string, { m: Marker; el: HTMLElement }>());
   const live = useRef(props);
@@ -792,12 +794,35 @@ export default function Earth(props: EarthProps) {
       const mid = path[Math.floor(path.length / 2)];
       map.easeTo({ center: mid, zoom: far > 4000 ? 1.45 : 2.4, duration: dur * 0.5, easing: (x) => x });
       window.setTimeout(() => map.easeTo({ center: [dest.lon, dest.lat], zoom: far > 4000 ? 2.6 : 3.6, duration: dur * 0.5, easing: (x) => 1 - (1 - x) * (1 - x) }), dur * 0.5);
+      planeRef.current?.remove();
+      const pe = document.createElement("div");
+      pe.className = "eq-plane-pin";
+      pe.innerHTML = `<div class="eq-plane"><svg viewBox="0 0 24 24" width="30" height="30" aria-hidden="true"><path d="M12 1.6c.9 0 1.5 1.1 1.5 2.4v5.3l8 4.7v2.2l-8-2.4v4.8l2.6 2v1.7L12 21.2l-4.1 1.1v-1.7l2.6-2v-4.8l-8 2.4V14l8-4.7V4c0-1.3.6-2.4 1.5-2.4z" fill="currentColor"/></svg></div>`;
+      const plane = new maplibregl.Marker({ element: pe, anchor: "center", rotationAlignment: "map", pitchAlignment: "map" }).setLngLat(path[0] as [number, number]).addTo(map);
+      planeRef.current = plane;
+      const heading = (a: number[], b: number[]) => {
+        const r = Math.PI / 180;
+        const y = Math.sin((b[0] - a[0]) * r) * Math.cos(b[1] * r);
+        const x = Math.cos(a[1] * r) * Math.sin(b[1] * r) - Math.sin(a[1] * r) * Math.cos(b[1] * r) * Math.cos((b[0] - a[0]) * r);
+        return (Math.atan2(y, x) / r + 360) % 360;
+      };
       const step = () => {
         const f = Math.min(1, (performance.now() - t0) / dur);
         const ease = f < 0.5 ? 2 * f * f : 1 - Math.pow(-2 * f + 2, 2) / 2;
-        arc.setData(fc([line(path.slice(0, Math.max(2, Math.round(ease * path.length))))]));
+        const n = Math.max(2, Math.round(ease * path.length));
+        arc.setData(fc([line(path.slice(0, n))]));
+        const head = path[Math.min(path.length - 1, n - 1)];
+        const prev = path[Math.max(0, Math.min(path.length - 1, n - 1) - 1)];
+        if (planeRef.current === plane) plane.setLngLat(head as [number, number]).setRotation(heading(prev, head));
         if (f < 1) requestAnimationFrame(step);
-        else window.setTimeout(land, 250);
+        else {
+          pe.classList.add("is-landed");
+          window.setTimeout(() => {
+            if (planeRef.current === plane) planeRef.current = null;
+            plane.remove();
+          }, 900);
+          window.setTimeout(land, 250);
+        }
       };
       requestAnimationFrame(step);
     } else {

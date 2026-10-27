@@ -264,10 +264,12 @@ export const REAL_LAYERS: LayerSpecification[] = [
     minzoom: 14.6,
     filter: ["!=", ["get", "hide_3d"], true],
     paint: {
-      "fill-extrusion-color": ["interpolate", ["linear"], ["coalesce", ["get", "render_height"], 9], 0, "#e9e4dc", 30, "#f3f0ea", 120, "#fbfaf7"],
+      // Real-world materials by height: warm plaster and brick low down, concrete mid-rise, glass towers.
+      "fill-extrusion-color": ["interpolate", ["linear"], ["coalesce", ["get", "render_height"], 9], 0, "#b9a48c", 8, "#cdbca6", 18, "#d6d0c6", 45, "#b8c0c9", 120, "#9fb2c6"],
       "fill-extrusion-height": ["interpolate", ["cubic-bezier", 0.2, 0, 0, 1], ["zoom"], 14.6, 0, 15.8, ["coalesce", ["get", "render_height"], 9]],
       "fill-extrusion-base": ["interpolate", ["linear"], ["zoom"], 14.6, 0, 15.8, ["coalesce", ["get", "render_min_height"], 0]],
-      "fill-extrusion-opacity": ["interpolate", ["linear"], ["zoom"], 14.6, 0, 15.2, 0.86],
+      // Slightly see-through, so the real aerial roofs read through the volumes.
+      "fill-extrusion-opacity": ["interpolate", ["linear"], ["zoom"], 14.6, 0, 15.2, 0.78, 17, 0.7],
       "fill-extrusion-vertical-gradient": true,
     },
   },

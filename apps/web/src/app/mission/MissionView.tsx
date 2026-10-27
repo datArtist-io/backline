@@ -105,6 +105,8 @@ export default function MissionView(props: { goal?: string; artist?: string; mis
   const [view, setView] = useState<"game" | "classic">("game");
   // Review before booking: the person looks the trip over, adjusts it, then opens the booking step.
   const [bookOpen, setBookOpen] = useState(false);
+  // When the trip is ready to book, the one-tap checkout opens by itself (after the landing settles).
+  const askedFor = useRef<string | null>(null);
   const [edits, setEdits] = useState<ReviewEdits>(NO_EDITS);
   const [adjusted, setAdjusted] = useState(false);
   const [reply, setReply] = useState<{ message: string; suggestions: string[] } | null>(null);
@@ -324,6 +326,7 @@ export default function MissionView(props: { goal?: string; artist?: string; mis
                   profile={loadProfile()}
                   busy={running}
                   onConfirm={(ids, profile) => resume(cp.id, ids, profile)}
+                  onLook={() => setBookOpen(false)}
                 />
               ) : (
                 <CheckpointPanel key={cp.id + (planned?.runId ?? "")} request={cp} busy={running} onConfirm={(ids) => resume(cp.id, ids)} />
@@ -333,6 +336,14 @@ export default function MissionView(props: { goal?: string; artist?: string; mis
     </>
   );
   const hasPrompt = Boolean(error || needs || reply || checkpoints.length);
+  const readyToBook = checkpoints.some((c) => c.id === "actions") && Boolean(r<TripActionsOutput>("trip.actions"));
+  useEffect(() => {
+    const key = planned?.runId ?? null;
+    if (!readyToBook || !key || askedFor.current === key) return;
+    askedFor.current = key;
+    const t = setTimeout(() => setBookOpen(true), autonomy === "auto" ? 1200 : 3500);
+    return () => clearTimeout(t);
+  }, [readyToBook, planned?.runId, autonomy]);
 
   // Trips open straight into the 3D expedition; music missions keep the page.
   const tripMission = mission === "plan" || (!mission && !props.artist && status !== "needs");
@@ -348,17 +359,7 @@ export default function MissionView(props: { goal?: string; artist?: string; mis
           trip={shownTrip}
           where={agentOut?.where ?? null}
           overlay={
-            Boolean(error || needs || reply) || (bookOpen && checkpoints.length) ? (
-              <div className="eq-ask">
-                {prompts}
-                {bookOpen && checkpoints.length > 0 && (
-                  <>
-                    <button type="button" className="eq-ask-back" onClick={() => setBookOpen(false)}>← Back to the trip</button>
-                    {cpNodes}
-                  </>
-                )}
-              </div>
-            ) : null
+            Boolean(error || needs || reply) ? <div className="eq-ask">{prompts}</div> : null
           }
           review={
             checkpoints.some((c) => c.id === "actions") || (adjusted && running)
@@ -403,6 +404,7 @@ export default function MissionView(props: { goal?: string; artist?: string; mis
             </div>
           }
         />
+        {bookOpen && checkpoints.length > 0 && cpNodes}
         <Preferences open={prefsOpen} onClose={() => setPrefsOpen(false)} />
       </>
     );

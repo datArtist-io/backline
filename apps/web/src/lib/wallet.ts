@@ -3,7 +3,7 @@
 import { rest } from "./supabase";
 import type { Session } from "./session";
 
-export type WalletEntry = { id: string; kind: "topup" | "payment"; status: "credited" | "held" | "paid" | "void"; amount_minor: number; original_amount: number | null; original_currency: string | null; label: string; ref: string | null; created_at: string };
+export type WalletEntry = { id: string; kind: "topup" | "payment"; status: "credited" | "held" | "paid" | "void"; amount_minor: number; original_amount: number | null; original_currency: string | null; label: string; ref: string | null; details: Record<string, unknown>; created_at: string };
 export type Wallet = { ready: boolean; balance: number; entries: WalletEntry[]; currency: string; perUsd: number };
 
 /** The currency people pay in, by country (from their connection) when they haven't chosen one. */
@@ -31,7 +31,7 @@ export async function loadWallet(s: Session, currency = "USD"): Promise<Wallet> 
     const shown = per ? currency : "USD";
     const [balance, entries] = await Promise.all([
       rpc<number>(s, "wallet_balance"),
-      rest<WalletEntry[]>(s.cfg, s.accessToken, "wallet_entries?select=id,kind,status,amount_minor,original_amount,original_currency,label,ref,created_at&order=created_at.desc&limit=30"),
+      rest<WalletEntry[]>(s.cfg, s.accessToken, "wallet_entries?select=id,kind,status,amount_minor,original_amount,original_currency,label,ref,details,created_at&order=created_at.desc&limit=50"),
     ]);
     return { ready: true, balance: Number(balance) || 0, entries, currency: shown, perUsd: per ?? 1 };
   } catch (err) {
@@ -70,14 +70,15 @@ export async function toUsdCents(amount: number, currency: string): Promise<numb
 /** The engine's wallet hook for one signed-in person's mission. */
 export function walletFor(s: Session) {
   return {
-    async hold(amount: number, currency: string, label: string): Promise<{ ok: true; id: string; usd: number } | { ok: false; reason: string }> {
+    async hold(amount: number, currency: string, label: string, details: Record<string, unknown> = {}): Promise<{ ok: true; id: string; usd: number } | { ok: false; reason: string }> {
       const cents = await toUsdCents(amount, currency);
       if (cents == null) return { ok: false, reason: `I couldn't convert ${currency} for your wallet just now.` };
-      const id = await rpc<string | null>(s, "wallet_hold", { amount_minor: cents, label, original_amount: Math.round(amount * 100) / 100, original_currency: currency.toUpperCase() });
+      const id = await rpc<string | null>(s, "wallet_hold", { amount_minor: cents, label, original_amount: Math.round(amount * 100) / 100, original_currency: currency.toUpperCase(), details });
       if (!id) return { ok: false, reason: `Your Backline Wallet needs $${(cents / 100).toFixed(2)} for this. Add funds in your wallet and approve again.` };
       return { ok: true, id, usd: cents };
     },
     capture: (id: string, ref: string | null) => rpc<void>(s, "wallet_capture", { entry: id, reference: ref }),
     release: (id: string) => rpc<void>(s, "wallet_release", { entry: id }),
+    refund: (id: string) => rpc<void>(s, "wallet_refund", { entry: id }),
   };
 }

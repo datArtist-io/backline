@@ -1437,3 +1437,16 @@ a { color: inherit; text-decoration: none; }
 .mode-hint { display: table; padding: 0; background: none; box-shadow: none; backdrop-filter: none; -webkit-backdrop-filter: none; color: #fff; font-weight: 600; text-shadow: 0 1px 2px rgba(16, 19, 43, 0.45), 0 0 14px rgba(16, 19, 43, 0.25); animation: modehint 4.5s var(--ease-out) both; }
 @keyframes modehint { 0% { opacity: 0; transform: translateY(-4px); } 8%, 78% { opacity: 1; transform: none; } 100% { opacity: 0; transform: translateY(-2px); } }
 @media (prefers-reduced-motion: reduce) { .mode-hint { animation: none; } }
+
+/* ---- mode tip: a small glass card that floats under the switch, never moving the chips ---- */
+.switch-wrap { position: relative; z-index: 6; display: flex; justify-content: center; }
+.mode-tip { position: absolute; top: calc(100% + 12px); left: 50%; width: min(320px, calc(100vw - 32px)); margin: 0; padding: 12px 14px 13px; display: grid; gap: 3px; text-align: left; font-size: 13.5px; line-height: 1.45; color: #23263a; border-radius: 18px; background: rgba(255, 255, 255, 0.9); box-shadow: 0 0 0 1px rgba(16, 19, 43, 0.06), 0 18px 40px -16px rgba(16, 19, 43, 0.45); backdrop-filter: blur(20px) saturate(180%); -webkit-backdrop-filter: blur(20px) saturate(180%); translate: -50% 0; animation: modetip 4.8s var(--ease-out) both; pointer-events: none; }
+.mode-tip::before { content: ""; position: absolute; top: -6px; left: 50%; width: 12px; height: 12px; translate: -50% 0; rotate: 45deg; border-radius: 3px 0 0 0; background: inherit; box-shadow: -1px -1px 0 rgba(16, 19, 43, 0.05); }
+.mode-tip b { font-size: 12px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: #5a3ee6; }
+@keyframes modetip { 0% { opacity: 0; transform: translateY(-6px) scale(0.97); } 7%, 82% { opacity: 1; transform: none; } 100% { opacity: 0; transform: translateY(-4px); } }
+.hero.is-launching .mode-tip { opacity: 0; }
+@media (prefers-reduced-motion: reduce) { .mode-tip { animation: modetip-still 4.8s linear both; } @keyframes modetip-still { 0%, 85% { opacity: 1; } 100% { opacity: 0; } } }
+/* Example chips wrap onto a second line instead of being cut off */
+.recent.try { flex-wrap: wrap; justify-content: center; overflow: visible; row-gap: 8px; max-width: min(640px, calc(100vw - 32px)); margin-inline: auto; }
+.recent.try .recent-chip { max-width: min(260px, calc(100vw - 80px)); }
+@media (max-width: 640px) { .recent.try { justify-content: center; } }

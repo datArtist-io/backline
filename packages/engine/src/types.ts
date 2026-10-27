@@ -94,7 +94,7 @@ export type SkillContext = {
   identity?: { required: boolean; verified: boolean } | null;
   /** The person's Backline Wallet (test funds): payments are held, then captured or released. */
   wallet?: {
-    hold(amount: number, currency: string, label: string): Promise<{ ok: true; id: string; usd: number } | { ok: false; reason: string }>;
+    hold(amount: number, currency: string, label: string, details?: Record<string, unknown>): Promise<{ ok: true; id: string; usd: number } | { ok: false; reason: string }>;
     capture(id: string, ref: string | null): Promise<void>;
     release(id: string): Promise<void>;
   } | null;

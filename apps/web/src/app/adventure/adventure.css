@@ -942,3 +942,92 @@ button:hover .ki-stop .ki-plane, .eq-card:hover .ki-stop .ki-plane { animation: 
 .wl-demo { margin: -8px 0 0; font-size: 12.5px; color: var(--ink-faint); }
 /* top right: the row of doors leads, the score and weather sit beneath it */
 @media (min-width: 861px) { .eq-top .eq-doors { order: -1; } }
+
+/* ---------- One-tap trip checkout (centred, above everything) ---------- */
+.ck-scrim { position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; padding: 16px; background: rgba(8, 12, 20, .42); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); animation: ck-in .25s ease-out; }
+.ck-scrim .ck { width: min(520px, 100%); max-height: min(88vh, 760px); overflow: auto; margin: 0; background: #fbfaf7; color: #14171c; border-radius: 26px; box-shadow: 0 30px 80px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.8); padding: 22px 22px 18px; }
+.ck .muted, .ck .cp-detail { color: #4a5160; }
+.ck .eyebrow { color: #6a5a2f; }
+.ck-sum { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 14px 0 10px; }
+.ck-sum > div { background: #f0ede5; border-radius: 14px; padding: 10px 12px; display: grid; gap: 2px; }
+.ck-sum small { font-size: 12px; color: #5a6070; }
+.ck-sum b { font-size: 18px; }
+.ck-sum span { font-size: 15px; font-weight: 600; }
+.ck-sum .is-short { color: #b3261e; }
+.ck-warn { color: #b3261e; font-size: 14px; margin: 4px 0 8px; }
+.ck-peek { list-style: none; margin: 8px 0 12px; padding: 0; display: grid; gap: 6px; }
+.ck-peek li { display: flex; justify-content: space-between; gap: 12px; font-size: 14.5px; padding: 8px 0; border-bottom: 1px solid #e7e3d9; }
+.ck-peek li span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ck-peek .ck-more { color: #5a6070; border: 0; }
+.ck-amt { font-weight: 700; font-size: 14px; white-space: nowrap; margin-left: auto; padding-left: 8px; }
+.ck-foot { display: flex; gap: 10px; justify-content: space-between; align-items: center; margin-top: 12px; }
+.ck-look { background: transparent; border: 1px solid #cfc9bb; color: #14171c; border-radius: 999px; padding: 11px 16px; font-weight: 600; cursor: pointer; }
+.ck-foot .go { flex: 1; max-width: 300px; }
+@keyframes ck-in { from { opacity: 0; } to { opacity: 1; } }
+@media (max-width: 520px) { .ck-sum b { font-size: 16px; } .ck-foot { flex-direction: column-reverse; align-items: stretch; } .ck-foot .go { max-width: none; } }
+@media (prefers-reduced-motion: reduce) { .ck-scrim { animation: none; } }
+
+/* Paid-from-wallet strip on each booking, with a receipt link */
+.bk-paid { display: flex; align-items: center; gap: 10px; margin-top: 8px; padding: 8px 10px; border-radius: 12px; background: rgba(46, 160, 90, .1); }
+.bk-paid > div { display: grid; flex: 1; }
+.bk-paid small { font-size: 12px; opacity: .8; }
+.bk-paid.is-refunded { background: rgba(200, 120, 40, .12); }
+.bk-coin { color: #d9a514; font-size: 18px; animation: bk-coin 1.2s ease-out 1; }
+@keyframes bk-coin { 0% { transform: translateY(-14px) scale(.6); opacity: 0; } 60% { transform: translateY(2px) scale(1.1); opacity: 1; } 100% { transform: none; } }
+.ck-toggle { background: none; border: 0; padding: 4px 0; color: #2b4a8a; font-weight: 600; font-size: 14px; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+
+/* "That's the trip": centred with `translate`, which the entry animation's transform can't override. */
+.eq-done { left: 50%; top: 50%; transform: none; translate: -50% -50%; }
+
+/* ---------- Agent exchange: you → agent → business ---------- */
+.bk-x { display: grid; grid-template-columns: auto 1fr auto 1fr auto; align-items: center; gap: 6px; margin: 10px 0 6px; font-size: 12.5px; font-weight: 600; }
+.bk-x > small { grid-column: 1 / -1; text-align: center; font-weight: 500; opacity: .75; }
+.bk-x-node { display: inline-flex; align-items: center; gap: 5px; padding: 5px 9px; border-radius: 999px; background: rgba(120, 120, 140, .12); opacity: .55; transition: opacity .3s, background .3s; max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bk-x-node.on { opacity: 1; background: rgba(90, 62, 230, .12); }
+.bk-x-node i { font-style: normal; color: #5a3ee6; }
+.bk-x.is-done .bk-x-node:last-of-type { background: rgba(46, 160, 90, .16); }
+.bk-x-wire { position: relative; height: 2px; background: rgba(120, 120, 140, .25); border-radius: 2px; overflow: visible; }
+.bk-x-wire.on { background: linear-gradient(90deg, rgba(90, 62, 230, .5), rgba(90, 62, 230, .2)); }
+.bk-x-coin, .bk-x-pulse { position: absolute; top: 50%; left: 0; width: 9px; height: 9px; margin-top: -4.5px; border-radius: 50%; opacity: 0; }
+.bk-x-coin { background: #d9a514; box-shadow: 0 0 8px rgba(217, 165, 20, .7); animation: bk-x-run 1.6s ease-in-out 2; }
+.bk-x-wire.is-live .bk-x-pulse { background: #5a3ee6; animation: bk-x-talk 1.1s ease-in-out infinite alternate; }
+@keyframes bk-x-run { 0% { left: 0; opacity: 0; } 15% { opacity: 1; } 85% { opacity: 1; } 100% { left: calc(100% - 9px); opacity: 0; } }
+@keyframes bk-x-talk { from { left: 0; opacity: .9; } to { left: calc(100% - 9px); opacity: .9; } }
+.bk-bubbles { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 6px; max-height: 260px; overflow: auto; }
+.bk-bubbles li { display: grid; gap: 2px; max-width: 85%; padding: 8px 11px; border-radius: 14px; font-size: 14px; line-height: 1.4; animation: eqcard .35s var(--ease, ease-out) both; animation-delay: calc(var(--i) * 40ms); }
+.bk-bubbles li small { font-size: 11px; font-weight: 700; opacity: .7; }
+.bk-bubbles .is-agent { justify-self: start; background: rgba(90, 62, 230, .1); border-bottom-left-radius: 4px; }
+.bk-bubbles .is-biz { justify-self: end; background: rgba(46, 160, 90, .12); border-bottom-right-radius: 4px; }
+.bk-rescue { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.bk-rescue input { flex: 1 1 200px; min-width: 0; padding: 10px 12px; border-radius: 12px; border: 1px solid rgba(120, 120, 140, .35); background: rgba(255, 255, 255, .9); color: #14171c; font-size: 15px; }
+.bk-rescue p { flex-basis: 100%; margin: 0; color: #b3261e; font-size: 13.5px; }
+@media (prefers-reduced-motion: reduce) { .bk-x-coin, .bk-x-pulse, .bk-bubbles li, .bk-coin { animation: none !important; opacity: 1; } }
+
+/* The plane on the way in (rotation lives on the marker, the look on the inner element). */
+.eq-plane-pin { pointer-events: none; z-index: 4; }
+.eq-plane { color: #fff; filter: drop-shadow(0 2px 6px rgba(20, 30, 60, .55)) drop-shadow(0 0 10px rgba(188, 214, 255, .8)); transition: opacity .8s ease, transform .8s ease; }
+.eq-plane-pin.is-landed .eq-plane { opacity: 0; transform: scale(.4); }
+
+/* ---- Wallet, refined: card and controls side by side, a balance that always fits ---- */
+.wl-top { display: grid; gap: 20px; align-items: stretch; }
+@media (min-width: 760px) { .wl-top { grid-template-columns: minmax(300px, 420px) minmax(0, 1fr); } }
+.wl-card { container-type: inline-size; width: 100%; max-width: 420px; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto 1fr auto; }
+.wl-card-top { min-width: 0; gap: 10px; }
+.wl-brand { white-space: nowrap; }
+.wl-test { flex: none; }
+.wl-chip { top: 42%; }
+.wl-bal { min-width: 0; }
+.wl-bal b { font-size: clamp(22px, 11cqi, 42px); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
+.wl-side { display: grid; gap: 16px; align-content: start; min-width: 0; }
+.wl-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 0; }
+.wl-stats div { padding: 12px 14px; border-radius: 16px; background: rgba(127, 127, 160, 0.08); box-shadow: inset 0 0 0 1px rgba(127, 127, 160, 0.14); min-width: 0; }
+.wl-stats dt { font-size: 12px; font-weight: 650; color: var(--ink-soft); }
+.wl-stats dd { margin: 4px 0 0; font-size: 17px; font-weight: 750; font-variant-numeric: tabular-nums; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wl-add button { box-shadow: inset 0 0 0 1px rgba(127, 127, 160, 0.28), 0 6px 16px -10px rgba(16, 19, 43, 0.35); }
+.wl-list a { color: inherit; text-decoration: none; }
+.wl-list a:hover { text-decoration: underline; text-underline-offset: 3px; }
+
+/* ---- Pause: readable on the dark bar (dark glass, brand ring, white label) ---- */
+.eq-play.on .eq-face { color: #fff; background: rgba(22, 24, 44, 0.72); box-shadow: inset 0 0 0 1.5px rgba(160, 132, 255, 0.85), 0 10px 24px -12px rgba(0, 0, 0, 0.6); }
+.eq-play.on .eq-ico { color: #fff; background: linear-gradient(135deg, #7b5cff, #ff4fa3); }
+.eq-play.on em { color: #fff; }
