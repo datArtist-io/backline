@@ -17,6 +17,9 @@ create table if not exists public.wallet_entries (
   created_at        timestamptz not null default now(),
   updated_at        timestamptz not null default now()
 );
+-- Safe to run again over an earlier version of this migration.
+alter table public.wallet_entries add column if not exists details jsonb not null default '{}'::jsonb;
+drop function if exists public.wallet_hold(bigint, text, numeric, text);
 create index if not exists wallet_entries_user_created on public.wallet_entries (user_id, created_at desc);
 
 alter table public.wallet_entries enable row level security;
