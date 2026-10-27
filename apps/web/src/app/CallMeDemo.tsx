@@ -13,6 +13,14 @@ const TEXT: Record<State, string> = {
   error: "",
 };
 
+const OUTCOME: Record<string, string> = {
+  no_answer: "No answer this time. Keep your phone close and try again later today.",
+  busy: "Your line was busy. Try again in a moment.",
+  voicemail: "It reached your voicemail. Try again when you can pick up.",
+  no_audio: "The call connected but the audio dropped. Try again in a moment.",
+  failed: "The call didn't go through. Check the number and try again.",
+};
+
 export default function CallMeDemo() {
   const [phone, setPhone] = useState("");
   const [name, setName] = useState("");
@@ -30,6 +38,7 @@ export default function CallMeDemo() {
       const d = await fetch(`/api/demo-call?id=${id}`, { cache: "no-store" }).then((r) => r.json()).catch(() => null);
       if (stop) return;
       if (d?.state === "ringing" || d?.state === "talking" || d?.state === "ended") setState(d.state);
+      if (d?.state === "ended" && d.outcome && d.outcome !== "talked") setMsg(OUTCOME[d.outcome as string] ?? null);
       if (d?.state !== "ended" && ++n < 80) setTimeout(tick, 2500);
     };
     tick();
