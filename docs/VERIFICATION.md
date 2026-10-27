@@ -36,6 +36,8 @@ Live Missions run against production (`backline-beta-one.vercel.app`), what was 
 | V21 | same | Taste for "suya" | — | **Wrong** (matched "Suyash Restaurant", pulling in Chinese and Indian) | A like must appear in an entity's name as whole words; test — this release |
 | V22 | same | Approved plan = executed plan | The plan on screen (NOK by Alara, Fri 20:00) | **Different** (the call request was for Pizze-Riah, Sat 18:00): the approval reached another server instance, which re-planned | Plan and results sealed (gzip + HMAC-SHA256) at the checkpoint and sent back with "Do it"; an approval for an unrecoverable plan is refused, never applied to a new plan; tests — this release |
 | V23 | same | Real call to the demo line | Vercel runtime log | **Blocked**: Vapi 400 "Free Vapi numbers do not support international calls" | Needs a paid number (Telnyx or Twilio) imported into Vapi; nothing else changes |
+| V24 | Re-run after the fixes, Telnyx line | Date, venue, approval | Calendar; plan on screen | Correct: "Call Food Shack to book a table for 2, Fri, 30 Oct 2026 at 20:00" | — |
+| V25 | same | Checkpoint asked a signed-in user to type name and email, and named the venue's number while the demo line would ring | — | **Friction / misleading** | Name and email filled from the account; checkpoint says "I'll call your demo line … as if it were …" — this release |
 
 ## Automated tests
 

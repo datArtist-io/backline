@@ -291,6 +291,7 @@ export default function MissionView(props: { goal?: string; artist?: string; mis
                 <ActionsCheckpoint
                   key={cp.id + (planned?.runId ?? "")}
                   actions={r<TripActionsOutput>("trip.actions")!.data.actions}
+                  demoLine={r<TripActionsOutput>("trip.actions")!.data.demoLine ?? null}
                   profile={loadProfile()}
                   busy={running}
                   onConfirm={(ids, profile) => resume(cp.id, ids, profile)}

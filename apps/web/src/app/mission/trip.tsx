@@ -424,17 +424,42 @@ const CHANNEL_ICON: Record<TripAction["channel"], string> = { email: "✉", call
 
 export function ActionsCheckpoint({
   actions,
+  demoLine = null,
   profile,
   busy,
   onConfirm,
 }: {
   actions: TripAction[];
+  /** Demo mode: the line calls actually ring. */
+  demoLine?: string | null;
   profile: Profile;
   busy: boolean;
   onConfirm: (ids: string[], profile: Profile) => void;
 }) {
   const [picked, setPicked] = useState<string[]>(() => actions.filter((a) => a.recommended).map((a) => a.id));
   const [me, setMe] = useState<Profile>({ name: profile.name, email: profile.email, phone: profile.phone });
+  // Signed in: their account's name and email fill any gaps, so they never type what we already know.
+  useEffect(() => {
+    if (me.name?.trim() && me.email?.trim()) return;
+    let live = true;
+    fetch("/api/account", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: { user?: { name?: string | null; email?: string | null }; profile?: Profile } | null) => {
+        if (!live || !d) return;
+        setMe((m) => ({
+          ...m,
+          name: m.name?.trim() || d.profile?.name || d.user?.name || m.name,
+          email: m.email?.trim() || d.profile?.email || d.user?.email || m.email,
+          phone: m.phone?.trim() || d.profile?.phone || m.phone,
+        }));
+      })
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+    // Once, when the checkpoint opens.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const needsDetails = actions.some((a) => picked.includes(a.id) && a.mode === "auto");
   const missing = needsDetails && (!me.name?.trim() || !me.email?.trim());
   const toggle = (id: string) => setPicked((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]));
@@ -460,7 +485,7 @@ export function ActionsCheckpoint({
                     {a.channel === "reserve" && a.kind === "book_flight" && `${a.subject ? `${a.subject}. ` : ""}I'll book and pay${a.price ? ` ${money(a.price.total, a.price.currency)}` : ""} for the tickets, within your budget. The e-ticket is emailed to you.`}
                     {a.channel === "reserve" && a.kind !== "book_flight" && `I'll book and pay${a.price ? ` ${money(a.price.total, a.price.currency)} for the whole stay` : ""}, only at this price and within your budget. The confirmation is emailed to you.`}
                     {a.channel === "email" && (a.mode === "auto" ? `I'll email ${a.to}` : `Opens a ready email to ${a.to}`)}
-                    {a.channel === "call" && (a.mode === "auto" ? `I'll call ${a.to}` : `Number and script for ${a.to}`)}
+                    {a.channel === "call" && (a.mode === "auto" ? (demoLine ? `I'll call your demo line ${demoLine} as if it were ${a.to}` : `I'll call ${a.to}`) : `Number and script for ${a.to}`)}
                     {a.channel === "link" && "Opens with your dates and guests filled in. You pay there."}
                     {a.channel === "calendar" && "Every stop, in your calendar"}
                   </span>

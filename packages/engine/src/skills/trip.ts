@@ -340,7 +340,11 @@ export const actionSchema = z.object({
   price: z.object({ total: z.number(), currency: z.string() }).nullable().optional(),
 });
 export type TripAction = z.infer<typeof actionSchema>;
-const actionsOutput = z.object({ actions: z.array(actionSchema) });
+const actionsOutput = z.object({
+  actions: z.array(actionSchema),
+  /** Demo mode: AI calls ring this test line (someone plays the business), not the business itself. */
+  demoLine: z.string().nullable().optional(),
+});
 export type TripActionsOutput = z.infer<typeof actionsOutput>;
 
 const COUNTRY_CODES: [RegExp, string][] = [
@@ -611,7 +615,9 @@ export const tripActions: Skill<BriefInput, TripActionsOutput> = {
       if (!ctx.email) notes.push("Email sending isn't connected yet, so emails open in your own mail app.");
       if (!ctx.calls) notes.push("AI calling isn't connected yet, so calls show the number and what to say.");
     }
-    return { data: { actions }, evidence: [], notes };
+    const demoLine = ctx.calls && ctx.callDemoTo ? ctx.callDemoTo : null;
+    if (demoLine && actions.some((x) => x.channel === "call" && x.mode === "auto")) notes.push(`Demo mode: calls ring the test line ${demoLine}, where someone plays the business, not the business itself.`);
+    return { data: { actions, demoLine }, evidence: [], notes };
   },
 };
 
