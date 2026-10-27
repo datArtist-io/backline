@@ -1421,3 +1421,13 @@ a { color: inherit; text-decoration: none; }
 @keyframes accin { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 .mode-hint { position: relative; z-index: 2; margin: 10px auto 0; max-width: min(460px, calc(100vw - 40px)); text-align: center; font-size: 13.5px; line-height: 1.45; color: var(--ink-soft); animation: accin 0.4s var(--ease-out) both; }
 .hero.is-launching .mode-hint { opacity: 0; transition: opacity 0.3s; }
+/* Recent requests tucked into a dot at the start of the row */
+.recent { overflow: visible; -webkit-mask-image: none; mask-image: none; }
+.recent-dot-wrap { position: relative; flex: none; }
+.recent-dot { display: grid; place-items: center; width: 32px; height: 32px; border: 1px solid rgba(255, 255, 255, 0.55); border-radius: 50%; color: var(--ink); background: rgba(255, 255, 255, 0.6); box-shadow: 0 4px 14px -8px rgba(16, 19, 43, 0.35); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); cursor: pointer; transition: transform 0.25s var(--ease-out), background 0.2s; }
+.recent-dot:hover, .recent-dot.on { background: #fff; transform: rotate(-20deg); }
+.recent-pop { position: absolute; z-index: 20; left: 50%; top: calc(100% + 10px); transform: translateX(-20%); width: min(360px, calc(100vw - 32px)); display: grid; gap: 2px; padding: 8px; border-radius: 20px; background: rgba(255, 255, 255, 0.94); box-shadow: 0 0 0 1px rgba(16, 19, 43, 0.06), 0 24px 60px -20px rgba(16, 19, 43, 0.45); backdrop-filter: blur(20px) saturate(180%); -webkit-backdrop-filter: blur(20px) saturate(180%); animation: accin 0.3s var(--ease-out) both; text-align: left; }
+.recent-pop-h { padding: 6px 10px 4px; font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-soft); }
+.recent-pop button { padding: 9px 10px; border: 0; border-radius: 12px; font: inherit; font-size: 14px; line-height: 1.35; text-align: left; color: var(--ink); background: transparent; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; animation: accin 0.3s calc(var(--i, 0) * 30ms) var(--ease-out) both; }
+.recent-pop button:hover { background: rgba(123, 92, 255, 0.1); }
+@media (max-width: 640px) { .recent { overflow-x: auto; } .recent-pop { position: fixed; left: 16px; right: 16px; top: auto; bottom: 24px; transform: none; width: auto; } }

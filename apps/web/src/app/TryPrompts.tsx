@@ -14,12 +14,13 @@ const PROMPTS: { label: string; prompt: string }[] = [
   { label: "Rome for food lovers", prompt: "3 days in Rome for 2, we love opera and handmade pasta" },
 ];
 
-export default function TryPrompts({ onPick }: { onPick: (query: string) => void }) {
+export default function TryPrompts({ onPick, extra = null }: { onPick: (query: string) => void; extra?: React.ReactNode }) {
   const [shown, setShown] = useState(PROMPTS.slice(0, 3));
   // A different mix each visit (after load, so the server and browser agree on the first paint).
   useEffect(() => setShown([...PROMPTS].sort(() => Math.random() - 0.5).slice(0, 3)), []);
   return (
     <nav className="recent try" aria-label="Try one of these">
+      {extra}
       <span className="recent-label">Try</span>
       {shown.map((p, i) => (
         <button key={p.label} type="button" className="recent-chip try-chip" style={{ ["--i" as string]: i }} onClick={() => onPick(p.prompt)} title={p.prompt}>
