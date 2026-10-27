@@ -215,11 +215,11 @@ describe("call outcomes", () => {
   });
 });
 
-import { bookingFrom } from "../src/clients/calls";
+import { bookingFrom as callBooking } from "../src/clients/calls";
 describe("booking read from a call", () => {
   it("reads what was agreed", () => {
-    expect(bookingFrom({ confirmed: true, date: "Friday 30 October", time: "8pm", partySize: 2, name: "Josiah", reference: "" })).toEqual({ confirmed: true, date: "Friday 30 October", time: "8pm", partySize: 2, name: "Josiah", reference: null, notes: null });
-    expect(bookingFrom({ date: "x" })).toBeNull();
-    expect(bookingFrom(undefined)).toBeNull();
+    expect(callBooking({ confirmed: true, date: "Friday 30 October", time: "8pm", partySize: 2, name: "Josiah", reference: "" })).toEqual({ confirmed: true, date: "Friday 30 October", time: "8pm", partySize: 2, name: "Josiah", reference: null, notes: null });
+    expect(callBooking({ date: "x" })).toBeNull();
+    expect(callBooking(undefined)).toBeNull();
   });
 });
