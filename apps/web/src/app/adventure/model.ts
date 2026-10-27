@@ -26,6 +26,10 @@ export type QuestNode = {
   /** How well it fits the person's taste (Qloo), 0–1, or null when there's no taste to match. */
   match: number | null;
   fromQloo: boolean;
+  /** Qloo's own affinity score for this place and this person (0–1), when Qloo scored it. */
+  affinity: number | null;
+  /** Where Qloo ranks it among the places of its kind it scored: 1 is the best. */
+  rank: { n: number; of: number } | null;
   /** XP the stop is worth: a base, plus up to as much again for a strong taste match. */
   xp: number;
   visits: Visit[];
@@ -85,6 +89,8 @@ export type AdventureSource = {
   intel?: TripIntelOutput | null;
   travel?: TripTravelOutput | null;
   sample?: boolean;
+  /** Where the trip goes, known before the agent's places (for the early, taste-only world). */
+  destination?: { name: string; lat: number; lon: number } | null;
 };
 
 // ---------- geometry ----------
@@ -152,7 +158,7 @@ export const xpFor = (match: number | null) => 100 + Math.round((match ?? 0.4) *
 
 export function buildAdventure(src: AdventureSource): AdventureModel | null {
   const a = src.agent;
-  if (!a) return null;
+  if (!a) return tasteOnly(src);
   const plan = src.plan ?? null;
   const taste = src.taste ?? null;
 
@@ -200,8 +206,15 @@ export function buildAdventure(src: AdventureSource): AdventureModel | null {
       xp: xpFor(match),
       visits: [],
       place: r.place,
+      affinity: r.place?.affinity ?? null,
+      rank: null,
     };
   });
+  // Rank each kind by Qloo's affinity: honest ordering, since raw scores often sit close together.
+  for (const kind of ["stay", "dine", "venue", "activity"] as NodeKind[]) {
+    const scored = nodes.filter((n) => n.kind === kind && n.affinity != null).sort((x, y) => y.affinity! - x.affinity!);
+    scored.forEach((n, i) => (n.rank = { n: i + 1, of: scored.length }));
+  }
   const byId = new Map(nodes.map((n) => [n.id, n]));
 
   // Quests and routes, from the plan's days.
@@ -240,7 +253,7 @@ export function buildAdventure(src: AdventureSource): AdventureModel | null {
   })() : null;
 
   const pickedNodes = nodes.filter((n) => n.picked && n.place);
-  const matches = pickedNodes.map((n) => n.match).filter(has);
+  const matches = pickedNodes.map((n) => n.affinity).filter(has);
   const totalXp = routes.length ? routes.reduce((s, r) => s + r.quests.reduce((t, q) => t + q.xp, 0), 0) : pickedNodes.reduce((s, n) => s + n.xp, 0);
 
   return {
@@ -270,5 +283,48 @@ export function buildAdventure(src: AdventureSource): AdventureModel | null {
       xp: totalXp,
       days: routes.length,
     },
+  };
+}
+
+/** Before the agent has found places: Qloo's taste on the map already, so the wait is never empty. Pure. */
+function tasteOnly(src: AdventureSource): AdventureModel | null {
+  const taste = src.taste;
+  const heatRaw = taste?.heat ?? [];
+  if (!taste || !heatRaw.length) return null;
+  const lats = heatRaw.map((h) => h[0]);
+  const lons = heatRaw.map((h) => h[1]);
+  const lat0 = (Math.min(...lats) + Math.max(...lats)) / 2;
+  const lon0 = (Math.min(...lons) + Math.max(...lons)) / 2;
+  const spanKm = Math.max((Math.max(...lats) - Math.min(...lats)) * KM_PER_DEG_LAT, (Math.max(...lons) - Math.min(...lons)) * kmPerDegLon(lat0), 1.6);
+  const scale = (HALF_WORLD * 2) / (spanKm * 1.15);
+  const toWorld = (lat: number, lon: number): [number, number] => [(lon - lon0) * kmPerDegLon(lat0) * scale, -(lat - lat0) * KM_PER_DEG_LAT * scale];
+  const heat: HeatPoint[] = heatRaw.map(([lat, lon, w]) => {
+    const [x, z] = toWorld(lat, lon);
+    return { x, z, w: Math.max(0, Math.min(1, w)), lat, lon };
+  });
+  const zone = taste.zone
+    ? (() => {
+        const [x, z] = toWorld(taste.zone.lat, taste.zone.lon);
+        return { x, z, r: Math.max(3, Math.min(14, taste.zone.radiusKm * scale)), name: taste.zone.name, lat: taste.zone.lat, lon: taste.zone.lon, km: taste.zone.radiusKm };
+      })()
+    : null;
+  return {
+    title: src.title,
+    city: src.destination?.name ?? "",
+    sample: Boolean(src.sample),
+    nodes: [],
+    routes: [],
+    heat,
+    zone,
+    extent: HALF_WORLD * 1.25,
+    scale,
+    center: { lat: lat0, lon: lon0 },
+    origin: src.travel?.from && src.travel.origin ? { name: src.travel.origin, ...src.travel.from } : null,
+    destination: src.destination ?? null,
+    taste: taste.signals.length || taste.tags.length || taste.vibes.length ? { signals: [...taste.signals.map((s) => s.name), ...taste.tags.map((t) => t.name)].slice(0, 6), vibes: taste.vibes, scenes: taste.scenes, dishes: taste.dishes, audience: taste.audience, alsoLoved: taste.alsoLoved.map((x) => x.name).slice(0, 4) } : null,
+    intel: src.intel ?? null,
+    travel: src.travel ?? null,
+    summary: null,
+    stats: { places: 0, picked: 0, km: 0, match: null, xp: 0, days: 0 },
   };
 }

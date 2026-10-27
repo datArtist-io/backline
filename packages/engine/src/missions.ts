@@ -3,7 +3,7 @@
 import { z } from "zod";
 import type { BriefInput, DocumentText, Profile, Skill, SkillId, SkillResult, TripRequest } from "./types";
 import type { LlmClient } from "./clients/llm";
-import { groundTrip, normalizeTrip, rawTripSchema } from "./trip-request";
+import { groundTrip, normalizeTrip, rawTripSchema, weekendDates } from "./trip-request";
 import { documentsBlock } from "./documents";
 import { normalizeArtistName, artistResolve } from "./skills/artist-resolve";
 import { fansProfile } from "./skills/fans-profile";
@@ -336,6 +336,13 @@ export function guessLocation(text: string): string | null {
 
 const MONTHS = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
 
+/** Weekends come from the calendar, not the model. Pure. */
+function onCalendar<T extends { startDate?: string | null; endDate?: string | null } | null>(trip: T, text: string, today?: string): T {
+  if (!trip) return trip;
+  const w = weekendDates(text, today ?? new Date().toISOString().slice(0, 10));
+  return w ? { ...trip, ...w } : trip;
+}
+
 /** "28th of October", "Oct 28", "28/10" → the next such date on or after today (YYYY-MM-DD). Pure. */
 export function guessDate(text: string, today = new Date().toISOString().slice(0, 10)): string | null {
   const t = text.toLowerCase();
@@ -578,7 +585,7 @@ export async function planGoal(
         ack: out.ack?.trim() || null,
         reply: out.reply?.trim() || null,
         suggestions: (out.suggestions ?? []).filter((x) => typeof x === "string" && x.trim()),
-        trip: out.mission === "plan" ? normalizeTrip(groundTrip(withStatedLikes(out.trip ?? null, goal), statedText, { near: true }), out.location?.trim() || plan.location, hints.profile, hints.today) : null,
+        trip: out.mission === "plan" ? normalizeTrip(onCalendar(groundTrip(withStatedLikes(out.trip ?? null, goal), statedText, { near: true }), statedText, hints.today), out.location?.trim() || plan.location, hints.profile, hints.today) : null,
         goal,
         method: "model",
         fallbackReason: null,

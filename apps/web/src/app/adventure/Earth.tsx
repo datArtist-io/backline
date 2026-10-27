@@ -437,7 +437,7 @@ export default function Earth(props: EarthProps) {
   const markers = useRef(new Map<string, { m: Marker; el: HTMLElement }>());
   const live = useRef(props);
   live.current = props;
-  const state = useRef({ loaded: false, introAt: -1, introDone: false, introFor: "", user: false, orbit: false, bearing: 0, raf: 0, last: 0, dwell: 0, nextStop: 0, playDay: -2, trailAt: 0 });
+  const state = useRef({ loaded: false, introAt: -1, introDone: false, introFor: "", originFor: "", user: false, orbit: false, bearing: 0, raf: 0, last: 0, dwell: 0, nextStop: 0, playDay: -2, trailAt: 0 });
 
   // Create the map once.
   useEffect(() => {
@@ -597,7 +597,7 @@ export default function Earth(props: EarthProps) {
       const m = markers.current.get(n.id);
       if (!m) continue;
       const pt = map.project([n.lon, n.lat]);
-      const w = 22 + n.name.length * 7.2 + (n.match != null ? 26 : 0);
+      const w = 22 + n.name.length * 7.2 + (n.rank ? 22 : 0);
       const r = { x: pt.x - 8, y: pt.y - 14, w, h: 28 };
       const hit = taken.some((t) => r.x < t.x + t.w && r.x + r.w > t.x && r.y < t.y + t.h && r.y + r.h > t.y);
       const show = !hit || n.id === p.selectedId || n.id === p.hoverId;
@@ -612,8 +612,7 @@ export default function Earth(props: EarthProps) {
     el.className = [...keep, "eq-pin", `k-${n.kind}`, ...(n.picked ? ["picked"] : [])].join(" ");
     el.style.setProperty("--c", KIND_COLOR[n.kind]);
     el.setAttribute("aria-label", n.name);
-    const pct = n.match != null ? Math.round(n.match * 100) : null;
-    el.innerHTML = `<i></i><span>${escapeHtml(n.name)}${pct != null && n.picked ? `<b>${pct}</b>` : ""}</span>`;
+    el.innerHTML = `<i></i><span>${escapeHtml(n.name)}${n.rank && n.picked ? `<b>#${n.rank.n}</b>` : ""}</span>`;
   };
 
   // Selection, hover, the active day and the taste toggle.
@@ -680,7 +679,7 @@ export default function Earth(props: EarthProps) {
     const model = live.current.model;
     if (!map || !model) return;
     const pts = model.nodes.filter((n) => n.picked);
-    const use = pts.length >= 2 ? pts : model.nodes;
+    const use: { lat: number; lon: number }[] = pts.length >= 2 ? pts : model.nodes.length ? model.nodes : model.heat.filter((h) => h.w > 0.3);
     if (!use.length) return;
     const b = new maplibregl.LngLatBounds();
     for (const n of use) b.extend([n.lon, n.lat]);
@@ -697,12 +696,13 @@ export default function Earth(props: EarthProps) {
     const dest = p.destination ?? (p.model ? { name: p.model.city, lat: p.model.center.lat, lon: p.model.center.lon } : null);
     if (!map || !s.loaded || !dest) return;
     s.introFor = `${dest.lat.toFixed(2)},${dest.lon.toFixed(2)}`;
+    s.originFor = p.origin ? `${p.origin.lat.toFixed(2)},${p.origin.lon.toFixed(2)}` : "";
     s.user = false;
     const arc = map.getSource("arc") as GeoJSONSource;
     const from = p.origin && kmBetween(p.origin, dest) > 150 ? p.origin : null;
     const land = () => {
       s.introDone = true;
-      if (live.current.model) overview(4200);
+      if (live.current.model && (live.current.model.nodes.length || live.current.model.heat.length)) overview(4200);
       else map.flyTo({ center: [dest.lon, dest.lat], zoom: 10.6, pitch: 48, bearing: -12, duration: live.current.reduced ? 0 : 4200, essential: true });
     };
     if (p.reduced) {
@@ -741,7 +741,10 @@ export default function Earth(props: EarthProps) {
     const s = state.current;
     const dest = props.destination ?? (props.model ? { lat: props.model.center.lat, lon: props.model.center.lon } : null);
     const key = dest ? `${dest.lat.toFixed(2)},${dest.lon.toFixed(2)}` : "";
+    const originKey = props.origin ? `${props.origin.lat.toFixed(2)},${props.origin.lon.toFixed(2)}` : "";
     if (key && s.loaded && s.introFor !== key) intro();
+    // Home became known after we'd landed: replay the journey in, unless they're exploring.
+    else if (key && s.loaded && originKey && s.originFor !== originKey && !s.user && !props.selectedId && !props.play) intro();
     else if (props.model && s.introDone && !s.user && !props.selectedId && !props.play) overview(2600);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [props.model, props.destination?.lat, props.destination?.lon, props.origin?.lat]);

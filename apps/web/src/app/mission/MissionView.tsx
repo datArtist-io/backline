@@ -789,9 +789,9 @@ function TripGame({
   const intel = r<TripIntelOutput>("trip.intel")?.data ?? null;
   const travel = r<TripTravelOutput>("trip.travel")?.data ?? null;
   const intelStep = steps.find((s) => s.id === "trip.intel");
-  const model = useMemo(() => buildAdventure({ title: goal, agent, plan, routes, taste, intel, travel }), [goal, agent, plan, routes, taste, intel, travel]);
   const guess = usePlace(where?.city ? null : trip?.destination);
   const destination: Spot | null = where?.city ? { name: where.city.display ?? where.city.name, lat: where.city.lat, lon: where.city.lon } : travel?.to && travel.destination ? { name: travel.destination, ...travel.to } : guess;
+  const model = useMemo(() => buildAdventure({ title: goal, agent, plan, routes, taste, intel, travel, destination }), [goal, agent, plan, routes, taste, intel, travel, destination]);
   const origin: Spot | null = travel?.from && travel.origin ? { name: travel.origin, ...travel.from } : null;
   const subtitle = trip?.destination ? tripChips(trip, where).slice(1).filter((c) => !/^By /.test(c)).concat(travel?.origin ? [`from ${travel.origin.split(",")[0]}`] : []).join(", ") : goal ? `“${goal}”` : null;
   const shown = useMemo(() => steps.map((s) => ({ id: s.id, title: s.title, status: s.status })), [steps]);

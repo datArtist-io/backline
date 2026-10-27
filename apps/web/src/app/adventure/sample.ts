@@ -14,7 +14,6 @@ const place = (id: string, name: string, kind: NonNullable<Place["kind"]>, lat: 
   website: null,
   priceLevel: null,
   rating: null,
-  affinity: null,
   match: null,
   image: null,
   lat,
@@ -28,6 +27,8 @@ const place = (id: string, name: string, kind: NonNullable<Place["kind"]>, lat: 
   kind,
   source: "qloo+osm",
   ...o,
+  // Illustrative Qloo affinity, in the narrow range real scores fall in.
+  affinity: o.affinity ?? (o.match != null ? Math.round((0.95 + o.match * 0.049) * 1000) / 1000 : null),
 });
 
 const stays = [

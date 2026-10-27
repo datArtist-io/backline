@@ -332,3 +332,32 @@ export function describeTrip(t: TripRequest): string {
   ];
   return parts.filter(Boolean).join(" ");
 }
+
+/**
+ * "A weekend", "this weekend", "next weekend", "a long weekend" resolved on the calendar, not by the
+ * model (which gets weekdays wrong). Returns null when the text doesn't ask for a weekend. Pure.
+ * - A weekend is Friday to Sunday; a long weekend Friday to Monday.
+ * - "This weekend" or "a weekend": the coming one (from Saturday, today to Sunday; on Sunday, the next).
+ * - "Next weekend": the coming Friday, or the one after when today is already Friday–Sunday.
+ */
+export function weekendDates(text: string, today: string): { startDate: string; endDate: string } | null {
+  const t = text.toLowerCase();
+  if (!/\bweekend\b/.test(t)) return null;
+  // An explicit date wins ("the weekend of the 14th", "weekend in March").
+  if (/\b\d{1,2}(?:st|nd|rd|th)\b|\b\d{1,2}\/\d{1,2}\b|\b(jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\b|\b(christmas|easter|new year)/.test(t)) return null;
+  const d = new Date(`${today}T12:00:00Z`);
+  if (Number.isNaN(d.getTime())) return null;
+  const dow = d.getUTCDay(); // 0 Sunday … 6 Saturday
+  const next = /\bnext weekend\b/.test(t);
+  const long = /\blong weekend\b/.test(t);
+  const add = (n: number) => {
+    const x = new Date(d);
+    x.setUTCDate(x.getUTCDate() + n);
+    return x.toISOString().slice(0, 10);
+  };
+  let toFriday = (5 - dow + 7) % 7;
+  if (next && (dow === 5 || dow === 6 || dow === 0)) toFriday = dow === 0 ? 5 : toFriday + 7;
+  if (!next && dow === 0) toFriday = 5;
+  if (!next && dow === 6) return { startDate: add(0), endDate: add(long ? 2 : 1) };
+  return { startDate: add(toFriday), endDate: add(toFriday + (long ? 3 : 2)) };
+}

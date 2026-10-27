@@ -152,12 +152,15 @@ export const tripTravel: Skill<BriefInput, TripTravelOutput> = {
       }
     }
     const year = (t.startDate ?? new Date().toISOString()).slice(0, 4);
-    const [all, fares] = await Promise.all([
-      search(ctx, `how to travel from ${origin} to ${t.destination} train bus flight drive time cost ${year}`),
-      search(ctx, `${origin} to ${t.destination} ticket price fare ${year}`),
+    // Route planners (Rome2rio and the like) list every mode with durations and price ranges; fare and
+    // timetable pages fill in the rest.
+    const [routes, fares, times] = await Promise.all([
+      search(ctx, `rome2rio ${origin} to ${t.destination} how to get there`),
+      search(ctx, `${origin} to ${t.destination} cheapest fare price ${year}`),
+      search(ctx, `${origin} to ${t.destination} journey time direct ${km && km < 900 ? "train bus drive" : "flight nonstop"}`),
     ]);
     const seen = new Set<string>();
-    const sources = [...all, ...fares].filter((r) => (seen.has(r.url) ? false : (seen.add(r.url), true))).slice(0, 10);
+    const sources = [...routes, ...fares, ...times].filter((r) => (seen.has(r.url) ? false : (seen.add(r.url), true))).slice(0, 12);
     if (!ctx.llm || sources.length === 0) {
       ctx.progress?.({ kind: "saw", id: "tr.find", tool: "travel", ok: false, text: "No travel sources found", ms: Date.now() - t0, by: "autopilot" });
       return { data: { origin, destination: t.destination, km, from, to, options: [], gaps: ["How to get there"] }, evidence: [], notes: [] };

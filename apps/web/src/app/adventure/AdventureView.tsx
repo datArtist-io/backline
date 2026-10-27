@@ -248,6 +248,7 @@ export default function AdventureView({
     return total;
   }, [visited, model]);
 
+  const topPicks = useMemo(() => (["stay", "dine", "venue", "activity"] as NodeKind[]).flatMap((k) => (model?.nodes ?? []).filter((n) => n.kind === k && n.picked && n.affinity != null).sort((a, b) => b.affinity! - a.affinity!).slice(0, 1)), [model]);
   const matchByKind = useMemo(() => {
     const kinds: NodeKind[] = ["stay", "dine", "venue", "activity", "landmark"];
     return kinds.map((k) => {
@@ -364,13 +365,13 @@ export default function AdventureView({
         <div className="eq-top">
           {model && (
             <div className="eq-score">
-              <svg viewBox="0 0 44 44" className="eq-dial" role="img" aria-label={matchPct != null ? `Qloo taste match ${matchPct} percent` : "No taste match yet"}>
+              <svg viewBox="0 0 44 44" className="eq-dial" role="img" aria-label={matchPct != null ? `Average Qloo affinity of your picks: ${matchPct} out of 100` : "No Qloo scores yet"}>
                 <circle cx="22" cy="22" r="19" className="track" />
                 <circle cx="22" cy="22" r="19" className="val" style={{ strokeDasharray: `${((matchPct ?? 0) / 100) * 119.4} 200` }} />
                 <text x="22" y="23.5" textAnchor="middle" dominantBaseline="middle">{shownMatch ?? "–"}</text>
               </svg>
               <div className="eq-score-txt">
-                <b>Qloo taste match</b>
+                <b>Qloo affinity</b>
                 {narrow && model.taste?.signals.length ? <span className="eq-because">Because you love {model.taste.signals.slice(0, 2).join(", ")}</span> : null}
                 <span>{model.stats.picked} places · {model.stats.days ? `${model.stats.days} days` : "plan coming"}{model.stats.km ? ` · ${Math.round(model.stats.km)} km` : ""}</span>
                 <span className="eq-xpn">{(shownXp ?? 0).toLocaleString("en")} <small>/ {model.stats.xp.toLocaleString("en")} XP</small></span>
@@ -406,15 +407,17 @@ export default function AdventureView({
           <aside className="eq-qloo" aria-label="Your taste, from Qloo">
             <h2><span className="eq-q" aria-hidden="true" />Your taste, by Qloo</h2>
             {model.taste.signals.length > 0 && <p className="eq-sig">Because you love {model.taste.signals.slice(0, 4).join(", ")}</p>}
-            <svg viewBox="-72 -66 144 132" className="eq-radar" role="img" aria-label="How well each kind of place matches your taste">
-              {[0.33, 0.66, 1].map((s) => <polygon key={s} points={matchByKind.map((_, i) => ring(i, matchByKind.length, 46 * s)).join(" ")} />)}
-              {matchByKind.map((_, i) => { const [x, y] = ring(i, matchByKind.length, 46).split(","); return <line key={i} x1="0" y1="0" x2={x} y2={y} />; })}
-              <polygon className="fill" points={matchByKind.map((m, i) => ring(i, matchByKind.length, 6 + 40 * m.v)).join(" ")} />
-              {matchByKind.map((m, i) => {
-                const [x, y] = ring(i, matchByKind.length, 57).split(",").map(Number);
-                return <text key={m.k} x={x} y={y} textAnchor="middle" dominantBaseline="middle">{KIND_LABEL[m.k as NodeKind].split(" ")[0]}</text>;
-              })}
-            </svg>
+            <ol className="eq-tops" aria-label="Qloo's top pick of each kind">
+              {topPicks.map((n) => (
+                <li key={n.id} style={{ ["--c" as string]: KIND_COLOR[n.kind] }}>
+                  <button type="button" onClick={() => select(n.id)}>
+                    <small>{KIND_LABEL[n.kind]}</small>
+                    <span>{n.name}</span>
+                    <b>{n.affinity!.toFixed(3)}</b>
+                  </button>
+                </li>
+              ))}
+            </ol>
             {[...model.taste.vibes.slice(0, 3), ...model.taste.dishes.slice(0, 3)].length > 0 && (
               <ul className="eq-tags">
                 {[...model.taste.vibes.slice(0, 3), ...model.taste.scenes.slice(0, 2), ...model.taste.dishes.slice(0, 3)].map((t) => <li key={t}>{t}</li>)}
@@ -481,7 +484,7 @@ export default function AdventureView({
                   <button type="button" disabled={!s.node} onClick={() => s.node && select(s.node.id)} onMouseEnter={() => s.node && setHoverId(s.node.id)} onMouseLeave={() => setHoverId(null)} style={{ ["--c" as string]: s.node ? KIND_COLOR[s.node.kind] : "#9fb2d9" }}>
                     {s.time ? <time>{s.time}</time> : <small>{s.node ? KIND_LABEL[s.node.kind] : ""}</small>}
                     <span>{s.title}</span>
-                    {s.node?.match != null && <b>{pct(s.node.match)}%</b>}
+                    {s.node?.rank && <b title={`Qloo ranks it ${s.node.rank.n} of ${s.node.rank.of} for your taste`}>#{s.node.rank.n}</b>}
                   </button>
                 </li>
               ))}
@@ -612,12 +615,17 @@ function PlaceCard({ node, onClose, city }: { node: QuestNode; onClose: () => vo
       {p?.image && <div className="eq-card-img" style={{ backgroundImage: `url("${p.image.replace(/["\\]/g, "")}")` }} role="img" aria-label={node.name} />}
       <small className="eq-kind">{KIND_NOUN[node.kind]}</small>
       <h3>{node.name}</h3>
-      {m != null && (
-        <div className="eq-match" aria-label={`Qloo taste match ${m} percent`}>
-          <div><i style={{ width: `${m}%` }} /></div>
-          <span><b>{m}%</b> taste match{node.fromQloo ? ", from Qloo" : ", estimated"}</span>
+      {node.affinity != null ? (
+        <div className="eq-match" aria-label={`Qloo affinity ${node.affinity.toFixed(3)}`}>
+          <div><i style={{ width: `${Math.round(node.affinity * 100)}%` }} /></div>
+          <span><b>{node.affinity.toFixed(3)}</b> Qloo affinity{node.rank ? `, #${node.rank.n} of ${node.rank.of} ${PLURAL[node.kind]} Qloo scored for your taste` : ""}</span>
         </div>
-      )}
+      ) : m != null ? (
+        <div className="eq-match" aria-label={`Estimated fit ${m} percent`}>
+          <div><i style={{ width: `${m}%` }} /></div>
+          <span><b>{m}%</b> estimated fit (not scored by Qloo)</span>
+        </div>
+      ) : null}
       {p?.why?.length ? <ul className="eq-why">{p.why.slice(0, 4).map((w, i) => <li key={i}>{w}</li>)}</ul> : null}
       <dl>
         {p?.address && (<><dt>Address</dt><dd>{p.address}</dd></>)}
@@ -635,6 +643,8 @@ function PlaceCard({ node, onClose, city }: { node: QuestNode; onClose: () => vo
     </aside>
   );
 }
+
+const PLURAL: Record<NodeKind, string> = { stay: "stays", dine: "places to eat", venue: "venues", activity: "things to do", landmark: "landmarks", stop: "stops" };
 
 const hostOf = (u: string) => {
   try {
