@@ -1531,3 +1531,19 @@ a { color: inherit; text-decoration: none; }
 @keyframes callin-in { from { opacity: 0; transform: translateY(8px); } }
 @media (max-width: 520px) { .callin-board li { grid-template-columns: auto minmax(0, 1fr) auto; } .callin-when { display: none; } }
 @media (prefers-reduced-motion: reduce) { .callin-dot, .callin-pulse, .callin-board li { animation: none; } }
+
+/* Talk to Backline in the browser. */
+.talk { margin-top: 12px; display: grid; gap: 10px; justify-items: start; }
+.talk-go { display: inline-flex; align-items: center; gap: 10px; height: 46px; padding: 0 18px; border-radius: 999px; border: 1px solid rgba(123, 92, 255, 0.35); background: rgba(255, 255, 255, 0.75); color: #3d2fb8; font: inherit; font-size: 15px; font-weight: 700; cursor: pointer; transition: transform .35s cubic-bezier(.2,.8,.2,1), background .3s; }
+.talk-go:hover { transform: translateY(-2px); background: #fff; }
+.talk-live { width: 100%; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 14px; padding: 12px 14px; border-radius: 22px; background: #10132b; color: #fff; box-shadow: 0 18px 40px -20px rgba(16, 19, 43, 0.8); }
+.talk-orb { --lv: 0; width: 42px; height: 42px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #fff, #b9a8ff 30%, #7b5cff 60%, #ff4fa3); box-shadow: 0 0 0 calc(4px + var(--lv) * 14px) rgba(123, 92, 255, 0.28); transform: scale(calc(0.92 + var(--lv) * 0.25)); transition: transform .12s, box-shadow .12s; }
+.talk-orb.is-agent { background: radial-gradient(circle at 35% 30%, #fff, #ffd1e6 30%, #ff4fa3 60%, #ff9a3d); }
+.talk-text { min-width: 0; display: grid; gap: 2px; }
+.talk-text b { font-size: 14.5px; }
+.talk-text span { font-size: 13px; opacity: .78; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.talk-end { height: 36px; padding: 0 16px; border: 0; border-radius: 999px; background: #ff4f6d; color: #fff; font: inherit; font-weight: 700; cursor: pointer; }
+.talk-trip { width: 100%; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 10px 14px; border-radius: 18px; background: linear-gradient(135deg, rgba(123, 92, 255, 0.14), rgba(255, 79, 163, 0.12)); border: 1px solid rgba(123, 92, 255, 0.35); color: #10132b; text-decoration: none; font-size: 15px; animation: callin-in .5s cubic-bezier(.2,.8,.2,1) both; }
+.talk-trip i { font-style: normal; font-weight: 800; color: #4a3ad6; }
+.talk-err { margin: 0; font-size: 13.5px; color: #b3261e; font-weight: 600; }
+@media (prefers-reduced-motion: reduce) { .talk-orb { transition: none; } }

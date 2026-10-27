@@ -103,7 +103,17 @@ When plan_trip returns, tell them the trip code digit by digit, and that their t
 Never ask for card, bank, ID, passport or password details, and never agree to any payment on the call. If they're not interested, or it's a wrong number, apologise briefly and end the call. Keep the whole call under four minutes.`;
 
 /** The assistant Backline answers with. */
-export function inboundAssistant() {
+const WEB = `This call is happening in the caller's web browser, on the Backline website, so they can see their screen.
+Don't ask whether they want the link emailed and don't read out a code: when plan_trip returns, tell them their trip is opening on their screen right now, with the taste match, the plan on a 3D map and the bookings. Then thank them and end the call.`;
+
+/** Who the agent is talking to, and where: a phone call to the Backline number or a call in the browser. */
+export type CallKind = "inbound" | "web";
+export const isBacklineCall = (c: Record<string, unknown> | null | undefined): boolean => {
+  const meta = ((c?.assistant as Record<string, unknown> | undefined)?.metadata ?? {}) as { app?: string; kind?: string };
+  return Boolean(c && meta.app === "backline" && ((c.type === "inboundPhoneCall" && meta.kind === "inbound") || (c.type === "webCall" && meta.kind === "web")));
+};
+
+export function inboundAssistant(kind: CallKind = "inbound") {
   return {
     name: "Backline",
     firstMessage: "Hi, you've reached Backline, the AI travel agent. Where do you want to go?",
@@ -113,7 +123,7 @@ export function inboundAssistant() {
       model: process.env.VAPI_MODEL || "gpt-4o-mini",
       temperature: 0.4,
       maxTokens: 220,
-      messages: [{ role: "system", content: SYSTEM }],
+      messages: [{ role: "system", content: kind === "web" ? `${SYSTEM}\n${WEB}` : SYSTEM }],
       tools: [
         {
           type: "function",
@@ -144,6 +154,6 @@ export function inboundAssistant() {
     endCallFunctionEnabled: true,
     maxDurationSeconds: 300,
     silenceTimeoutSeconds: 30,
-    metadata: { app: "backline", kind: "inbound" },
+    metadata: { app: "backline", kind },
   };
 }

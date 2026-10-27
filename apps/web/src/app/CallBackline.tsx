@@ -2,6 +2,7 @@
 // "Call Backline": a real phone number. Say where you're going and what you love, and the trip
 // appears here while you talk, under a 4-digit code the agent reads out. No caller details shown.
 import { useEffect, useMemo, useState } from "react";
+import TalkInBrowser from "./TalkInBrowser";
 
 type Item = { code: string; at: string; live: boolean; destination: string | null; days: number | null; travellers: number | null; loves: string | null; url: string | null };
 
@@ -52,7 +53,7 @@ export default function CallBackline() {
     return c ? trips.filter((t) => t.code.startsWith(c)) : trips;
   }, [trips, code]);
 
-  if (loaded && !number && !trips.length) return null;
+  if (loaded && !number && !trips.length && !process.env.NEXT_PUBLIC_VAPI_PUBLIC_KEY) return null;
   return (
     <section className="callin" aria-labelledby="callin-h">
       <div className="callin-card lg">
@@ -68,6 +69,7 @@ export default function CallBackline() {
           ) : (
             <span className="callin-num is-wait">Connecting the line…</span>
           )}
+          <TalkInBrowser />
           <p className="callin-try">Try: &ldquo;4 days in Lisbon for two, we love fado and seafood.&rdquo;</p>
         </div>
         <div className="callin-board">

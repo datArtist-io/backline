@@ -4,7 +4,7 @@
 //   and, if they asked, email them the link. The call is checked with Vapi first, so this endpoint
 //   can't be used to send emails from outside a real call.
 import { createContext } from "@backline/engine";
-import { goalOf, inboundAssistant, SITE, tripArgs, tripCode, tripUrl, vapi, vapiReady, type CallTrip } from "@/lib/vapi";
+import { goalOf, inboundAssistant, isBacklineCall, SITE, tripArgs, tripCode, tripUrl, vapi, vapiReady, type CallTrip } from "@/lib/vapi";
 import { remember } from "@/lib/call-trips";
 
 export const runtime = "nodejs";
@@ -18,8 +18,7 @@ type ToolCall = { id?: string; function?: { name?: string; arguments?: unknown }
 async function realInboundCall(id: string | undefined): Promise<boolean> {
   if (!id || !vapiReady()) return false;
   const call = await vapi<Record<string, unknown>>(`/call/${encodeURIComponent(id)}`).catch(() => null);
-  const meta = ((call?.assistant as Record<string, unknown> | undefined)?.metadata ?? {}) as { app?: string; kind?: string };
-  return Boolean(call && call.type === "inboundPhoneCall" && call.status !== "ended" && meta.app === "backline" && meta.kind === "inbound");
+  return Boolean(call && call.status !== "ended" && isBacklineCall(call));
 }
 
 async function emailLink(callId: string, trip: CallTrip, code: string, real: boolean): Promise<"sent" | "failed" | "skipped"> {

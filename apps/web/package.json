@@ -13,6 +13,7 @@
   "dependencies": {
     "@backline/engine": "*",
     "@react-three/fiber": "^9.1.0",
+    "@vapi-ai/web": "^2.3.8",
     "3d-tiles-renderer": "^0.4.28",
     "maplibre-gl": "^5.24.0",
     "next": "^15.5.0",
