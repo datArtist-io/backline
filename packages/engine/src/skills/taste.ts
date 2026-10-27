@@ -174,7 +174,8 @@ export const tripTaste: Skill<BriefInput, TasteOutput> = {
     const saved = (input.profile?.likes ?? []).map((l) => l.trim()).filter(Boolean);
     // What they asked for this time leads; saved likes only fill in when the request names none,
     // so "afrobeats and suya" isn't read as "Drake" from an older trip.
-    const likes = (said.length ? said.map((name) => ({ name, from: "request" as const })) : saved.map((name) => ({ name, from: "saved" as const }))).slice(0, 6);
+    // A star to plan like is taste enough: older saved likes never get mixed into "the way X would".
+    const likes = (said.length ? said.map((name) => ({ name, from: "request" as const })) : star ? [] : saved.map((name) => ({ name, from: "saved" as const }))).slice(0, 6);
     const city = input.trip?.destination?.trim() || "";
     // No taste given: read the destination through Qloo instead — what people who love this place
     // go for — so the trip is still tuned by taste data, and say so.
