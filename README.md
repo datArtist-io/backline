@@ -1,52 +1,39 @@
 # Backline
 
-**Plan anything outside your home, from one sentence.** Trips, events, birthday dinners, nights out, a weekend styled after your favourite artist. Tell Backline what you're planning, where and when. Its agent finds the places through Qloo's taste graph, checks real prices, maps every move with ride fares between stops, writes the plan and books it with you.
+**Say where. It researches, plans, calls and books — then shows you the whole trip on the real Earth.**
 
-Built for the [Qloo Agentic Hackathon](https://qloo.devpost.com/) during the submission period (September 30 to October 30, 2026).
+One sentence in ("a weekend in Lisbon for two, we love fado"). Out comes a taste-matched trip, researched from cited sources, flown through in 3D, and — on one tap of approval — booked: real AI phone calls to hotels and restaurants, payments, and confirmation numbers, live on screen.
 
-## How it uses Qloo
+Built for the [Qloo Agentic Hackathon](https://qloo.devpost.com/). Live at **[backline-beta-one.vercel.app](https://backline-beta-one.vercel.app)**.
 
-Taste comes first. Before anything is searched, Backline reads the person's taste through Qloo, and every step after that uses it:
+## The core loop
 
-- **Taste profile:** the artists, films, places, genres or cuisines they mention (or a celebrity they want to plan like) are resolved to Qloo entities and tags. Qloo's tag insights give the vibe, the scenes and the dishes that go with that taste; demographics give the age group that shares it; artist and brand insights give what those fans also love.
-- **Where the taste lives:** Qloo's heatmap for the destination shows where in the city that taste is concentrated. The strongest cluster becomes the taste zone. It's drawn on the map, and when there's no fixed venue, hotels, food and things to do are searched there first.
-- **Taste-matched places:** hotels, restaurants, venues and things to do come from Qloo Insights (`urn:entity:place`) with the taste as the signal, merged with OpenStreetMap for coordinates and contacts. Each place's affinity rank becomes a taste match shown on its card and used to choose.
-- **Plans that explain themselves:** the plan is written around the best matches and says how it fits the person's taste ("Loved by fans of Burna Boy").
-- **Artist missions:** for artist teams, Qloo's audience and demographic data drive fan profiles, brand matches and tour routing.
+| # | Step | How | What you see |
+|---|---|---|---|
+| 1 | **Understand** | Nemotron (Nebius) reads the request; dates resolved on the calendar; origin from what you said, your home city, or your connection | The globe flies to your destination within seconds, from your city |
+| 2 | **Taste** | Qloo resolves what you love to entities and tags, and maps where that taste lives in the city (heatmap, taste zone) | Qloo's taste rises over the real city as glowing columns; "Because you love …" |
+| 3 | **Research** | A ReAct agent searches Qloo places, OpenStreetMap, live hotel rates, web sources; field guide from Open-Meteo, holidays, exchange rates, cited notes | Pins drop onto real streets; every pick shows its Qloo affinity and rank |
+| 4 | **Plan** | Hour-by-hour plan using only listed places; real road routes | Day routes drawn on the streets; "Fly the trip" plays each day |
+| 5 | **Approve** | One checkpoint, one button | "Here's what I'll do. Good to go?" |
+| 6 | **Execute** | Real Vapi voice calls; hotel and flight booking with payment (test mode in the demo); emails | A live Bookings panel: phones ringing, transcripts, receipts with confirmation numbers |
 
-## What it does
+The rules that keep it honest are written down as a specification: **[docs/SYSTEM.md](docs/SYSTEM.md)**. Every live check we ran, what was wrong and how it was fixed: **[docs/VERIFICATION.md](docs/VERIFICATION.md)**.
 
-- **One sentence in, a full plan out:** the agent (a ReAct loop on NVIDIA Nemotron via Nebius) decides which searches to run, checks its own coverage and stops when the plan is complete.
-- **Hotels in four lanes:** Premium, Closest, Best value and Lowest price. It searches 5 km around where you need to be, plus the best-rated hotels within 10 km. Prices are only shown when they are really listed for your dates, with a link to the page; nothing is estimated.
-- **Getting around:** routes between every stop on a live map, ride fares at published rates with a one-tap ride link, walking for short hops, and a round-trip view from your home city.
-- **Plan like your favourite celebrity:** "a weekend in Lagos like Burna Boy would" uses that artist's Qloo taste to pick places.
-- **Live research:** current prices, opening times and events from the web, with sources.
-- **Take it with you:** add the whole plan to your calendar (.ics), export a PDF, a Word document or a PowerPoint deck, or present it as slides in the browser.
-- **Documents:** attach a ticket, booking or itinerary (PDF, image, spreadsheet) and the agent plans around it.
-- **Books and pays for you:** with a booking provider connected, the agent books the hotel and pays for it, only at the price you approved and within your budget, and the confirmation is emailed to you. Card details never pass through Backline. Restaurants and venues are booked by email or phone call, and calls say they're from an AI assistant.
+## What is real, and what is test mode
 
-## Try it
+| Capability | In the live demo | Notes |
+|---|---|---|
+| Qloo taste, heatmap, places, affinity | **Real** | Qloo's own scores, shown to three decimals with rank |
+| Research, routes, weather, holidays, exchange rates | **Real**, cited | Nothing is estimated; gaps are listed |
+| AI phone calls (Vapi + Telnyx numbers) | **Real calls** | With `CALL_DEMO_TO` set, calls ring a demo line where a person plays the business |
+| Hotel booking and payment (LiteAPI) | **Real API, test mode** | Real booking reference; "Test mode · no money moved" |
+| Flight booking (Duffel) | **Real API, test airline** | Test fares are never shown as prices |
+| Emails to businesses (Resend) | **Real** when signed in | Within per-mission limits |
+| 3D city | Satellite + terrain + 3D buildings; **Photoreal (Google 3D Tiles)** when a key is set | |
 
-Open the demo at **[backline-beta-one.vercel.app](https://backline-beta-one.vercel.app)** and type something like:
+## The expedition
 
-- `Weekend in Lagos for a show at the National Theatre, Nov 14 to 16`
-- `Plan a weekend in Lagos like Burna Boy would`
-- `Birthday dinner for 12 in Lekki next Saturday`
-
-You can plan without signing in. Sign in (Google or an email link) to let it book, pay, email and call for you, and it keeps your traveller details, the tastes it has learned and every trip it booked, at `/account`.
-
-## What's live in the demo
-
-| Feature | Status |
-|---|---|
-| Taste profile, taste zone and taste-matched places (Qloo) | Live |
-| Agent reasoning and plan writing (Nemotron on Nebius) | Live |
-| Live web research with sources | Live |
-| Hotels with real listed prices, flights, routes and ride-fare estimates | Live |
-| Emailing plans and confirmations (Resend) | Live when signed in |
-| Hotel and flight booking | Sandbox / test mode, so no real money moves |
-| Outbound AI phone calls | Built, off in the public demo; the agent writes the call script instead |
-| Live Uber prices | Built, off until Uber production approval; published-rate estimates are used |
+Trips open into a full-screen expedition on the real Earth (MapLibre GL globe, satellite imagery, terrain, 3D buildings) with a Three.js layer sharing the camera: light beacons over every pick, Qloo taste columns, trees grown in real parks, clouds and rain from the forecast, a traveller that flies each day's route. A colour grade follows the hour and the weather; drag the day's clock to see the light change. Light and dark themes. Details: [docs/EXPERIENCE.md](docs/EXPERIENCE.md).
 
 ## Repository
 
@@ -92,7 +79,9 @@ npm run dev                                  # http://localhost:3000
 | `DUFFEL_API_KEY` | Flight search, booking and payment (a `duffel_test_` token uses Duffel's test airline) |
 | `LITEAPI_API_KEY` | Live hotel rates, booking and payment (a `sand_` key simulates payment) |
 | `RESEND_API_KEY`, `ACTIONS_FROM_EMAIL` | Emails the agent sends for you (plans, confirmations, restaurant requests); sender must be on a domain verified in Resend |
-| `VAPI_API_KEY`, `VAPI_PHONE_NUMBER_ID`, `VAPI_MODEL` | Optional outbound AI phone calls through Vapi (needs an imported Twilio, Vonage or Telnyx number). Without them the agent writes the call script for you |
+| `VAPI_API_KEY`, `VAPI_PHONE_NUMBER_ID`, `VAPI_MODEL` | Outbound AI phone calls through Vapi (imported Telnyx number). Without them the agent writes the call script for you |
+| `CALL_DEMO_TO` | Demo line (E.164). When set, every booking call rings this number instead of the business |
+| `NEXT_PUBLIC_GOOGLE_MAPS_KEY` | Optional Photoreal mode: Google Photorealistic 3D Tiles (Map Tiles API), restricted by website |
 | `UBER_CLIENT_ID`, `UBER_CLIENT_SECRET`, `UBER_SCOPE`, `UBER_ENV` | Optional live Uber price estimates. Used only when `UBER_ENV=production`; otherwise ride fares come from published rates |
 | `NEXT_PUBLIC_MAP_TILES`, `NEXT_PUBLIC_MAP_ATTRIBUTION` | Optional keyed map tile provider (OpenStreetMap by default) |
 | `SUPABASE_URL` | Same project URL, read on the server |
@@ -100,6 +89,10 @@ npm run dev                                  # http://localhost:3000
 
 ## Documentation
 
+- **[System specification](docs/SYSTEM.md)** — definitions, lifecycle, sources, accuracy policy, consent, calls, payments, data, failure modes
+- **[Verification log](docs/VERIFICATION.md)** — live checks against independent sources, findings and fixes
+- **[Expedition design](docs/EXPERIENCE.md)** — the 3D experience, design system, motion and the research behind it
+- **[Changelog](docs/CHANGELOG.md)**
 - [Product requirements](docs/PRD.md)
 - [Feature specifications](docs/FEATURES.md)
 - [Architecture](docs/ARCHITECTURE.md)
@@ -111,7 +104,7 @@ npm run dev                                  # http://localhost:3000
 ## Credits and data
 
 - Taste data by [Qloo](https://qloo.com).
-- Maps © [OpenStreetMap](https://www.openstreetmap.org/copyright) contributors; routing by OSRM; geocoding by Nominatim and Photon.
+- Maps © [OpenStreetMap](https://www.openstreetmap.org/copyright) contributors via OpenFreeMap; satellite imagery © Esri, Maxar, Earthstar Geographics; terrain from AWS Terrain Tiles; Photoreal 3D © Google (when enabled); routing by OSRM; geocoding by Nominatim and Photon.
 - Travel text from Wikivoyage and Wikipedia (CC BY-SA) when used as a fallback.
 - Ride fares are estimates from published rates; final fares are set by the ride app.
 - Qloo API responses are never stored in this repository; tests use synthetic data.

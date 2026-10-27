@@ -319,6 +319,15 @@ export default function AdventureView({
   const city = model?.city || dest?.name || null;
   const from = origin ?? model?.origin ?? null;
 
+  // The journey in, with its cited fare and time when the research found them.
+  const journey = useMemo(() => {
+    const t = model?.travel;
+    if (!from || !dest) return null;
+    const best = t?.options.find((o) => o.mode === "flight") ?? t?.options.find((o) => o.best) ?? null;
+    const fare = best?.priceMin != null ? ` · from ${best.priceMin.toLocaleString("en")} ${best.currency ?? ""}`.trimEnd() : "";
+    const time = best?.duration ? ` · ${best.duration}` : "";
+    return `${from.name.split(",")[0]} → ${dest.name.split(",")[0]}${fare}${time}`;
+  }, [model?.travel, from, dest]);
   const pad = useMemo(() => (narrow ? { top: 250, right: 24, bottom: 230, left: 24 } : { top: 140, right: selected ? 420 : 60, bottom: 230, left: model?.taste ? 330 : 60 }), [narrow, selected, model?.taste]);
 
   // The day selector's indicator glides to the active day.
@@ -374,6 +383,7 @@ export default function AdventureView({
               showTaste={showTaste}
               look={look}
               weather={weather}
+              journey={journey}
               pad={pad}
               onUserMove={onUserMove}
               onReady={() => setReady(true)}

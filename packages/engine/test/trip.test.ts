@@ -36,7 +36,11 @@ describe("trip requests", () => {
 
   it("drops past dates and adds a venue for hosted events", () => {
     const t = normalizeTrip({ destination: "Lagos", startDate: "2020-01-01", eventType: "launch party", eventGuests: 120, adults: 2 }, null, { budgetStyle: "luxury" }, TODAY)!;
-    expect(t.startDate).toBeNull();
+    // A past date is dropped; the plan falls back to the coming long weekend, and says so.
+    expect(t.startDate! > "2020-01-01").toBe(true);
+    expect(t.startDate! >= TODAY).toBe(true);
+    expect(new Date(`${t.startDate}T12:00:00Z`).getUTCDay()).toBe(5);
+    expect(t.assumptions.join(" ")).toMatch(/long weekend/);
     expect(t.needs).toContain("venue");
     expect(t.priceTier).toBe(4);
   });

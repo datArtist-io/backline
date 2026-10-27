@@ -602,3 +602,7 @@ button:hover .ki-stop .ki-plane, .eq-card:hover .ki-stop .ki-plane { animation: 
 @keyframes bk-ring { 0%, 100% { transform: rotate(0); } 10%, 30% { transform: rotate(-14deg); } 20%, 40% { transform: rotate(14deg); } 50% { transform: rotate(0); } }
 @keyframes bk-draw { to { stroke-dashoffset: 0; } }
 @keyframes bk-stamp { 0% { transform: scale(0.4) rotate(-12deg); opacity: 0; } 100% { transform: none; opacity: 1; } }
+.eq-journey { display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; border-radius: 999px; color: var(--ink, #10132b); background: rgba(255, 255, 255, 0.9); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); box-shadow: 0 10px 26px -10px rgba(16, 19, 43, 0.5); font: 600 13px/1.2 var(--font-body, system-ui, sans-serif); white-space: nowrap; animation: eqcard 0.7s var(--ease) both; pointer-events: none; }
+.eq-journey svg { color: #7b5cff; }
+.eq[data-theme="dark"] .eq-journey { color: #f1f3ff; background: rgba(20, 22, 42, 0.86); }
+.eq-earth[data-z="city"] .eq-journey, .eq-earth[data-z="street"] .eq-journey { opacity: 0; transition: opacity 0.5s; }

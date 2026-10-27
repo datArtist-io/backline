@@ -183,7 +183,15 @@ export function normalizeTrip(raw: RawTrip | null | undefined, fallbackDestinati
     endDate = d.toISOString().slice(0, 10);
     assumptions.push("Assumed a 2-night stay");
   }
-  if (!startDate) assumptions.push("No dates yet, so the plan is by day. Tell me dates to book");
+  // No dates: plan the coming long weekend, so weather, fares and availability can all be checked.
+  if (!startDate) {
+    const w = weekendDates("a long weekend", today);
+    if (w) {
+      startDate = w.startDate;
+      endDate = w.endDate;
+      assumptions.push("No dates given, so I planned the coming long weekend (Friday to Monday). Tell me your dates to change it");
+    } else assumptions.push("No dates yet, so the plan is by day. Tell me dates to book");
+  }
   const eventType = raw?.eventType?.trim().slice(0, 60) || null;
   const eventGuests = raw?.eventGuests && raw.eventGuests > 0 ? Math.min(2000, Math.round(raw.eventGuests)) : null;
   let adults = raw?.adults && raw.adults > 0 ? Math.min(50, Math.round(raw.adults)) : 0;

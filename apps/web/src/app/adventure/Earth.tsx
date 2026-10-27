@@ -37,6 +37,8 @@ export type EarthProps = {
   look: "photoreal" | "real" | "painted";
   /** The sky to paint: the day's forecast and the hour on the clock. */
   weather: { kind: Sky; hour: number };
+  /** The journey in, as a label on the flight arc: "Lagos → Dubai · from 450 USD · 7 h". */
+  journey?: string | null;
   /** Room the HUD takes on each side, so the camera frames the trip inside it. */
   pad: { top: number; right: number; bottom: number; left: number };
   onUserMove: () => void;
@@ -461,6 +463,7 @@ export default function Earth(props: EarthProps) {
   const mapRef = useRef<MlMap | null>(null);
   const layerRef = useRef<Scene3D | null>(null);
   const photoRef = useRef<{ enabled: boolean } | null>(null);
+  const journeyRef = useRef<Marker | null>(null);
   const [credit, setCredit] = useState("");
   const markers = useRef(new Map<string, { m: Marker; el: HTMLElement }>());
   const live = useRef(props);
@@ -808,6 +811,23 @@ export default function Earth(props: EarthProps) {
     else if (props.model && s.introDone && !s.user && !props.selectedId && !props.play) overview(2600);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [props.model, props.destination?.lat, props.destination?.lon, props.origin?.lat]);
+
+  // The journey label rides the middle of the flight arc.
+  useEffect(() => {
+    const map = mapRef.current;
+    const p = props;
+    const dest = p.destination ?? (p.model?.destination ?? null);
+    journeyRef.current?.remove();
+    journeyRef.current = null;
+    if (!map || !p.origin || !dest || !p.journey || kmBetween(p.origin, dest) < 150) return;
+    const path = greatCircle(p.origin, dest);
+    const mid = path[Math.floor(path.length / 2)];
+    const el = document.createElement("div");
+    el.className = "eq-journey";
+    el.innerHTML = `<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M2.5 13.5 21 6l-4 13-4.5-4.5L9 18v-5l9-6-11 5.5z" fill="currentColor"/></svg><span>${escapeHtml(p.journey)}</span>`;
+    journeyRef.current = new maplibregl.Marker({ element: el, anchor: "bottom", pitchAlignment: "viewport" }).setLngLat(mid).addTo(map);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [props.journey, props.origin?.lat, props.origin?.lon, props.destination?.lat, props.destination?.lon]);
 
   useEffect(() => {
     styleState();

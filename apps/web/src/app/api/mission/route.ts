@@ -147,6 +147,15 @@ export async function POST(req: Request) {
             { artist: body.artist, location: body.location, mission: body.mission, profile, today: body.today, documents },
             req.signal
           );
+          // Where they're travelling from, so getting there, fares and the journey in are never blank:
+          // what they said, else their home city, else the city their connection comes from (said so).
+          if (plan.trip && !plan.trip.origin) {
+            const from = profile.homeCity?.trim() || cityFromRequest(req);
+            if (from) {
+              plan.trip.origin = from;
+              plan.trip.assumptions = [...plan.trip.assumptions, profile.homeCity?.trim() ? `Travelling from ${from}, your home city` : `Assumed you're travelling from ${from} (from your connection). Change it in Preferences`];
+            }
+          }
           // Signed in: keep this request in their history and remember the tastes they named.
           if (session && body.goal?.trim()) {
             const source = (plan.title ?? body.goal).trim();
@@ -297,4 +306,27 @@ export async function POST(req: Request) {
       "X-Accel-Buffering": "no",
     },
   });
+}
+
+/** The city a request comes from, from the hosting edge's geolocation headers (Vercel). City level only. */
+function cityFromRequest(req: Request): string | null {
+  const h = req.headers;
+  const dec = (v: string | null) => {
+    if (!v) return "";
+    try {
+      return decodeURIComponent(v).trim();
+    } catch {
+      return v.trim();
+    }
+  };
+  const city = dec(h.get("x-vercel-ip-city"));
+  const country = dec(h.get("x-vercel-ip-country"));
+  if (!city) return null;
+  let countryName = country;
+  try {
+    countryName = country ? (new Intl.DisplayNames(["en"], { type: "region" }).of(country) ?? country) : "";
+  } catch {
+    /* keep the code */
+  }
+  return [city, countryName].filter(Boolean).join(", ").slice(0, 80);
 }
