@@ -26,3 +26,23 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     return Response.json({ error: "Couldn't check the call just now." }, { status: 502 });
   }
 }
+
+/** Place the same call again, after one that never really connected. Only for the person who placed it. */
+export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  if (rateLimited(clientIp(req))) return Response.json({ error: "Too many tries. Wait a moment." }, { status: 429 });
+  const session = await getSession().catch(() => null);
+  if (!session) return Response.json({ error: "Sign in to place calls." }, { status: 401 });
+  const { id } = await params;
+  if (!/^[A-Za-z0-9-]{8,80}$/.test(id)) return Response.json({ error: "Unknown call." }, { status: 400 });
+  try {
+    const ctx = createContext(process.env, { signal: req.signal });
+    if (!ctx.calls?.retry) return Response.json({ error: "Calling isn't connected." }, { status: 503 });
+    const again = await ctx.calls.retry(id, session.user.id, req.signal);
+    return Response.json(again, { headers: { "Cache-Control": "no-store" } });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("[calls] retry failed", msg);
+    const user = (err as { userMessage?: string }).userMessage;
+    return Response.json({ error: user ?? "Couldn't place the call again." }, { status: 502 });
+  }
+}

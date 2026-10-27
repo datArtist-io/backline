@@ -827,7 +827,7 @@ export const tripExecute: Skill<BriefInput, TripExecuteOutput> = {
           const demo = ctx.callDemoTo ?? null;
           // Fail closed: a real business is only ever dialled when live calling is switched on.
           if (!demo && !ctx.callsLive) return { actionId: a.id, status: "ready", ref: null, message: "Live calls to businesses are switched off, so here's the number and what to say." };
-          const started = await ctx.calls.start({ to: demo ?? a.to, businessName: a.placeName ?? "the business", firstMessage: a.callOpening, instructions: callInstructions(a, profile.name ?? "my client") }, ctx.signal);
+          const started = await ctx.calls.start({ to: demo ?? a.to, owner: ctx.userId ?? null, businessName: a.placeName ?? "the business", firstMessage: a.callOpening, instructions: callInstructions(a, profile.name ?? "my client") }, ctx.signal);
           return {
             actionId: a.id,
             status: "calling",

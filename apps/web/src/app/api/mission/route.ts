@@ -111,6 +111,7 @@ export async function POST(req: Request) {
   const account = session ? await loadAccount(session).catch((err) => (console.warn("[mission] account load failed", err instanceof Error ? err.message : err), null)) : null;
   // Their passport, decrypted for this mission's booking calls only (never sent to the model or the browser).
   if (session) ctx.traveller = { passport: await passportForBooking(session).catch(() => null) };
+  if (session) ctx.userId = session.user.id;
   // With sign-in switched on, only a signed-in person can have things bought, sent or called for them.
   // Anyone else still gets the full plan, with the booking links to use themselves.
   if (!session && supabaseConfig()) {

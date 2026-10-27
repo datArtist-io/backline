@@ -90,6 +90,8 @@ export type SkillContext = {
    * off then: the plan and the links still work, but nothing is done on a stranger's behalf.
    */
   signedOut?: boolean;
+  /** The signed-in person (their account id), so calls placed for them can only be followed or retried by them. */
+  userId?: string | null;
   /** When set, booking calls ring this demo number (someone playing the business) instead of the real business. */
   callDemoTo?: string | null;
   /** Calls may reach real businesses (CALLS_LIVE=1). Otherwise only the demo line is ever dialled. */
