@@ -21,6 +21,7 @@ import {
   type Plan,
   type SkillResult,
   toE164,
+  localOuting,
 } from "@backline/engine";
 import { getRun, isRunId, saveRun } from "@/lib/run-store";
 import { openRun, sealRun } from "@/lib/run-seal";
@@ -187,6 +188,9 @@ export async function POST(req: Request) {
               plan.trip.assumptions = [...plan.trip.assumptions, profile.homeCity?.trim() ? `Travelling from ${from}, your home city` : `Assumed you're travelling from ${from} (from your connection). Change it in Preferences`];
             }
           }
+          plan.asked = body.goal?.trim() || undefined;
+          // Dinner in your own city: one evening, no hotel.
+          if (plan.trip) plan.trip = localOuting(plan.trip, body.goal ?? plan.goal, plan.trip.origin ?? null);
           // Signed in: keep this request in their history and remember the tastes they named.
           if (session && body.goal?.trim()) {
             const source = (plan.title ?? body.goal).trim();
@@ -266,7 +270,7 @@ export async function POST(req: Request) {
         const input: BriefInput = {
           artist: plan.artist ?? "",
           trip: plan.trip ?? undefined,
-          request: plan.goal,
+          request: plan.asked ?? plan.goal,
           today: body.today,
           documents,
           profile,

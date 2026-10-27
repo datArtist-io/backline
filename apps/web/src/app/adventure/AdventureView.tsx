@@ -200,6 +200,7 @@ export default function AdventureView({
   const shared = useRef<Shared>({ drone: { pos: new Vector3(), heading: 0 }, focusUntil: 0, homeUntil: 0, follow: false, hours: 21 });
 
   const selected = useMemo(() => model?.nodes.find((n) => n.id === selectedId) ?? null, [model, selectedId]);
+  const [stopKey, setStopKey] = useState<string | null>(null);
   const nameOf = useCallback((id: string) => model?.nodes.find((n) => n.id === id)?.name ?? "a place", [model]);
   const toast = useCallback((text: string, sub?: string, xp?: number) => {
     const id = ++toastId.current;
@@ -371,8 +372,8 @@ export default function AdventureView({
   }
 
   const strip = day
-    ? day.quests.map((q) => ({ key: `${day.day}:${q.order}`, time: q.time, title: q.title, node: model?.nodes.find((x) => x.id === q.nodeId) ?? null, seen: q.nodeId ? visited.has(`${day.day}:${q.nodeId}`) : false }))
-    : (model?.nodes ?? []).filter((n) => n.picked).sort((a, b) => (b.match ?? 0) - (a.match ?? 0)).map((n) => ({ key: n.id, time: null as string | null, title: n.name, node: n, seen: false }));
+    ? day.quests.map((q) => ({ key: `${day.day}:${q.order}`, time: q.time, title: q.title, note: q.note, node: model?.nodes.find((x) => x.id === q.nodeId) ?? null, seen: q.nodeId ? visited.has(`${day.day}:${q.nodeId}`) : false }))
+    : (model?.nodes ?? []).filter((n) => n.picked).sort((a, b) => (b.match ?? 0) - (a.match ?? 0)).map((n) => ({ key: n.id, time: null as string | null, title: n.name, note: null as string | null, node: n, seen: false }));
   const percent = typeof activeDay === "number" && tick.day === activeDay ? tick.t : 0;
   const matchPct = model?.stats.match ?? null;
 
@@ -562,6 +563,21 @@ export default function AdventureView({
           />
         )}
 
+        {/* a stop without a pinned place: what it is, when, and why */}
+        {stopKey && !selected && (() => {
+          const st = strip.find((x) => x.key === stopKey);
+          if (!st) return null;
+          return (
+            <aside className="eq-stopcard" aria-label={st.title}>
+              <button type="button" className="eq-x" onClick={() => setStopKey(null)} aria-label="Close">×</button>
+              <small className="eq-kind">{day ? `Day ${day.day + 1}` : "Your trip"}{st.time ? ` · ${st.time}` : ""}</small>
+              <h3>{st.title}</h3>
+              {st.note ? <p>{st.note}</p> : <p>A free moment in the plan. Ask for a change in Adjust if you&rsquo;d like something booked here.</p>}
+              {city && <a className="eq-btn" href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${st.title}, ${city}`)}`} target="_blank" rel="noreferrer noopener"><span>Find it on the map</span></a>}
+            </aside>
+          );
+        })()}
+
         {/* review before booking: vet the trip, adjust it, then book */}
         {review && !overlay && <ReviewBar review={review} names={nameOf} />}
 
@@ -610,7 +626,7 @@ export default function AdventureView({
             <ol className={`eq-strip${day ? " is-day" : ""}`} aria-label={day ? `Day ${day.day + 1} stops` : "Places picked for you"}>
               {strip.map((s, i) => (
                 <li key={s.key} className={`${s.seen ? "seen" : ""}${s.node && selectedId === s.node.id ? " sel" : ""}`} style={{ ["--i" as string]: Math.min(i, 12) }}>
-                  <button type="button" disabled={!s.node} onClick={() => s.node && select(s.node.id)} onMouseEnter={() => s.node && setHoverId(s.node.id)} onMouseLeave={() => setHoverId(null)} style={{ ["--c" as string]: s.node ? KIND_COLOR[s.node.kind] : "#9fb2d9" }}>
+                  <button type="button" aria-pressed={stopKey === s.key} onClick={() => (s.node ? (setStopKey(null), select(s.node.id)) : (setSelectedId(null), setStopKey((k) => (k === s.key ? null : s.key))))} onMouseEnter={() => s.node && setHoverId(s.node.id)} onMouseLeave={() => setHoverId(null)} style={{ ["--c" as string]: s.node ? KIND_COLOR[s.node.kind] : "#9fb2d9" }}>
                     <KindIcon kind={s.node?.kind ?? "stop"} />
                     {s.time ? <time>{s.time}</time> : <small>{s.node ? KIND_LABEL[s.node.kind] : ""}</small>}
                     <span>{s.title}</span>

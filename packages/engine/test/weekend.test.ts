@@ -72,3 +72,25 @@ describe("asked time", () => {
     expect(holdAskedTime(days, "Trip to Lagos, flight at 9am", () => true)).toBe(days);
   });
 });
+
+import { localOuting, normalizeTrip } from "../src/trip-request";
+describe("local outing", () => {
+  const trip = normalizeTrip({ destination: "Lagos, Nigeria", startDate: "2026-10-30", endDate: "2026-11-01", needs: ["stay", "dine"] }, "Lagos", {}, "2026-10-27")!;
+  it("a dinner in your own city is one evening with no hotel", () => {
+    const t = localOuting(trip, "Book dinner for 2 in Lagos this Friday at 8pm", "Lagos, Nigeria");
+    expect(t.endDate).toBe("2026-10-30");
+    expect(t.needs).not.toContain("stay");
+  });
+  it("leaves trips alone", () => {
+    expect(localOuting(trip, "Weekend in Lagos with dinner", "Lagos")).toBe(trip);
+    expect(localOuting(trip, "Book dinner in Lagos", "London")).toBe(trip);
+  });
+  it("puts the asked time on the asked day", () => {
+    const days = [
+      { date: "2026-10-30", items: [{ time: "18:30", title: "Early dinner nearby", placeId: null }] },
+      { date: "2026-10-31", items: [{ time: "19:20", title: "Dinner at Glory's", placeId: "D1" }] },
+    ];
+    const out = holdAskedTime(days, "dinner this Friday at 8pm", (id) => id === "D1", "2026-10-31");
+    expect(out[1].items[0].time).toBe("20:00");
+  });
+});

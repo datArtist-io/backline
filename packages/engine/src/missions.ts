@@ -257,6 +257,8 @@ export type Plan = {
   compareBrands: string[] | null;
   language: string;
   goal: string;
+  /** The person's own words, exactly as typed (the goal above may be a tidied summary). */
+  asked?: string;
   /** The user means their own act ("my tour", "our next single"). */
   selfReference: boolean;
   /** Nothing to do with an artist's career (weather, coding…). The agent replies instead of running. */

@@ -7,7 +7,7 @@ import type { BriefInput, PlanEdits, Profile, Skill, SkillResult, TripRequest } 
 import { languageRule } from "../grounding";
 import { EngineError } from "../errors";
 import { mapLimit } from "../util";
-import { askedTime, holdAskedTime } from "../trip-request";
+import { askedTime, dayDate, holdAskedTime } from "../trip-request";
 import { placeSchema, scorePlace, toPlace, type Place } from "./places";
 import { isArrivalStop, nameRefs, type Stop, type TripAgentOutput } from "./trip-agent";
 import type { TripFlightsOutput } from "./flights";
@@ -254,7 +254,7 @@ export const tripPlan: Skill<BriefInput, TripPlanOutput> = {
           }
         }
         // The time they asked for ("dinner at 8pm") stands, whatever the model wrote.
-        const held = holdAskedTime(days, input.request ?? "", (id) => dines.some((p) => p.id === id));
+        const held = holdAskedTime(days, input.request ?? "", (id) => dines.some((p) => p.id === id), dayDate(input.request ?? "", input.today ?? new Date().toISOString().slice(0, 10)));
         days.splice(0, days.length, ...held);
         const stayId = resolve(out.stayId);
         const venueId = resolve(out.venueId);

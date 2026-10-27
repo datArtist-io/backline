@@ -877,3 +877,8 @@ button:hover .ki-stop .ki-plane, .eq-card:hover .ki-stop .ki-plane { animation: 
 @supports (view-transition-name: a) {
   ::view-transition-group(root) { animation-duration: 0.35s; }
 }
+.eq-stopcard { position: absolute; z-index: 5; right: clamp(18px, 3vw, 36px); top: 250px; width: 340px; padding: 20px 20px 18px; border-radius: 26px; color: var(--ink); background: var(--thick); -webkit-backdrop-filter: blur(30px) saturate(140%); backdrop-filter: blur(30px) saturate(140%); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4), 0 0 0 1px rgba(16, 19, 43, 0.06), 0 30px 70px -28px rgba(16, 19, 43, 0.55); animation: eqcard 0.45s var(--ease) both; }
+.eq-stopcard h3 { margin: 6px 0 8px; padding-right: 36px; font: 500 24px/1.15 var(--font-display, inherit); letter-spacing: -0.03em; }
+.eq-stopcard p { margin: 0 0 14px; font-size: 15px; line-height: 1.55; color: var(--ink-soft); }
+.eq-strip button[aria-pressed="true"] { background: var(--lg-fill-hi); transform: translateY(-4px); }
+@media (max-width: 860px) { .eq-stopcard { left: 12px; right: 12px; top: auto; bottom: 170px; width: auto; } }

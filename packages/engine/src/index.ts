@@ -66,7 +66,7 @@ export { runAgent, modelPolicy, normalizeDecision, defineTool } from "./agent/ru
 export type { AgentRun, AgentLimits, ToolSpec, Policy, Decision, Turn } from "./agent/runtime";
 export { documentsBlock, searchDocuments, cleanDocText, readDocument, sniffKind, MAX_DOC_BYTES, MAX_DOC_CHARS } from "./documents";
 export type { DocumentReader, RawFile, DocKind } from "./documents";
-export { groundTrip, mentionsNumber } from "./trip-request";
+export { groundTrip, mentionsNumber, localOuting } from "./trip-request";
 export type { DecisionLog, FallbackReason } from "./agent/runtime";
 export { neededKinds, niceKinds, arrivalMode } from "./skills/trip-agent";
 export { tierHotels, scoreHotels, parsePrice, hotelQuality, TIER_IDS } from "./skills/hotel-tiers";

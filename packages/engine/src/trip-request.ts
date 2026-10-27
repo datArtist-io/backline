@@ -427,13 +427,15 @@ const MEAL_WORD = /\b(breakfast|brunch|lunch|dinner|supper|drinks|table)\b/;
  * Keeps the time the person asked for: the meal they named ("dinner at 8pm") is set to that time on
  * the day it falls, whatever the model wrote. Returns the days unchanged when no time was asked. Pure.
  */
-export function holdAskedTime<D extends { date: string | null; items: { time: string; title: string; placeId: string | null }[] }>(days: D[], request: string, isMealPlace: (id: string) => boolean): D[] {
+export function holdAskedTime<D extends { date: string | null; items: { time: string; title: string; placeId: string | null }[] }>(days: D[], request: string, isMealPlace: (id: string) => boolean, onDate: string | null = null): D[] {
   const time = askedTime(request);
   if (!time) return days;
+  // The day they asked for comes first ("this Friday at 8pm"), then the rest in order.
+  const order = onDate ? [...days.filter((d) => d.date === onDate), ...days.filter((d) => d.date !== onDate)] : days;
   // Only a meal or table booking: "flight at 9am" must not move a restaurant.
   const meal = request.toLowerCase().match(MEAL_WORD)?.[1] ?? null;
   if (!meal) return days;
-  for (const d of days) {
+  for (const d of order) {
     const i = d.items.findIndex((it) => it.placeId != null && isMealPlace(it.placeId));
     const named = meal && meal !== "table" ? d.items.findIndex((it) => new RegExp(`\\b${meal}\\b`, "i").test(it.title) && it.placeId != null) : -1;
     const at = named >= 0 ? named : i;
@@ -445,4 +447,24 @@ export function holdAskedTime<D extends { date: string | null; items: { time: st
     return out;
   }
   return days;
+}
+
+
+const LOCAL_ONLY = /\b(dinner|lunch|brunch|breakfast|table|drinks|supper|reservation)\b/i;
+const NEEDS_STAY = /\b(hotel|stay|night|nights|trip|weekend|holiday|vacation|getaway|accommodation|airbnb|room)\b/i;
+
+/**
+ * A meal or table in the person's own city is an outing, not a trip: one day, no hotel. Returns the
+ * trip unchanged otherwise. Pure.
+ */
+export function localOuting(trip: TripRequest, text: string, home: string | null): TripRequest {
+  const city = (s: string | null | undefined) => (s ?? "").split(",")[0].trim().toLowerCase();
+  if (!home || !city(home) || city(home) !== city(trip.destination)) return trip;
+  if (!LOCAL_ONLY.test(text) || NEEDS_STAY.test(text)) return trip;
+  return {
+    ...trip,
+    endDate: trip.startDate,
+    needs: trip.needs.filter((n) => n !== "stay").length ? trip.needs.filter((n) => n !== "stay") : ["dine"],
+    assumptions: [...trip.assumptions.filter((a) => !/night stay/i.test(a)), "It's in your own city, so no hotel: just the evening"],
+  };
 }
