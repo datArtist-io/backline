@@ -1547,3 +1547,47 @@ a { color: inherit; text-decoration: none; }
 .talk-trip i { font-style: normal; font-weight: 800; color: #4a3ad6; }
 .talk-err { margin: 0; font-size: 13.5px; color: #b3261e; font-weight: 600; }
 @media (prefers-reduced-motion: reduce) { .talk-orb { transition: none; } }
+
+/* Try chips: fixed slots in a single row, so the layout never moves; only the words cross-fade. */
+.recent.try { flex-wrap: nowrap; overflow: visible; max-width: calc(100vw - 32px); -webkit-mask-image: none; mask-image: none; justify-content: center; }
+.recent.try .try-chip { flex: 0 0 236px; width: 236px; max-width: none; text-align: center; padding-inline: 14px; }
+.try-text { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; transition: opacity .42s var(--ease-out), transform .42s var(--ease-out), filter .42s var(--ease-out); transition-delay: calc(var(--i, 0) * 90ms); }
+.recent.try.is-out .try-text { opacity: 0; transform: translateY(-5px); filter: blur(3px); }
+@media (max-width: 900px) { .recent.try .try-slot-2 { display: none; } .recent.try .try-chip { flex-basis: 220px; width: 220px; } }
+@media (max-width: 600px) { .recent.try .try-slot-1 { display: none; } .recent.try .try-chip { flex: 1 1 auto; width: auto; max-width: 300px; } }
+@media (prefers-reduced-motion: reduce) { .try-text { transition: none; } }
+
+/* ---- Live voice agent: one compact card with three ways in ---- */
+.voice { padding: clamp(28px, 6vw, 64px) 16px 8px; display: grid; place-items: center; }
+.voice-card { width: min(940px, 100%); display: grid; gap: 22px 32px; grid-template-columns: minmax(0, 1fr); padding: clamp(22px, 4vw, 34px); border-radius: 30px; }
+@media (min-width: 820px) { .voice-card { grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); align-items: center; } }
+.voice-copy h2 { margin: 6px 0 8px; font-family: var(--font-display); font-weight: 500; font-size: clamp(26px, 3.2vw, 36px); line-height: 1.08; letter-spacing: -0.03em; color: var(--ink); }
+.voice-copy p:last-child { margin: 0; font-size: 15.5px; line-height: 1.55; color: var(--ink-soft); max-width: 40ch; }
+.voice-side { min-width: 0; display: grid; gap: 14px; }
+.voice-tabs { display: flex; gap: 4px; padding: 4px; border-radius: 999px; background: rgba(16, 19, 43, 0.06); box-shadow: inset 0 0 0 1px rgba(16, 19, 43, 0.05); }
+.voice-tabs button { flex: 1; height: 38px; border: 0; border-radius: 999px; background: transparent; font: inherit; font-size: 14px; font-weight: 650; color: var(--ink-soft); cursor: pointer; transition: background .3s var(--ease-out), color .3s, box-shadow .3s; white-space: nowrap; }
+.voice-tabs button.on { background: #fff; color: #10132b; box-shadow: 0 6px 16px -10px rgba(16, 19, 43, 0.5); }
+.voice-panel { min-height: 132px; display: grid; align-content: start; gap: 10px; }
+.voice-panel .talk { margin-top: 0; }
+.voice-panel .talk-go { height: 54px; padding: 0 26px; border: 0; color: #fff; font-size: 16px; background: linear-gradient(135deg, #7b5cff, #ff4fa3 60%, #ff9a3d); background-size: 170% 100%; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4), 0 16px 34px -14px rgba(123, 92, 255, 0.85); transition: transform .35s cubic-bezier(.2,.8,.2,1), background-position .8s; }
+.voice-panel .talk-go:hover { background: linear-gradient(135deg, #7b5cff, #ff4fa3 60%, #ff9a3d); background-size: 170% 100%; background-position: 100% 50%; }
+.voice-panel .callin-num { margin-top: 0; justify-self: start; }
+.voice-hint { margin: 0; font-size: 13.5px; line-height: 1.5; color: var(--ink-soft); }
+.voice-panel .callme-form { gap: 10px; }
+.callme-phone { width: 100%; min-width: 0; height: 50px; padding: 0 18px; border-radius: 999px; border: 1px solid rgba(16, 19, 43, 0.12); background: rgba(255, 255, 255, 0.92); color: #10132b; font: inherit; font-size: 15.5px; }
+.callme-phone:focus { outline: none; border-color: #7b5cff; box-shadow: 0 0 0 4px rgba(123, 92, 255, 0.18); }
+.voice-trips { grid-column: 1 / -1; display: grid; gap: 8px; padding-top: 16px; border-top: 1px solid rgba(16, 19, 43, 0.08); animation: callin-in .5s cubic-bezier(.2,.8,.2,1) both; }
+.voice-trips > b { font-size: 13px; letter-spacing: .04em; text-transform: uppercase; color: var(--ink-soft); }
+.voice-trips ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+.voice-trips li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 14px; background: rgba(255, 255, 255, 0.8); border: 1px solid rgba(16, 19, 43, 0.06); }
+.voice-trips li.is-live { border-color: rgba(123, 92, 255, 0.45); }
+.voice-trip { min-width: 0; display: grid; font-size: 12.5px; color: #5b5f7a; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.voice-trip b { font-size: 14.5px; color: #10132b; overflow: hidden; text-overflow: ellipsis; }
+
+/* While the 3D form loads, a soft glow in the same colours holds its place, so the hero is never
+   empty; it melts away as the form fades in. */
+.stage::before { content: ""; position: absolute; left: 50%; top: 58%; width: min(82vw, 760px); aspect-ratio: 1; translate: -46% -42%; border-radius: 50%; background: radial-gradient(circle at 42% 40%, rgba(123, 92, 255, 0.5), rgba(255, 79, 163, 0.38) 42%, rgba(255, 181, 71, 0.22) 62%, transparent 72%); filter: blur(46px); opacity: 0.85; transition: opacity 1.4s var(--ease-out); }
+.stage.is-ready::before { opacity: 0; }
+/* All three tabs take the same room, so switching never moves the page. */
+.voice-panel { min-height: 216px; }
+@media (max-width: 600px) { .recent.try .try-chip { flex: 0 0 min(250px, calc(100vw - 110px)); width: min(250px, calc(100vw - 110px)); } }

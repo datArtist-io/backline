@@ -2,8 +2,8 @@
 
 // Hero light sculpture: a slowly breathing form in stage-gel colours.
 // It floats gently and swells with the user's voice. It doesn't react to the cursor (by design: calm).
-import { memo, useMemo, useRef } from "react";
-import { Canvas, useFrame } from "@react-three/fiber";
+import { memo, useEffect, useMemo, useRef } from "react";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import { voice } from "@/lib/voice";
 
@@ -180,6 +180,27 @@ function Blob({
   );
 }
 
+/** Draws only while the hero is on screen and the tab is visible: no GPU work behind the page. */
+function Pause({ still }: { still: boolean }) {
+  const { gl, setFrameloop } = useThree();
+  useEffect(() => {
+    if (still) return;
+    let seen = true;
+    const apply = () => setFrameloop(seen && !document.hidden ? "always" : "never");
+    const io = new IntersectionObserver(([e]) => {
+      seen = e.isIntersecting;
+      apply();
+    });
+    io.observe(gl.domElement);
+    document.addEventListener("visibilitychange", apply);
+    return () => {
+      io.disconnect();
+      document.removeEventListener("visibilitychange", apply);
+    };
+  }, [gl, setFrameloop, still]);
+  return null;
+}
+
 function Scene({ onReady }: { onReady?: () => void }) {
   const still =
     typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -196,6 +217,7 @@ function Scene({ onReady }: { onReady?: () => void }) {
         requestAnimationFrame(() => requestAnimationFrame(() => onReady?.()));
       }}
     >
+      <Pause still={still} />
       {BLOBS.map((b) => (
         <Blob key={b.seed} {...b} still={still} />
       ))}

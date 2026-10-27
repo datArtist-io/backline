@@ -42,7 +42,9 @@ const PROMPTS: { label: string; prompt: string }[] = [
 ];
 
 const SHOW = 3;
-const EVERY = 7000;
+/** A calm pace: long enough to read all three and tap one. */
+const EVERY = 9000;
+const FADE = 420;
 
 const shuffle = <T,>(a: T[]) => {
   const b = [...a];
@@ -53,28 +55,44 @@ const shuffle = <T,>(a: T[]) => {
   return b;
 };
 
+// Three fixed-width slots in one row (two on tablets, one on phones). Only the words change, with a
+// soft cross-fade, so nothing around them ever moves.
 export default function TryPrompts({ onPick, extra = null }: { onPick: (query: string) => void; extra?: React.ReactNode }) {
   const [order, setOrder] = useState(PROMPTS);
   const [at, setAt] = useState(0);
+  const [out, setOut] = useState(false);
   const paused = useRef(false);
-  // A different mix each visit (after load, so the server and browser agree on the first paint),
-  // then a fresh set every few seconds; holding the pointer over them pauses it.
-  useEffect(() => setOrder(shuffle(PROMPTS)), []);
   useEffect(() => {
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    const t = setInterval(() => {
-      if (!paused.current && document.visibilityState === "visible") setAt((n) => (n + SHOW) % PROMPTS.length);
+    let first = true;
+    let swap = 0;
+    const t = window.setInterval(() => {
+      if (paused.current || document.visibilityState !== "visible") return;
+      setOut(true);
+      swap = window.setTimeout(() => {
+        // A different mix each visit: the first rotation starts a shuffled order (after load, so the
+        // server and browser agree on the first paint).
+        if (first) {
+          first = false;
+          setOrder(shuffle(PROMPTS));
+          setAt(0);
+        } else setAt((n) => (n + SHOW) % PROMPTS.length);
+        setOut(false);
+      }, FADE + 2 * 90);
     }, EVERY);
-    return () => clearInterval(t);
+    return () => {
+      window.clearInterval(t);
+      window.clearTimeout(swap);
+    };
   }, []);
   const shown = Array.from({ length: SHOW }, (_, k) => order[(at + k) % order.length]);
   return (
-    <nav className="recent try" aria-label="Try one of these" onPointerEnter={() => (paused.current = true)} onPointerLeave={() => (paused.current = false)} onFocus={() => (paused.current = true)} onBlur={() => (paused.current = false)}>
+    <nav className={`recent try${out ? " is-out" : ""}`} aria-label="Try one of these" onPointerEnter={() => (paused.current = true)} onPointerLeave={() => (paused.current = false)} onFocus={() => (paused.current = true)} onBlur={() => (paused.current = false)}>
       {extra}
       <span className="recent-label">Try</span>
       {shown.map((p, i) => (
-        <button key={`${at}-${p.label}`} type="button" className="recent-chip try-chip" style={{ ["--i" as string]: i }} onClick={() => onPick(p.prompt)} title={p.prompt}>
-          {p.label}
+        <button key={i} type="button" className={`recent-chip try-chip try-slot-${i}`} style={{ ["--i" as string]: i }} onClick={() => onPick(p.prompt)} title={p.prompt}>
+          <span className="try-text">{p.label}</span>
         </button>
       ))}
     </nav>

@@ -1,15 +1,19 @@
 "use client";
-// "Call Backline": a real phone number. Say where you're going and what you love, and the trip
-// appears here while you talk, under a 4-digit code the agent reads out. No caller details shown.
-import { useEffect, useMemo, useState } from "react";
+// The live voice demo, in one tidy card: talk to Backline here in the browser, call its number, or
+// have it call you. Trips planned by voice show underneath, once there are any (code and trip only).
+import { useEffect, useRef, useState } from "react";
 import TalkInBrowser from "./TalkInBrowser";
+import CallMeDemo from "./CallMeDemo";
 
 type Item = { code: string; at: string; live: boolean; destination: string | null; days: number | null; travellers: number | null; loves: string | null; url: string | null };
+type Tab = "talk" | "call" | "callme";
+
+const KEY = Boolean(process.env.NEXT_PUBLIC_VAPI_PUBLIC_KEY);
 
 const pretty = (n: string) => {
   const d = n.replace(/[^\d+]/g, "");
   const m = /^\+1(\d{3})(\d{3})(\d{4})$/.exec(d);
-  return m ? `+1 (${m[1]}) ${m[2]}-${m[3]}` : d.replace(/^(\+\d{1,3})(\d{3})(\d{3})(\d+)$/, "$1 $2 $3 $4");
+  return m ? `+1 (${m[1]}) ${m[2]}-${m[3]}` : d;
 };
 
 function ago(iso: string): string {
@@ -21,82 +25,99 @@ function ago(iso: string): string {
 }
 
 export default function CallBackline() {
+  const [tab, setTab] = useState<Tab>(KEY ? "talk" : "call");
   const [number, setNumber] = useState<string | null>(null);
   const [trips, setTrips] = useState<Item[]>([]);
-  const [loaded, setLoaded] = useState(false);
-  const [code, setCode] = useState("");
+  const tripsRef = useRef<Item[]>([]);
+  tripsRef.current = trips;
 
   useEffect(() => {
     let stop = false;
     let timer = 0;
     const tick = async () => {
-      const d = await fetch("/api/call-trips", { cache: "no-store" }).then((r) => r.json()).catch(() => null);
-      if (stop) return;
-      if (d) {
-        setNumber(d.number ?? null);
-        setTrips(Array.isArray(d.trips) ? d.trips : []);
+      if (!document.hidden) {
+        const d = await fetch("/api/call-trips", { cache: "no-store" }).then((r) => r.json()).catch(() => null);
+        if (stop) return;
+        if (d) {
+          setNumber(d.number ?? null);
+          setTrips(Array.isArray(d.trips) ? d.trips : []);
+        }
       }
-      setLoaded(true);
-      // Faster while someone is on the line, slower otherwise; paused while the tab is hidden.
-      const live = Array.isArray(d?.trips) && d.trips.some((t: Item) => t.live);
-      timer = window.setTimeout(tick, document.hidden ? 20000 : live ? 3000 : 8000);
+      const live = tripsRef.current.some((t) => t.live);
+      timer = window.setTimeout(tick, live ? 4000 : 10000);
     };
-    tick();
+    // After the hero has settled: nothing here should compete with the first paint.
+    timer = window.setTimeout(tick, 1200);
     return () => {
       stop = true;
       window.clearTimeout(timer);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const shown = useMemo(() => {
-    const c = code.replace(/\D/g, "");
-    return c ? trips.filter((t) => t.code.startsWith(c)) : trips;
-  }, [trips, code]);
+  const tabs: { id: Tab; label: string }[] = [...(KEY ? [{ id: "talk" as Tab, label: "Talk here" }] : []), { id: "call", label: "Call it" }, { id: "callme", label: "It calls you" }];
 
-  if (loaded && !number && !trips.length && !process.env.NEXT_PUBLIC_VAPI_PUBLIC_KEY) return null;
   return (
-    <section className="callin" aria-labelledby="callin-h">
-      <div className="callin-card lg">
-        <div className="callin-copy">
-          <p className="eyebrow">Call Backline</p>
-          <h2 id="callin-h">Plan a trip with one phone call</h2>
-          <p>Ring Backline&rsquo;s AI agent. Say where you&rsquo;re going and what you love. It asks a couple of questions, then your trip starts building right here, under the code it reads out. Want the link? It can email it to you.</p>
-          {number ? (
-            <a className="callin-num" href={`tel:${number.replace(/[^\d+]/g, "")}`}>
-              <span className="callin-dot" aria-hidden="true" />
-              {pretty(number)}
-            </a>
-          ) : (
-            <span className="callin-num is-wait">Connecting the line…</span>
-          )}
-          <TalkInBrowser />
-          <p className="callin-try">Try: &ldquo;4 days in Lisbon for two, we love fado and seafood.&rdquo;</p>
+    <section className="voice" aria-labelledby="voice-h">
+      <div className="voice-card lg">
+        <div className="voice-copy">
+          <p className="eyebrow">Live voice agent</p>
+          <h2 id="voice-h">Talk to Backline</h2>
+          <p>Plan a trip out loud. It&rsquo;s the real agent: it listens, reads your taste with Qloo and makes real phone calls.</p>
         </div>
-        <div className="callin-board">
-          <div className="callin-board-head">
-            <b>Trips planned by phone</b>
-            <input inputMode="numeric" placeholder="Code" value={code} onChange={(e) => setCode(e.target.value.slice(0, 4))} aria-label="Find your trip by its 4-digit code" maxLength={4} />
+        <div className="voice-side">
+          <div className="voice-tabs" role="tablist" aria-label="How to talk to Backline">
+            {tabs.map((t) => (
+              <button key={t.id} type="button" role="tab" aria-selected={tab === t.id} className={tab === t.id ? "on" : ""} onClick={() => setTab(t.id)}>
+                {t.label}
+              </button>
+            ))}
           </div>
-          {shown.length ? (
+          <div className="voice-panel" role="tabpanel">
+            {tab === "talk" && (
+              <>
+                <TalkInBrowser />
+                <p className="voice-hint">Try: &ldquo;4 days in Lisbon for two, we love fado.&rdquo; Your trip opens when you&rsquo;re done.</p>
+              </>
+            )}
+            {tab === "call" && (
+              <>
+                {number ? (
+                  <a className="callin-num" href={`tel:${number.replace(/[^\d+]/g, "")}`}>
+                    <span className="callin-dot" aria-hidden="true" />
+                    {pretty(number)}
+                  </a>
+                ) : (
+                  <span className="callin-num is-wait">Connecting the line…</span>
+                )}
+                <p className="voice-hint">Say where you&rsquo;re going and what you love. Your trip appears below under the code it reads out.</p>
+              </>
+            )}
+            {tab === "callme" && (
+              <>
+                <CallMeDemo />
+                <p className="voice-hint">Play a restaurant and listen to it book a table.</p>
+              </>
+            )}
+          </div>
+        </div>
+        {trips.length > 0 && (
+          <div className="voice-trips">
+            <b>Planned by voice</b>
             <ul>
-              {shown.map((t) => (
+              {trips.slice(0, 3).map((t) => (
                 <li key={t.code} className={t.live ? "is-live" : ""}>
                   <span className="callin-code" aria-label={`Code ${t.code}`}>{t.code}</span>
-                  <div className="callin-trip">
-                    <b>{t.destination ?? "On the phone now…"}</b>
-                    <span>
-                      {t.destination ? [t.days ? `${t.days} days` : null, t.travellers ? `${t.travellers} ${t.travellers === 1 ? "person" : "people"}` : null, t.loves].filter(Boolean).join(" · ") : "Listening to the caller"}
-                    </span>
-                  </div>
-                  <span className="callin-when">{t.live && !t.destination ? <i className="callin-pulse" aria-hidden="true" /> : ago(t.at)}</span>
-                  {t.url && <a className="callin-open" href={t.url.replace(/^https?:\/\/[^/]+/, "")}>Open</a>}
+                  <span className="voice-trip">
+                    <b>{t.destination ?? "On the line now…"}</b>
+                    {t.destination ? [t.days ? `${t.days} days` : null, t.loves].filter(Boolean).join(" · ") : null}
+                  </span>
+                  {t.url ? <a className="callin-open" href={t.url.replace(/^https?:\/\/[^/]+/, "")}>Open</a> : <span className="callin-when">{t.live ? <i className="callin-pulse" aria-hidden="true" /> : ago(t.at)}</span>}
                 </li>
               ))}
             </ul>
-          ) : (
-            <p className="callin-empty">{code ? "No trip with that code yet. It appears the moment the agent plans it." : "No calls yet today. Be the first: your trip shows up here as you talk."}</p>
-          )}
-        </div>
+          </div>
+        )}
       </div>
     </section>
   );

@@ -9,7 +9,6 @@ import PromptBar from "./PromptBar";
 import Capabilities from "./Capabilities";
 import RecentSearches from "./RecentSearches";
 import TryPrompts from "./TryPrompts";
-import CallMeDemo from "./CallMeDemo";
 import CallBackline from "./CallBackline";
 import { useMe } from "@/lib/auth-client";
 import GlassFilter from "./GlassFilter";
@@ -34,8 +33,12 @@ export default function Landing() {
     return () => clearTimeout(t);
   }, [hint]);
 
+  // Warm up the trip page once the landing has settled, so it never competes with the first paint.
   useEffect(() => {
-    router.prefetch("/mission");
+    const w = window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number };
+    const go = () => router.prefetch("/mission");
+    const t = window.setTimeout(() => (w.requestIdleCallback ? w.requestIdleCallback(go, { timeout: 4000 }) : go()), 2500);
+    return () => window.clearTimeout(t);
   }, [router]);
 
   // A short, deliberate hand-off: the hero settles, the prompt lifts, then the mission opens.
@@ -95,7 +98,6 @@ export default function Landing() {
         </section>
 
         <CallBackline />
-        <CallMeDemo />
         <Capabilities />
       </main>
 
