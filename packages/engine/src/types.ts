@@ -90,6 +90,8 @@ export type SkillContext = {
    * off then: the plan and the links still work, but nothing is done on a stranger's behalf.
    */
   signedOut?: boolean;
+  /** Identity check (Persona): when required, paid bookings wait until the person is verified. */
+  identity?: { required: boolean; verified: boolean } | null;
   /** The person's Backline Wallet (test funds): payments are held, then captured or released. */
   wallet?: {
     hold(amount: number, currency: string, label: string): Promise<{ ok: true; id: string; usd: number } | { ok: false; reason: string }>;

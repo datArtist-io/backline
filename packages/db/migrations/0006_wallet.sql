@@ -78,3 +78,16 @@ $$;
 
 revoke all on function public.wallet_balance(), public.wallet_topup(bigint), public.wallet_hold(bigint, text, numeric, text), public.wallet_capture(uuid, text), public.wallet_release(uuid) from public, anon;
 grant execute on function public.wallet_balance(), public.wallet_topup(bigint), public.wallet_hold(bigint, text, numeric, text), public.wallet_capture(uuid, text), public.wallet_release(uuid) to authenticated;
+
+-- Identity checks (KYC) with Persona: which inquiry belongs to whom. The result itself is always read
+-- from Persona's API on the server, never trusted from this table or the browser.
+create table if not exists public.kyc_inquiries (
+  user_id     uuid primary key references auth.users (id) on delete cascade default auth.uid(),
+  inquiry_id  text not null check (inquiry_id ~ '^inq_[A-Za-z0-9]{6,64}$'),
+  updated_at  timestamptz not null default now()
+);
+alter table public.kyc_inquiries enable row level security;
+drop policy if exists "own kyc" on public.kyc_inquiries;
+create policy "own kyc" on public.kyc_inquiries for all to authenticated using (user_id = auth.uid()) with check (user_id = auth.uid());
+grant select, insert, update on public.kyc_inquiries to authenticated;
+revoke all on public.kyc_inquiries from anon;

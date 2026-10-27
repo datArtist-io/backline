@@ -2,6 +2,7 @@
 // Backline Wallet: test funds the agent pays from once you approve a booking. A card with your
 // balance, one-tap top-ups, and every payment held, paid or released.
 import { useCallback, useEffect, useState } from "react";
+import Verify from "./Verify";
 
 type Entry = { id: string; kind: "topup" | "payment"; status: "credited" | "held" | "paid" | "void"; amount_minor: number; original_amount: number | null; original_currency: string | null; label: string; ref: string | null; created_at: string };
 type W = { ready: boolean; balance: number; entries: Entry[] };
@@ -81,6 +82,7 @@ export default function WalletPanel() {
         </div>
         {msg && <p role="status">{msg}</p>}
       </div>
+      <Verify />
       <p className="wl-how">When you approve a booking that needs paying, I hold the amount here, pay, and confirm. If the booking fails, the hold is released. No real money moves.</p>
       {w.entries.length > 0 && (
         <ol className="wl-list">

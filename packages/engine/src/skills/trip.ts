@@ -745,6 +745,9 @@ export const tripExecute: Skill<BriefInput, TripExecuteOutput> = {
           return { actionId: a.id, status: "needs_info", ref: null, message: `This trip has ${trip.adults} travellers. I only book a flight automatically for one person, because each traveller needs their own passport details. Book the tickets yourself, or plan it for one traveller.` };
         if (a.channel === "reserve" && a.offerId && trip && trip.rooms > 1)
           return { actionId: a.id, status: "needs_info", ref: null, message: `This trip needs ${trip.rooms} rooms. I only book one room automatically, because each room needs its own guest. Use the booking link to reserve them.` };
+        // Paid bookings need a verified traveller when identity checks are switched on.
+        if ((a.channel === "reserve" || a.kind === "book_flight") && ctx.identity?.required && !ctx.identity.verified)
+          return { actionId: a.id, status: "needs_info", ref: null, message: "Verify your identity first (passport or ID and a selfie, about two minutes), then approve again. Open Wallet → Verify now." };
         if (a.kind === "book_flight" && ctx.flights && flight && a.offerId === flight.offerId) {
           const b = input.trip?.budget;
           if (b?.amount && b.currency === flight.currency && flight.total > b.amount)

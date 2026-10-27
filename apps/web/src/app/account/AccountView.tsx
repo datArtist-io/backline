@@ -8,6 +8,8 @@ import type { Memory, SavedTrip, Search } from "@/lib/account";
 import type { Me } from "@/lib/auth-client";
 import { saveDetails, signOut } from "@/lib/auth-client";
 import TravelDocuments from "./TravelDocuments";
+import Verify from "../mission/Verify";
+import WalletPanel from "../mission/Wallet";
 
 type Account = { user: Me; profile: Profile; memories: Memory[]; trips: SavedTrip[]; searches: Search[] };
 
@@ -173,6 +175,8 @@ export default function AccountView() {
         </form>
       </section>
 
+      <Verify />
+      <section className="lg account-wallet" aria-label="Wallet"><WalletPanel /></section>
       <TravelDocuments />
 
       <section className="lg account-card">

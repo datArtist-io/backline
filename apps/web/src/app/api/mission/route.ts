@@ -27,6 +27,7 @@ import { getRun, isRunId, saveRun } from "@/lib/run-store";
 import { openRun, sealRun } from "@/lib/run-seal";
 import { DIAL, underDailyCap } from "@/lib/demo-calls";
 import { loadWallet, walletFor } from "@/lib/wallet";
+import { kycConfigured, kycFor } from "@/lib/kyc";
 import { clientIp, rateLimiter } from "@/lib/rate-limit";
 import { getSession } from "@/lib/session";
 import { supabaseConfig } from "@/lib/supabase";
@@ -118,6 +119,8 @@ export async function POST(req: Request) {
   if (session) ctx.userId = session.user.id;
   // Payments come from their Backline Wallet once it's set up (migration 0006).
   if (session && (await loadWallet(session).catch(() => ({ ready: false }))).ready) ctx.wallet = walletFor(session);
+  // Identity checks (Persona), when configured: paid bookings need a verified traveller.
+  if (session && kycConfigured()) ctx.identity = { required: true, verified: (await kycFor(session).catch(() => null))?.status === "verified" };
   // With sign-in switched on, only a signed-in person can have things bought, sent or called for them.
   // Anyone else still gets the full plan, with the booking links to use themselves.
   if (!session && supabaseConfig()) {
