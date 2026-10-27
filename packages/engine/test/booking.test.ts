@@ -262,3 +262,15 @@ describe("approved reservations are prepaid from the wallet", () => {
     expect(c.start).not.toHaveBeenCalled();
   });
 });
+
+describe("a call that can't be placed gives the prepayment back", () => {
+  it("refunds when the call fails to start", async () => {
+    const action = { id: "a1", kind: "reserve_table", channel: "call", title: "Call Z Kitchen for 2", placeId: "D1", placeName: "Z Kitchen", to: "+2349064222222", callOpening: "Hello", callBrief: "Book", mode: "auto", recommended: true, missing: null, price: { total: 70, currency: "USD" } } as never;
+    const trip = normalizeTrip({ destination: "Lagos, Nigeria", startDate: "2026-10-30", endDate: "2026-10-30" }, "Lagos")!;
+    const wallet = { hold: vi.fn(async () => ({ ok: true as const, id: "e1", usd: 7000 })), capture: vi.fn(async () => {}), release: vi.fn(async () => {}), refund: vi.fn(async () => {}) };
+    const calls = { start: vi.fn(async () => { throw new Error("line down"); }), status: vi.fn() };
+    const r = await tripExecute.run({ ...ctxWith(), calls, callDemoTo: "+2348000000000", callsLive: false, wallet } as never, { artist: "", trip, profile: { name: "Ada", email: "ada@example.com" } }, { "trip.actions": { data: { actions: [action] }, evidence: [] } } as never);
+    expect(r.data.results[0].status).toBe("failed");
+    expect(wallet.refund).toHaveBeenCalledWith("e1");
+  });
+});

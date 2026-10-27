@@ -2,6 +2,7 @@
 // e.g. after adding a phone number). Held and captured in the database, with a receipt's details.
 import { z } from "zod";
 import { getSession } from "@/lib/session";
+import { clientIp, rateLimiter } from "@/lib/rate-limit";
 import { walletFor } from "@/lib/wallet";
 import { bookingRef } from "@backline/engine";
 
@@ -15,7 +16,10 @@ const body = z.object({
   details: z.record(z.union([z.string().max(300), z.number(), z.null()])).optional(),
 });
 
+const rateLimited = rateLimiter(20);
+
 export async function POST(req: Request) {
+  if (rateLimited(clientIp(req))) return Response.json({ error: "Too many tries. Wait a moment." }, { status: 429 });
   const s = await getSession().catch(() => null);
   if (!s) return Response.json({ error: "Sign in first." }, { status: 401 });
   const p = body.safeParse(await req.json().catch(() => null));

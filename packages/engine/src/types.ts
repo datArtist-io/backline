@@ -97,6 +97,8 @@ export type SkillContext = {
     hold(amount: number, currency: string, label: string, details?: Record<string, unknown>): Promise<{ ok: true; id: string; usd: number } | { ok: false; reason: string }>;
     capture(id: string, ref: string | null): Promise<void>;
     release(id: string): Promise<void>;
+    /** Gives a captured payment back (a prepaid booking that couldn't go ahead). */
+    refund?(id: string): Promise<void>;
   } | null;
   /** The signed-in person (their account id), so calls placed for them can only be followed or retried by them. */
   userId?: string | null;
