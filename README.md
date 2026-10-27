@@ -17,6 +17,15 @@ Built for the [Qloo Agentic Hackathon](https://qloo.devpost.com/). Live at **[ba
 | 5 | **Approve** | One checkout for the whole trip: every booking, the total in your currency, your wallet before and after | "Approve & pay" or "Take a look first" |
 | 6 | **Execute** | Each booking prepaid from the Backline Wallet, then confirmed by a real Vapi voice call, one at a time, day by day; hotel and flight booking; emails; automatic refunds | A live Bookings panel: you → agent → business, the call as a conversation, a receipt for every payment |
 
+## Talk to it
+
+| Way in | What happens |
+|---|---|
+| **Type or say one sentence** | The full loop above, on the web |
+| **Call Backline** at **+1 (618) 260-1647** | A real AI phone agent plans the trip on the call and reads out a 4-digit code; the trip appears on the home page under that code |
+| **Talk here** (browser) | The same agent over your microphone; the trip opens when you hang up |
+| **It calls you** | When every booking is done, Backline rings your phone with a short briefing of what was booked |
+
 The rules that keep it honest are written down as a specification: **[docs/SYSTEM.md](docs/SYSTEM.md)**. Every live check we ran, what was wrong and how it was fixed: **[docs/VERIFICATION.md](docs/VERIFICATION.md)**.
 
 ## What is real in the demo
@@ -25,8 +34,9 @@ The rules that keep it honest are written down as a specification: **[docs/SYSTE
 |---|---|---|
 | Qloo taste, heatmap, places, affinity | **Real** | Qloo's own scores, shown to three decimals with rank |
 | Research, routes, weather, holidays, exchange rates | **Real**, cited | Nothing is invented; gaps are listed |
+| Call Backline, talk in the browser, concierge briefing | **Real calls** | Inbound number answered by the agent; browser voice needs `NEXT_PUBLIC_VAPI_PUBLIC_KEY` |
 | AI phone calls (Vapi + Telnyx) | **Real calls** | Demo calls ring the signed-in person's own phone, where they play the business; real businesses only with `CALLS_LIVE=1` |
-| Backline Wallet | **Real ledger, demo balance** | $20,000 per person in their own currency; holds, captures, refunds and receipts in the database. No real money moves |
+| Backline Wallet | **Real ledger, demo balance** | $20,000 per person, kept in US dollars and shown in the traveller's currency; holds, captures, refunds and receipts in the database. No real money moves |
 | Hotel booking (LiteAPI), flights (Duffel) | **Real APIs, sandbox** | References shown as Backline references when the provider returns a placeholder |
 | Identity verification (Persona) | **Real flow** when keys are set | Paid bookings wait for a verified traveller |
 | Emails to businesses (Resend) | **Real** when signed in | Within per-mission limits |
@@ -45,6 +55,7 @@ packages/db       SQL migrations for Supabase
 brand/            Logo marks and concept board
 docs/             Product, architecture, security, QA and roadmap documents
 scripts/          API and location coverage checks
+launch-film/      The launch film, built in code (scenes, score, render scripts)
 ```
 
 ## Getting started
@@ -61,7 +72,7 @@ npm run dev                                  # http://localhost:3000
 | Command | What it does |
 |---|---|
 | `npm run dev` | Start the web app |
-| `npm test` | Engine and web unit tests (synthetic data, no network): 283 + 25 |
+| `npm test` | Engine and web unit tests (synthetic data, no network): 302 + 33 |
 | `npm run typecheck` | Type-check every workspace |
 | `npm run check` | Verify API keys and Qloo capabilities |
 | `npm run check:locations` | Venue coverage across 24 locations worldwide |
@@ -81,6 +92,9 @@ npm run dev                                  # http://localhost:3000
 | `LITEAPI_API_KEY` | Live hotel rates, booking and payment (a `sand_` key simulates payment) |
 | `RESEND_API_KEY`, `ACTIONS_FROM_EMAIL` | Emails the agent sends for you (plans, confirmations, restaurant requests); sender must be on a domain verified in Resend |
 | `VAPI_API_KEY`, `VAPI_PHONE_NUMBER_ID`, `VAPI_MODEL` | Outbound AI phone calls through Vapi (imported Telnyx number). Without them the agent writes the call script for you |
+| `NEXT_PUBLIC_VAPI_PUBLIC_KEY` | Vapi public key (a UUID, from Vapi's dashboard) for talking to Backline in the browser |
+| `NEXT_PUBLIC_BACKLINE_PHONE` | Optional: the number shown for Call Backline (otherwise read from Vapi) |
+| `DEMO_CALLS_PER_DAY` | Daily cap on home-page demo calls (default 60) |
 | `CALL_DEMO_TO` | Optional fixed demo line (E.164). Without it, demo calls ring each signed-in person's own phone |
 | `PERSONA_API_KEY`, `NEXT_PUBLIC_PERSONA_TEMPLATE_ID`, `NEXT_PUBLIC_PERSONA_ENVIRONMENT_ID` | Identity checks with Persona; paid bookings wait for a verified traveller |
 | `RUN_SEAL_KEY` | Seals the approved plan so approval runs exactly what was shown (falls back to the Supabase secret) |
@@ -97,6 +111,7 @@ npm run dev                                  # http://localhost:3000
 - **[Verification log](docs/VERIFICATION.md)** — live checks against independent sources, findings and fixes
 - **[Expedition design](docs/EXPERIENCE.md)** — the 3D experience, design system, motion and the research behind it
 - **[Changelog](docs/CHANGELOG.md)**
+- **[Launch film](launch-film/README.md)** — how the 42-second film is built and rendered
 - [Product requirements](docs/PRD.md)
 - [Feature specifications](docs/FEATURES.md)
 - [Architecture](docs/ARCHITECTURE.md)

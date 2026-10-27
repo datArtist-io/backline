@@ -239,3 +239,16 @@ The checks run against live Missions, their findings and the resulting fixes are
 ## 23. Live demo call
 
 23.1 `POST /api/demo-call` calls a visitor's own number after an explicit consent tick: at most 2 calls per address and 1 per number a day, and `DEMO_CALLS_PER_DAY` (60 by default) overall per server instance. The call says who is calling and why, lasts at most two minutes, never asks for payment or ID details, and ends at once if the person says they didn't ask.
+
+## 24. Talk to Backline (voice)
+
+24.1 **Call Backline.** A carrier number (Telnyx, imported into Vapi) is answered by a transient Vapi assistant returned from `POST /api/vapi/inbound` (`assistant-request`). The assistant collects where, when, who and what the caller loves, then calls one tool, `plan_trip`. The tool is honoured only for a real inbound call, confirmed with Vapi's API (`GET /call/{id}`); anything else is refused.
+
+24.2 The trip is remembered under a 4-digit code (a hash of the call id) that the assistant reads out; `GET /api/call-trips` lists recent trips for the home page and `?call=<id>` returns one. When the caller's number belongs to a signed-in account, the trip link is emailed once per call (at most 100 a day).
+
+24.3 **In the browser.** `/api/vapi/assistant` returns the same assistant for the Vapi Web SDK; the browser starts it with `NEXT_PUBLIC_VAPI_PUBLIC_KEY` (accepted only if it is a UUID, so a mis-set value hides the option instead of failing). When the call ends with a trip, the page opens it.
+
+24.4 **Concierge briefing.** When every booking of a trip has finished, the trip page asks `POST /api/briefing-call` (signed in only) to ring the account's saved phone with a short spoken summary of what was booked: once automatically per run, then on request, at most 4 a day per person. It never asks for payment or ID details.
+
+24.5 Limits: Vapi ends an outbound call that isn't answered within about 15 seconds, so a phone that rings longer (common on some international routes) can miss the briefing; "Call me again" retries.
+
