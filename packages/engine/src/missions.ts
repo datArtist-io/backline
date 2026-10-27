@@ -3,7 +3,7 @@
 import { z } from "zod";
 import type { BriefInput, DocumentText, Profile, Skill, SkillId, SkillResult, TripRequest } from "./types";
 import type { LlmClient } from "./clients/llm";
-import { groundTrip, normalizeTrip, rawTripSchema, weekendDates } from "./trip-request";
+import { dayDate, groundTrip, normalizeTrip, rawTripSchema, weekendDates } from "./trip-request";
 import { documentsBlock } from "./documents";
 import { normalizeArtistName, artistResolve } from "./skills/artist-resolve";
 import { fansProfile } from "./skills/fans-profile";
@@ -339,8 +339,17 @@ const MONTHS = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "
 /** Weekends come from the calendar, not the model. Pure. */
 function onCalendar<T extends { startDate?: string | null; endDate?: string | null } | null>(trip: T, text: string, today?: string): T {
   if (!trip) return trip;
-  const w = weekendDates(text, today ?? new Date().toISOString().slice(0, 10));
-  return w ? { ...trip, ...w } : trip;
+  const now = today ?? new Date().toISOString().slice(0, 10);
+  const w = weekendDates(text, now);
+  if (w) return { ...trip, ...w };
+  // "This Friday", "tomorrow": the day from the calendar, keeping the length the model planned.
+  const day = dayDate(text, now);
+  if (!day) return trip;
+  const s = trip.startDate ? Date.parse(`${trip.startDate}T12:00:00Z`) : NaN;
+  const e = trip.endDate ? Date.parse(`${trip.endDate}T12:00:00Z`) : NaN;
+  const nights = Number.isFinite(s) && Number.isFinite(e) && e >= s ? Math.round((e - s) / 864e5) : 0;
+  const end = new Date(Date.parse(`${day}T12:00:00Z`) + nights * 864e5).toISOString().slice(0, 10);
+  return { ...trip, startDate: day, endDate: end };
 }
 
 /** "28th of October", "Oct 28", "28/10" → the next such date on or after today (YYYY-MM-DD). Pure. */

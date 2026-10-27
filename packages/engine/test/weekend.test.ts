@@ -32,3 +32,21 @@ describe("nameRefs", () => {
     expect(nameRefs("See what's on at V2 tonight", names)).toBe("See what's on at Teatro dell'Opera tonight");
   });
 });
+
+import { dayDate } from "../src/trip-request";
+describe("dayDate", () => {
+  // 2026-10-27 is a Tuesday.
+  it("resolves weekdays on the calendar", () => {
+    expect(dayDate("Book dinner for 2 in Lagos this Friday at 8pm", "2026-10-27")).toBe("2026-10-30");
+    expect(dayDate("dinner on saturday", "2026-10-27")).toBe("2026-10-31");
+    expect(dayDate("lunch this Tuesday", "2026-10-27")).toBe("2026-10-27");
+    expect(dayDate("lunch next Tuesday", "2026-10-27")).toBe("2026-11-03");
+    expect(dayDate("drinks tonight", "2026-10-27")).toBe("2026-10-27");
+    expect(dayDate("brunch tomorrow", "2026-10-27")).toBe("2026-10-28");
+  });
+  it("leaves explicit dates and weekends alone", () => {
+    expect(dayDate("Friday 13th November", "2026-10-27")).toBeNull();
+    expect(dayDate("this weekend in Rome", "2026-10-27")).toBeNull();
+    expect(dayDate("a trip to Rome", "2026-10-27")).toBeNull();
+  });
+});

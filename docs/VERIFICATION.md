@@ -32,6 +32,10 @@ Live Missions run against production (`backline-beta-one.vercel.app`), what was 
 | V17 | Map | Pin positions | Pixel comparison vs route vertices | **Wrong** (marker classes overwritten) | Keep MapLibre's own marker classes — `2f6bb16` |
 | V18 | Trip to Dubai (no origin, no dates) | Getting there, weather | — | **Empty** | Origin from home city or connection; coming long weekend when no dates; both stated as assumptions — `4bbe840` |
 | V19 | same | "Your taste" | — | **Empty** (no likes given) | Destination read through Qloo ("What people who love Dubai go for"), stated as an assumption; test — this release |
+| V20 | Dinner for 2 in Lagos "this Friday at 8pm", signed in, Check with me | Date | Calendar: Fri 30 Oct | **Wrong** (Sat 31 Oct in the header and the call request) | Weekdays, "tonight" and "tomorrow" resolved on the calendar; tests — this release |
+| V21 | same | Taste for "suya" | — | **Wrong** (matched "Suyash Restaurant", pulling in Chinese and Indian) | A like must appear in an entity's name as whole words; test — this release |
+| V22 | same | Approved plan = executed plan | The plan on screen (NOK by Alara, Fri 20:00) | **Different** (the call request was for Pizze-Riah, Sat 18:00): the approval reached another server instance, which re-planned | Plan and results sealed (gzip + HMAC-SHA256) at the checkpoint and sent back with "Do it"; an approval for an unrecoverable plan is refused, never applied to a new plan; tests — this release |
+| V23 | same | Real call to the demo line | Vercel runtime log | **Blocked**: Vapi 400 "Free Vapi numbers do not support international calls" | Needs a paid number (Telnyx or Twilio) imported into Vapi; nothing else changes |
 
 ## Automated tests
 
@@ -39,6 +43,7 @@ Live Missions run against production (`backline-beta-one.vercel.app`), what was 
 - `packages/engine/test/trip-travel.test.ts`: travel options keep only sourced prices; one best option; unknown modes.
 - `packages/engine/test/flights.test.ts`: no test-airline fares surfaced.
 - `apps/web/test/adventure.test.ts`: world model geography (airport north of Alfama, Belém west), route coordinates within the city, Qloo zone and heat bounds.
+- `apps/web/test/run-seal.test.ts`: a sealed plan round-trips exactly; tampered, foreign and expired seals are rejected.
 - `apps/web/test/place-in.test.ts`: destination read from the request ("…TO LONDON FOR ME…" → London).
 
 Run all: `npm test` (engine 265, web 20 at time of writing).

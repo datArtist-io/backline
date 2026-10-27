@@ -95,6 +95,7 @@ export default function MissionView(props: { goal?: string; artist?: string; mis
   const [activity, setActivity] = useState<Record<string, StepProgress[]>>({});
   const docsRef = useRef<DocumentText[] | null>(null);
   const [checkpoints, setCheckpoints] = useState<CheckpointRequest[]>([]);
+  const sealRef = useRef<{ runId: string; seal: string } | null>(null);
   const [status, setStatus] = useState<Status>("planning");
   const [error, setError] = useState<string | null>(null);
   const [needs, setNeeds] = useState<{ field: string; message: string; plan: Plan; preview: string[] } | null>(null);
@@ -151,6 +152,9 @@ export default function MissionView(props: { goal?: string; artist?: string; mis
         },
         onProgress: (id, p) => setActivity((prev) => ({ ...prev, [id]: [...(prev[id] ?? []), p].slice(-150) })),
         onCheckpoint: (cp) => setCheckpoints((prev) => [...prev.filter((x) => x.id !== cp.id), cp]),
+        onSealed: (id, seal) => {
+          sealRef.current = { runId: id, seal };
+        },
         onNeeds: (field, message, plan, preview) => {
           setNeeds({ field, message, plan, preview });
           setStatus("needs");
@@ -184,6 +188,7 @@ export default function MissionView(props: { goal?: string; artist?: string; mis
       {
         profile,
         runId: p.runId,
+        seal: sealRef.current?.runId === p.runId ? sealRef.current.seal : undefined,
         rebook: rebookRef.current || undefined,
         goal: p.plan.goal,
         mission: p.plan.mission,

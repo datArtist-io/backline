@@ -194,6 +194,14 @@ describe("trip.taste", () => {
   });
 });
 
+describe("readLike word match", () => {
+  it("doesn't turn a dish into a restaurant with a similar name", () => {
+    const suyash = entity({ id: "S", name: "Suyash Restaurant", type: "urn:entity:place" });
+    expect(readLike("suya", [suyash], [])).toBeNull();
+    expect(readLike("Wizkid", [entity({ id: "W", name: "Wizkid" })], [])).toEqual({ entity: expect.objectContaining({ id: "W" }) });
+  });
+});
+
 describe("zoneOf", () => {
   it("centres searches on the taste zone when it lies in the pinned city", () => {
     const trip = normalizeTrip({ destination: "Lagos" }, "Lagos")!;

@@ -31,6 +31,8 @@ export type MissionRequest = {
   mission?: MissionType;
   autonomy: "check" | "auto";
   runId?: string;
+  /** The server's seal of the plan being approved (see run-seal.ts). */
+  seal?: string;
   selections?: Record<string, string[]>;
   defaultArtist?: string;
   profile?: import("@backline/engine").Profile;
@@ -60,6 +62,8 @@ export type MissionHandlers = {
   /** Live narration from a running step (the agent's thoughts and tool calls). */
   onProgress?: (id: string, p: StepProgress) => void;
   onCheckpoint: (c: CheckpointRequest) => void;
+  /** The sealed plan to send back with an approval. */
+  onSealed?: (runId: string, seal: string) => void;
   onNeeds: (field: string, message: string, plan: Plan, preview: string[]) => void;
   onReply: (message: string, suggestions: string[], plan: Plan) => void;
   onDone: (status: "succeeded" | "partial" | "failed" | "waiting") => void;
@@ -123,6 +127,9 @@ export async function streamMission(body: MissionRequest, h: MissionHandlers, si
         break;
       case "step.waiting":
         h.onStep(skill, { status: "waiting", error: d.reason as string });
+        break;
+      case "mission.sealed":
+        h.onSealed?.(d.runId as string, d.seal as string);
         break;
       case "mission.checkpoint":
         h.onCheckpoint(d as unknown as CheckpointRequest);

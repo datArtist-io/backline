@@ -151,7 +151,10 @@ export function readLike(like: string, hits: QlooEntity[], tags: QlooTag[]): { e
   const usable = tags.filter((t) => LIKE_TAG_TYPES.test(`${t.id} ${t.type ?? ""}`));
   const same = usable.find((t) => t.name.trim().toLowerCase() === like.trim().toLowerCase());
   if (same && like === like.toLowerCase()) return { tag: same };
-  const hit = tasteHit(hits);
+  // A named thing only counts when the like appears in its name as whole words: "suya" must not
+  // become "Suyash Restaurant", but "wizkid" is Wizkid and "the weeknd" is The Weeknd.
+  const words = (x: string) => ` ${x.toLowerCase().normalize("NFKD").replace(/[^\p{L}\p{N}]+/gu, " ").trim()} `;
+  const hit = tasteHit(hits.filter((h) => words(h.name).includes(words(like)) || words(like).includes(words(h.name))));
   if (hit) return { entity: hit };
   const tag = same ?? usable[0];
   return tag ? { tag } : null;

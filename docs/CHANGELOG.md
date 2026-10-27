@@ -8,6 +8,9 @@
 - Sandbox hotel rates restored for test-mode book-and-pay, labelled everywhere and never shown as prices.
 
 ### Accuracy
+- Approvals bound to the exact plan shown: the plan is sealed (HMAC) at the checkpoint and resumed from the seal on any server; an unrecoverable plan is never booked or called.
+- "This Friday", "tonight", "tomorrow" resolved on the calendar.
+- Likes match named things only as whole words ("suya" is not "Suyash Restaurant").
 - Qloo affinity shown as Qloo's own score with rank, not rank-as-percent.
 - Weekends resolved on the calendar; no dates → coming long weekend, stated.
 - Origin always known: stated, home city, or connection city, stated.

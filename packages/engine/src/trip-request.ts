@@ -369,3 +369,32 @@ export function weekendDates(text: string, today: string): { startDate: string; 
   if (!next && dow === 6) return { startDate: add(0), endDate: add(long ? 2 : 1) };
   return { startDate: add(toFriday), endDate: add(toFriday + (long ? 3 : 2)) };
 }
+
+const WEEKDAYS = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
+
+/**
+ * "Tonight", "tomorrow", "this Friday", "on Saturday", "next Monday" resolved on the calendar, not by
+ * the model (which gets weekdays wrong). Returns the day (YYYY-MM-DD) or null when the text names no
+ * such day or gives an explicit date. A weekday is the coming one, today included for "this"/bare
+ * names; "next <day>" is the coming one after today. Pure.
+ */
+export function dayDate(text: string, today: string): string | null {
+  const t = text.toLowerCase();
+  if (/\bweekend\b/.test(t)) return null;
+  if (/\b\d{1,2}(?:st|nd|rd|th)\b|\b\d{1,2}\/\d{1,2}\b|\b(jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\s+\d|\b\d{1,2}\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)/.test(t)) return null;
+  const d = new Date(`${today}T12:00:00Z`);
+  if (Number.isNaN(d.getTime())) return null;
+  const add = (n: number) => {
+    const x = new Date(d);
+    x.setUTCDate(x.getUTCDate() + n);
+    return x.toISOString().slice(0, 10);
+  };
+  if (/\b(tonight|today|this evening)\b/.test(t)) return add(0);
+  if (/\btomorrow\b/.test(t)) return add(1);
+  const m = t.match(/\b(this|on|next|coming)?\s*(sunday|monday|tuesday|wednesday|thursday|friday|saturday)\b/);
+  if (!m) return null;
+  const target = WEEKDAYS.indexOf(m[2]);
+  let n = (target - d.getUTCDay() + 7) % 7;
+  if (m[1] === "next" && n === 0) n = 7;
+  return add(n);
+}

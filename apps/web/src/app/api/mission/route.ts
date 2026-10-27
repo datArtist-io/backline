@@ -22,6 +22,7 @@ import {
   type SkillResult,
 } from "@backline/engine";
 import { getRun, isRunId, saveRun } from "@/lib/run-store";
+import { openRun, sealRun } from "@/lib/run-seal";
 import { clientIp, rateLimiter } from "@/lib/rate-limit";
 import { getSession } from "@/lib/session";
 import { supabaseConfig } from "@/lib/supabase";
@@ -41,6 +42,8 @@ const bodySchema = z.object({
   defaultArtist: z.string().max(120).optional(),
   autonomy: z.enum(["check", "auto"]).default("check"),
   runId: z.string().optional(),
+  /** The sealed plan and results from phase 1, so "Do it" runs exactly the plan that was shown. */
+  seal: z.string().max(3_000_000).optional(),
   selections: z.record(z.array(z.string().max(80)).max(12)).optional(),
   /** What the agent knows about this user (kept in their browser). Validated again by the engine. */
   profile: z.record(z.unknown()).optional(),
@@ -131,8 +134,15 @@ export async function POST(req: Request) {
 
       try {
         // Resume an earlier run if we still have it; otherwise plan from scratch.
-        const prior = isRunId(body.runId) ? getRun(body.runId) : null;
+        // The plan the person approved: this instance's memory, else the sealed copy they sent back.
+        const prior = isRunId(body.runId) ? (getRun(body.runId) ?? openRun(body.seal, body.runId)) : null;
         const runId = prior && isRunId(body.runId) ? body.runId : crypto.randomUUID();
+        // An approval for a plan we can't recover is never applied to a new plan: approvals carry
+        // action ids, and a fresh plan could give the same id to a different restaurant or day.
+        if (!prior && body.runId && body.selections && Object.keys(body.selections).length) {
+          send("mission.error", { error: "That plan expired before you approved it, so nothing was booked or called. Run it again to get a fresh plan to approve." });
+          return;
+        }
         const local = cleanProfile(body.profile);
         const merged = account ? mergeProfile(account.profile, local, account.memories) : local;
         // Signed in with Google or email: their name and email are enough to book in their name.
@@ -272,6 +282,8 @@ export async function POST(req: Request) {
         saveRun(runId, plan, { ...seed, ...run.results });
 
         if (run.status === "waiting") {
+          const seal = sealRun({ runId, plan, results: { ...seed, ...run.results }, at: Date.now() });
+          if (seal) send("mission.sealed", { runId, seal });
           for (const cp of pending) {
             if (run.steps[cp.optionsFrom]?.status !== "succeeded") continue;
             send("mission.checkpoint", { id: cp.id, title: cp.title, hint: cp.hint, min: cp.min, max: cp.max, options: checkpointOptions(cp, run.results) });

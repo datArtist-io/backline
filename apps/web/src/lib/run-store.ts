@@ -1,7 +1,7 @@
 // Holds a mission's accepted step results between phases (before and after a checkpoint),
-// so resuming doesn't repeat work. In-memory and per server instance: if a resume lands on a
-// different instance, the run simply recomputes the earlier steps (Qloo responses are cached).
-// Moves to Supabase with durable runs (ARCHITECTURE.md §3).
+// so resuming doesn't repeat work. In-memory and per server instance; when a resume lands on a
+// different instance, the sealed copy the browser sends back (run-seal.ts) is used instead, and an
+// approval is never applied to a re-planned run.
 import type { Plan, SkillResult } from "@backline/engine";
 
 type Stored = { plan: Plan; results: Record<string, SkillResult<unknown>>; at: number };
