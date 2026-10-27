@@ -225,3 +225,17 @@ The checks run against live Missions, their findings and the resulting fixes are
 21.1 Prices, budgets and the wallet are in the traveller's own currency: the one they chose, else the currency of the country they're connecting from (Vercel's IP country). A currency named in the request wins for that trip.
 
 21.2 The journey starts from where the traveller is: what they said, else their home city, else the city they're connecting from, stated on the trip so they can change it.
+
+## 22. The full payment slip
+
+22.1 The checkout lists every payment the trip needs, grouped: getting there and back (two tickets: out and back), getting around (airport transfers and each ride), where you'll stay (every night), tables and tickets, and the rest of the planned spend from the plan's budget (items not already covered; reserved meals are taken off the food line).
+
+22.2 Getting there uses the best priced option from cited research (per person, one way, × travellers, each direction). With no listed fare, a distance-based economy estimate (about 80 USD + 0.12 USD a km, ±20%) is used and labelled as an estimate; the row links to a fare search for the route.
+
+22.3 Rides use the routes' own estimates (Uber's live estimate where connected; otherwise published or typical rates, labelled as estimates). Airport transfers are added when the trip needs flights and the plan has no airport stop.
+
+22.4 Hotel availability (`chooseStay`, tested): the planned hotel stands if it has live rooms within budget; otherwise the best available hotel by Qloo match within budget replaces it, and the plan's wording follows (`withStayChoice`). With no live availability anywhere, the agent confirms by phone.
+
+## 23. Live demo call
+
+23.1 `POST /api/demo-call` calls a visitor's own number after an explicit consent tick: at most 2 calls per address and 1 per number a day, and `DEMO_CALLS_PER_DAY` (60 by default) overall per server instance. The call says who is calling and why, lasts at most two minutes, never asks for payment or ID details, and ends at once if the person says they didn't ask.

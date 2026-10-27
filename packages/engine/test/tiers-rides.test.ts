@@ -52,7 +52,8 @@ describe("rides", () => {
     expect(f).toMatchObject({ provider: "Bolt", currency: "NGN" });
     expect(f.low).toBe(1700);
     expect(f.high).toBeGreaterThan(f.low);
-    expect(rideFare(6, 15, "Lisbon, Portugal")).toBeNull();
+    expect(rideFare(6, 15, "Lisbon, Portugal")).toMatchObject({ provider: "Uber", currency: "EUR" });
+    expect(rideFare(6, 15, "Lisbon, Portugal")!.basis).toMatch(/estimate/);
     const stops = [{ lat: 6.47, lon: 3.37, name: "Hotel" }, { lat: 6.48, lon: 3.38, name: "Theatre" }, { lat: 6.5, lon: 3.4, name: "Dinner" }];
     const legs = withRides([{ from: 0, to: 1, km: 0.8, minutes: 10, mode: "walk", estimated: false }, { from: 1, to: 2, km: 4, minutes: 12, mode: "drive", estimated: false }], stops, "NG Lagos");
     expect(legs[0].ride).toBeUndefined();

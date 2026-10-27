@@ -2,6 +2,16 @@
 
 ## 2026-10-27
 
+### The full payment slip
+- One slip for everything the trip needs, grouped: flight out and flight back (separate tickets), airport transfers and every ride, the hotel for every night, each table, and the rest of the planned spend (tickets, entry fees). One tap pays it all, with a receipt for each.
+- Hotel availability: the agent keeps the planned hotel only if it has rooms on the dates within budget; otherwise it books the best available hotel for your taste and says why, and the plan is rewritten around it.
+- Getting there: four search angles (route planners, fare sites, airline and rail timetables, journey times). When no source lists a fare, a clearly labelled distance-based estimate keeps the tickets on the slip.
+- Rides: typical ride-hail rates for every city, so every trip can budget its rides; each ride opens in Uber where it runs.
+- "Call me now" on the home page: a visitor's own number, a consent tick, a two-minute AI demo call; limited per visitor, per number and per day.
+- "Back to your trip": stepping away to Account or a receipt and coming back resumes the trip exactly as it was, calls included.
+- The menu stays usable while the trip plays. The checkout fits every screen. The mode tip no longer covers the suggestions, which now rotate through celebrity, cross-domain taste and fan trips.
+- The wallet paints instantly from the last balance seen and refreshes in place; the server reads balance, activity and cached rates in one round trip.
+
 ### Fixes
 - A prepayment is refunded when its call can't be placed.
 - Checkout totals include prices in any currency, at the day's rate.

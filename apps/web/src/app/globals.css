@@ -1464,3 +1464,38 @@ a { color: inherit; text-decoration: none; }
 .acc-docs > summary { padding: 4px 0 8px; }
 .acc-docs { background: none; box-shadow: none; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* Back to your trip: a glass pill, primary when present */
+.back-trip { display: inline-flex; align-items: center; gap: 8px; height: 42px; padding: 0 18px 0 14px; border-radius: 999px; font-weight: 650; font-size: 14.5px; color: #fff; text-decoration: none; background: linear-gradient(135deg, #7b5cff, #ff4fa3); box-shadow: inset 0 1px 0 rgba(255,255,255,.35), 0 12px 26px -12px rgba(123,92,255,.7); transition: transform .35s cubic-bezier(.2,.8,.2,1), box-shadow .3s; }
+.back-trip:hover { transform: translateY(-1px); box-shadow: inset 0 1px 0 rgba(255,255,255,.35), 0 16px 30px -12px rgba(123,92,255,.85); }
+.back-trip svg { transition: transform .35s cubic-bezier(.2,.8,.2,1); }
+.back-trip:hover svg { transform: translateX(-3px); }
+.nav-acts { display: flex; align-items: center; gap: 10px; }
+@media (max-width: 520px) { .nav-acts .lg.pill { display: none; } }
+/* The mode tip takes the chips' place for a moment, then the chips come back */
+.hero .recent.try { transition: opacity .35s var(--ease-out), transform .35s var(--ease-out); }
+.hero.tip-on .recent.try { opacity: 0; transform: translateY(8px); pointer-events: none; }
+
+/* ---- Live demo: Backline calls you ---- */
+.callme { padding: clamp(28px, 6vw, 72px) 16px 8px; display: grid; place-items: center; }
+.callme-card { width: min(980px, 100%); display: grid; gap: 24px; grid-template-columns: minmax(0, 1fr); padding: clamp(22px, 4vw, 36px); border-radius: 32px; }
+@media (min-width: 860px) { .callme-card { grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); align-items: center; } }
+.callme-copy h2 { margin: 6px 0 10px; font-family: var(--font-display); font-weight: 500; font-size: clamp(26px, 3.4vw, 38px); line-height: 1.08; letter-spacing: -0.03em; color: var(--ink); }
+.callme-copy p { margin: 0; font-size: 16px; line-height: 1.55; color: var(--ink-soft); }
+.callme-form { display: grid; gap: 12px; min-width: 0; }
+.callme-row { display: grid; gap: 8px; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+.callme-row input { width: 100%; min-width: 0; height: 50px; padding: 0 16px; border-radius: 999px; border: 1px solid rgba(16, 19, 43, 0.12); background: rgba(255, 255, 255, 0.9); color: #10132b; font: inherit; font-size: 15.5px; box-shadow: inset 0 1px 2px rgba(16, 19, 43, 0.06); }
+.callme-row input:focus { outline: none; border-color: #7b5cff; box-shadow: 0 0 0 4px rgba(123, 92, 255, 0.18); }
+.callme-consent { display: flex; gap: 10px; align-items: flex-start; font-size: 13.5px; line-height: 1.45; color: var(--ink-soft); cursor: pointer; }
+.callme-consent input { margin-top: 2px; width: 18px; height: 18px; accent-color: #7b5cff; flex: none; }
+.callme-go { position: relative; display: inline-flex; align-items: center; justify-content: center; gap: 12px; height: 54px; border: 0; border-radius: 999px; font: inherit; font-size: 16.5px; font-weight: 700; color: #fff; cursor: pointer; background: linear-gradient(135deg, #7b5cff, #ff4fa3); background-size: 160% 100%; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4), 0 16px 34px -14px rgba(123, 92, 255, 0.85); transition: transform .35s cubic-bezier(.2,.8,.2,1), background-position .7s, opacity .2s; }
+.callme-go:hover:not(:disabled) { transform: translateY(-2px); background-position: 100% 50%; }
+.callme-go:disabled { opacity: .5; cursor: not-allowed; }
+.callme-go.is-busy { opacity: 1; }
+.callme-ring { width: 12px; height: 12px; border-radius: 50%; background: #fff; box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.7); }
+.callme-go.is-busy .callme-ring { animation: callring 1.2s ease-out infinite; }
+@keyframes callring { 0% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.75); } 100% { box-shadow: 0 0 0 14px rgba(255, 255, 255, 0); } }
+.callme-status { margin: 0; font-size: 14.5px; font-weight: 600; color: #4a3ad6; }
+.callme-status.is-error { color: #b3261e; }
+.callme-status.is-ended { color: #1d7a45; }
+@media (prefers-reduced-motion: reduce) { .callme-go.is-busy .callme-ring { animation: none; } }

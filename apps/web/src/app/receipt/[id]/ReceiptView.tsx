@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import "./receipt.css";
+import BackToTrip from "../../BackToTrip";
 
 type Entry = { id: string; status: "held" | "paid" | "void"; amount_minor: number; original_amount: number | null; original_currency: string | null; label: string; ref: string | null; details: Record<string, unknown>; created_at: string };
 type Data = { entry: Entry; payer: { name?: string | null; email?: string | null }; local: { currency: string; amount: number } };
@@ -61,6 +62,7 @@ export default function ReceiptView({ id }: { id: string }) {
           <div className="rc-acts">
             <button type="button" onClick={() => window.print()}>Print or save as PDF</button>
             <Link href="/account?tab=wallet">All receipts</Link>
+            <BackToTrip />
           </div>
         </footer>
       </article>

@@ -11,6 +11,9 @@ import { askedTime, dayDate, holdAskedTime } from "../trip-request";
 import { placeSchema, scorePlace, toPlace, type Place } from "./places";
 import { isArrivalStop, nameRefs, type Stop, type TripAgentOutput } from "./trip-agent";
 import type { TripFlightsOutput } from "./flights";
+import type { TripTravelOutput, TravelOption } from "./trip-travel";
+import type { TripRoutesOutput } from "./trip-routes";
+import { rideFare } from "./rides";
 
 export { placeSchema, scorePlace, toPlace };
 import type { TasteOutput } from "./taste";
@@ -45,6 +48,8 @@ const planOutput = z.object({
   method: z.enum(["model", "template"]),
   /** Why the template was used, for diagnostics. */
   fallbackReason: z.string().nullable().optional(),
+  /** The hotel availability check: how many hotels had live rooms for the dates, and any swap made. */
+  stayCheck: z.object({ checked: z.number(), note: z.string().nullable(), from: z.string().nullable() }).nullable().optional(),
 });
 export type TripPlanOutput = z.infer<typeof planOutput>;
 
@@ -136,6 +141,14 @@ export const tripPlan: Skill<BriefInput, TripPlanOutput> = {
   timeoutMs: 60_000,
   output: planOutput,
   async run(ctx, input, deps) {
+    const r = await writePlan(ctx, input, deps);
+    const a = agentOf(deps);
+    return { ...r, data: withStayChoice(r.data, a.stays, a.trip) };
+  },
+};
+
+/** The plan itself, before the hotel availability check. */
+async function writePlan(ctx: Parameters<Skill<BriefInput, TripPlanOutput>["run"]>[0], input: BriefInput, deps: Record<string, SkillResult<unknown> | undefined>): Promise<SkillResult<TripPlanOutput>> {
     const a = agentOf(deps);
     const fl = (deps["trip.flights"]?.data as TripFlightsOutput | undefined)?.flight ?? null;
     const taste = deps["trip.taste"]?.data as TasteOutput | undefined;
@@ -286,8 +299,51 @@ export const tripPlan: Skill<BriefInput, TripPlanOutput> = {
       data: { ...templatePlan(trip, stays, dines, venues, dates, { stops: a.stops, picks: a.picks, city: cityLabel(a), activities }), fallbackReason },
       evidence: [{ source: "derived", label: "Itinerary", basis: "Template plan from the places the agent found" }],
     };
-  },
-};
+}
+
+/** What the trip can spend on the room, in the offer's currency, when the budget says. Pure. */
+function stayCap(trip: TripRequest, currency: string): number | null {
+  const b = trip.budget;
+  if (!b?.amount || b.currency !== currency) return null;
+  const nights = Math.max(1, tripDates(trip.startDate, trip.endDate).length - 1);
+  return b.scope === "per_night" ? b.amount * nights : b.amount;
+}
+
+/**
+ * The hotel to book: the planned one if it has rooms on the dates within budget; otherwise the best
+ * available hotel by taste (Qloo affinity and fit) within budget. With no live availability at all,
+ * the planned hotel stands and the agent confirms by phone. Pure.
+ */
+export function chooseStay(stays: Place[], stayId: string | null, trip: TripRequest): { id: string | null; note: string | null; from: string | null; checked: number } {
+  const planned = stays.find((p) => p.id === stayId) ?? null;
+  const available = stays.filter((p) => p.offer);
+  const fits = (p: Place) => {
+    const cap = p.offer ? stayCap(trip, p.offer.currency) : null;
+    return cap == null || (p.offer?.total ?? 0) <= cap;
+  };
+  if (!available.length) return { id: planned?.id ?? null, note: null, from: null, checked: 0 };
+  if (planned?.offer && fits(planned)) return { id: planned.id, note: `${planned.name} has rooms for your dates.`, from: null, checked: available.length };
+  const best = available.filter(fits).sort((x, y) => (y.match ?? y.fit) - (x.match ?? x.fit) || y.fit - x.fit)[0];
+  if (!best || !planned) return { id: planned?.id ?? best?.id ?? null, note: null, from: null, checked: available.length };
+  const why = planned.offer ? "is over your budget for these dates" : "has no rooms listed for your dates";
+  return { id: best.id, note: `${planned.name} ${why}, so I picked ${best.name}: the best match for your taste with rooms available within budget.`, from: planned.id, checked: available.length };
+}
+
+/** Applies the availability check to a written plan: the swapped hotel replaces the planned one everywhere. Pure. */
+export function withStayChoice(plan: TripPlanOutput, stays: Place[], trip: TripRequest): TripPlanOutput {
+  const c = chooseStay(stays, plan.stayId, trip);
+  if (!c.from || !c.id || c.id === plan.stayId) return { ...plan, stayCheck: { checked: c.checked, note: c.note, from: null } };
+  const was = stays.find((p) => p.id === c.from)!, now = stays.find((p) => p.id === c.id)!;
+  const swapName = (t: string) => t.split(was.name).join(now.name);
+  return {
+    ...plan,
+    stayId: c.id,
+    summary: swapName(plan.summary),
+    days: plan.days.map((d) => ({ ...d, label: swapName(d.label), items: d.items.map((it) => ({ ...it, placeId: it.placeId === was.id ? now.id : it.placeId, title: swapName(it.title), note: it.note ? swapName(it.note) : it.note })) })),
+    budget: plan.budget.map((b) => ({ ...b, item: swapName(b.item), basis: swapName(b.basis) })),
+    stayCheck: { checked: c.checked, note: c.note, from: c.from },
+  };
+}
 
 const cap = (s: string) => s.replace(/^./, (c) => c.toUpperCase());
 const at = (time: string, title: string, placeId: string | null, note: string | null = null) => ({ time, title, placeId, note });
@@ -370,7 +426,7 @@ export function templatePlan(
 
 export const actionSchema = z.object({
   id: z.string(),
-  kind: z.enum(["book_flight", "book_stay", "reserve_table", "enquire_venue", "calendar"]),
+  kind: z.enum(["book_flight", "book_travel", "book_rides", "book_stay", "reserve_table", "enquire_venue", "planned", "calendar"]),
   channel: z.enum(["email", "call", "link", "calendar", "reserve"]),
   title: z.string(),
   placeId: z.string().nullable(),
@@ -388,6 +444,10 @@ export const actionSchema = z.object({
   /** For a live room rate: the provider's offer, held and paid for on the provider's secure page. */
   offerId: z.string().nullable().optional(),
   price: z.object({ total: z.number(), currency: z.string() }).nullable().optional(),
+  /** For the trip's rides: each ride with its estimated fare and a link that opens it in a ride app. */
+  rides: z.array(z.object({ day: z.number(), from: z.string(), to: z.string(), low: z.number(), high: z.number(), currency: z.string(), provider: z.string(), url: z.string().nullable() })).optional(),
+  /** For getting there: the other ways compared, so the choice is visible. */
+  options: z.array(z.object({ title: z.string(), mode: z.string(), duration: z.string().nullable(), price: z.string().nullable(), site: z.string().nullable(), url: z.string().nullable(), best: z.boolean() })).optional(),
 });
 export type TripAction = z.infer<typeof actionSchema>;
 const actionsOutput = z.object({
@@ -481,7 +541,9 @@ export function buildActions(
         missing: !who || !profile.email ? "Add your name and email for the booking." : null,
       });
     }
-    add({ kind: "book_stay", channel: "link", title: `Book ${stay.name} with your dates`, placeId: stay.id, placeName: stay.name, url: bookingLink(stay.name, trip.destination, trip), mode: "you", recommended: !(stay.offer && can.hotels) });
+    // The room is booked by the provider (live rate) or by a call; the link and email are only the fallback.
+    const autoRoom = Boolean(stay.offer && can.hotels) || Boolean(can.calls && (toE164(stay.phone, cc) || demo));
+    add({ kind: "book_stay", channel: "link", title: `Book ${stay.name} with your dates`, placeId: stay.id, placeName: stay.name, url: bookingLink(stay.name, trip.destination, trip), mode: "you", recommended: !autoRoom });
     if (stay.email)
       add({
         kind: "book_stay",
@@ -503,7 +565,7 @@ export function buildActions(
           contactLine || null,
         ]),
         mode: can.email ? "auto" : "you",
-        recommended: !(stay.offer && can.hotels),
+        recommended: !autoRoom,
         missing: can.email ? missingContact : null,
       });
     const sPhone = toE164(stay.phone, cc);
@@ -619,6 +681,141 @@ export function buildActions(
   return actions;
 }
 
+const fmtMoney = (n: number, c: string) => `${Math.round(n).toLocaleString("en")} ${c}`;
+
+/** A Google Flights search for the route and dates, to see the live fares. Pure. */
+export function flightsSearchUrl(origin: string, destination: string, date: string | null): string {
+  return `https://www.google.com/travel/flights?q=${encodeURIComponent(`Flights from ${origin} to ${destination}${date ? ` on ${date}` : ""}`)}`;
+}
+
+/**
+ * Getting there and back, from the cited research: the best option (the one the sources favour, priced),
+ * for everyone, as two tickets: out on the first day and back on the last. Fares are per person one way.
+ * With no listed fare for a long route, the fare is estimated from distance and labelled so. Pure.
+ */
+export function travelActions(t: TripTravelOutput | undefined, trip: TripRequest, can: { pay: boolean }): Omit<TripAction, "id">[] {
+  if (!t?.origin || !t.destination) return [];
+  const opts = (t.options ?? []).filter((o) => o.mode !== "car");
+  const priced = opts.filter((o) => (o.priceMin != null || o.priceMax != null) && o.currency);
+  let pick: TravelOption | undefined = priced.find((o) => o.best) ?? [...priced].sort((x, y) => (x.priceMin ?? x.priceMax ?? 0) - (y.priceMin ?? y.priceMax ?? 0))[0];
+  let estimated = false;
+  if (!pick && t.km && t.km >= 500) {
+    // No source listed a fare: a distance-based economy estimate (about 80 USD + 0.12 USD a km, ±20%).
+    const mid = 80 + 0.12 * t.km;
+    pick = { mode: "flight", title: `Flights ${t.origin.split(",")[0]} → ${t.destination.split(",")[0]}`, duration: null, priceMin: Math.round(mid * 0.8), priceMax: Math.round(mid * 1.2), currency: "USD", note: null, url: flightsSearchUrl(t.origin, t.destination, trip.startDate), site: "Google Flights", verified: false, best: true };
+    estimated = true;
+  }
+  if (!pick || !pick.currency) return [];
+  const each = ((pick.priceMin ?? pick.priceMax!) + (pick.priceMax ?? pick.priceMin!)) / 2;
+  const people = Math.max(1, trip.adults);
+  const how = pick.mode === "flight" ? "Flight" : `${pick.mode[0].toUpperCase()}${pick.mode.slice(1)}`;
+  const range = (o: TravelOption) => (o.priceMin != null || o.priceMax != null) && o.currency ? `${o.priceMin != null && o.priceMax != null && o.priceMin !== o.priceMax ? `${Math.round(o.priceMin)}–${Math.round(o.priceMax)}` : Math.round((o.priceMin ?? o.priceMax)!)} ${o.currency} pp one way` : null;
+  const options = (estimated ? [pick] : opts.slice(0, 4)).map((o) => ({ title: o.title, mode: o.mode, duration: o.duration, price: range(o), site: o.site, url: o.url, best: o === pick }));
+  const from = t.origin.split(",")[0], to = t.destination.split(",")[0];
+  const leg = (dir: "out" | "back") => ({
+    kind: "book_travel" as const,
+    channel: "reserve" as const,
+    title: `${how} ${dir === "out" ? `out: ${from} → ${to}` : `back: ${to} → ${from}`}, ${people} ticket${people === 1 ? "" : "s"}${(dir === "out" ? trip.startDate : trip.endDate) ? `, ${fmtDate(dir === "out" ? trip.startDate : trip.endDate)}` : ""}`,
+    placeId: null,
+    placeName: pick!.title,
+    to: null,
+    url: pick!.url ?? (pick!.mode === "flight" ? flightsSearchUrl(dir === "out" ? t.origin! : t.destination!, dir === "out" ? t.destination! : t.origin!, dir === "out" ? trip.startDate : trip.endDate) : null),
+    subject: [pick!.title, pick!.duration, estimated ? "fare estimated from distance (no listed fare found)" : null].filter(Boolean).join(" · "),
+    body: null,
+    callOpening: null,
+    callBrief: null,
+    mode: can.pay ? ("auto" as const) : ("you" as const),
+    recommended: true,
+    missing: null,
+    offerId: null,
+    price: { total: Math.round(each * people), currency: pick!.currency! },
+    options: dir === "out" ? options : undefined,
+  });
+  return [leg("out"), leg("back")];
+}
+
+/** The trip's rides (and airport transfers when they're stops), day by day, with the fare to set aside. Pure. */
+export function ridesAction(r: TripRoutesOutput | undefined, can: { pay: boolean }, transfers: { where: string; hotel: string | null; far: boolean } | null = null): Omit<TripAction, "id"> | null {
+  const rides: NonNullable<TripAction["rides"]> = [];
+  const AIRPORT = /airport|a[eé]roport|aeropuerto|aeroporto|flughafen|terminal/i;
+  const hasAirport = (r?.days ?? []).some((d) => d.stops.some((st) => AIRPORT.test(st.name)));
+  if (transfers?.far && !hasAirport) {
+    // Airport to the hotel on arrival and back on departure: a typical 25 km, 35 minute ride each way.
+    const f = rideFare(25, 35, transfers.where);
+    if (f) {
+      const last = Math.max(0, ...(r?.days ?? []).map((d) => d.index));
+      rides.push({ day: 0, from: "Airport", to: transfers.hotel ?? "Your hotel", low: f.low, high: f.high, currency: f.currency, provider: f.provider, url: null });
+      rides.push({ day: last, from: transfers.hotel ?? "Your hotel", to: "Airport", low: f.low, high: f.high, currency: f.currency, provider: f.provider, url: null });
+    }
+  }
+  for (const d of r?.days ?? [])
+    for (const l of d.legs)
+      if (l.ride && l.mode === "drive")
+        rides.push({ day: d.index, from: d.stops[l.from]?.name ?? "", to: d.stops[l.to]?.name ?? "", low: l.ride.low, high: l.ride.high, currency: l.ride.currency, provider: l.ride.provider, url: l.links?.find((x) => /uber/i.test(x.label))?.url ?? l.links?.[0]?.url ?? null });
+  if (!rides.length) return null;
+  rides.sort((x, y) => x.day - y.day);
+  const currency = rides[0].currency;
+  const same = rides.filter((x) => x.currency === currency);
+  const days = new Set(same.map((x) => x.day)).size;
+  const total = Math.round(same.reduce((n, x) => n + x.high, 0));
+  const provider = same.some((x) => /uber/i.test(x.provider)) ? "Uber" : same[0].provider;
+  return {
+    kind: "book_rides",
+    channel: "reserve",
+    title: `Rides for the trip: ${same.length} ride${same.length === 1 ? "" : "s"} over ${days} day${days === 1 ? "" : "s"}`,
+    placeId: null,
+    placeName: provider,
+    to: null,
+    url: same.find((x) => x.url)?.url ?? null,
+    subject: `${fmtMoney(same.reduce((n, x) => n + x.low, 0), currency)}–${fmtMoney(total, currency)} estimated`,
+    body: null,
+    callOpening: null,
+    callBrief: null,
+    mode: can.pay ? "auto" : "you",
+    recommended: true,
+    missing: null,
+    offerId: null,
+    price: { total, currency },
+    rides: same,
+  };
+}
+
+const COVERED = /hotel|accommodation|lodg|stay|room|flight|airfare|air ticket|getting there|train|bus fare|ride|uber|taxi|transport|transfer|bolt/i;
+const FOOD = /food|meal|dining|restaurant|eat|drink/i;
+
+/**
+ * Everything else the plan budgets for (tickets, entry fees, meals beyond the reserved tables,
+ * shopping), so the slip covers the whole trip. Meals already reserved are taken off the food line. Pure.
+ */
+export function plannedActions(plan: TripPlanOutput, reserved: { total: number; currency: string }[], can: { pay: boolean }): Omit<TripAction, "id">[] {
+  const out: Omit<TripAction, "id">[] = [];
+  for (const b of plan.budget) {
+    if (b.amount == null || b.amount <= 0 || COVERED.test(b.item)) continue;
+    let amount = b.amount;
+    if (FOOD.test(b.item)) amount -= reserved.filter((r) => r.currency === b.currency).reduce((n, r) => n + r.total, 0);
+    if (amount <= 0) continue;
+    out.push({
+      kind: "planned",
+      channel: "reserve",
+      title: `${b.item}: set aside for the trip`,
+      placeId: null,
+      placeName: b.item,
+      to: null,
+      url: null,
+      subject: b.basis || null,
+      body: null,
+      callOpening: null,
+      callBrief: null,
+      mode: can.pay ? "auto" : "you",
+      recommended: true,
+      missing: null,
+      offerId: null,
+      price: { total: Math.round(amount), currency: b.currency },
+    });
+  }
+  return out;
+}
+
 /** Booking and paying for the chosen flight, with what's still needed from the traveller. Pure. */
 export function flightAction(f: TripFlightsOutput["flight"] & object, profile: Profile, hasPassport = false): TripAction {
   // A saved passport already gives the name, date of birth and gender as the airline needs them.
@@ -655,7 +852,7 @@ export const tripActions: Skill<BriefInput, TripActionsOutput> = {
   id: "trip.actions",
   title: "Preparing bookings and messages",
   dependsOn: ["trip.plan", "trip.agent"],
-  optionalDeps: ["trip.flights"],
+  optionalDeps: ["trip.flights", "trip.travel", "trip.routes"],
   timeoutMs: 5_000,
   output: actionsOutput,
   async run(ctx, input, deps) {
@@ -668,8 +865,22 @@ export const tripActions: Skill<BriefInput, TripActionsOutput> = {
       input.profile ?? {},
       { email: Boolean(ctx.email), calls: Boolean(ctx.calls), hotels: Boolean(ctx.hotels), demo: Boolean(ctx.calls) && !ctx.callsLive }
     );
-    const actions = flight && ctx.flights ? [flightAction(flight, input.profile ?? {}, Boolean(ctx.traveller?.passport)), ...built].map((x, i) => ({ ...x, id: `a${i + 1}` })) : built;
+    // The whole round trip, in order: getting there and back, rides on the ground, then the stays and tables.
+    const pay = Boolean(ctx.wallet) && !ctx.signedOut;
+    const travelData = deps["trip.travel"]?.data as TripTravelOutput | undefined;
+    const travel = flight && ctx.flights ? [] : travelActions(travelData, a.trip, { pay });
+    const planData = deps["trip.plan"].data as TripPlanOutput;
+    const stayName = a.stays.find((p) => p.id === planData.stayId)?.name ?? null;
+    const rides = ridesAction(deps["trip.routes"]?.data as TripRoutesOutput | undefined, { pay }, { where: cityLabel(a), hotel: stayName, far: Boolean(travel.length || flight) });
+    const first = [flight && ctx.flights ? flightAction(flight, input.profile ?? {}, Boolean(ctx.traveller?.passport)) : null, ...travel, rides].filter(Boolean) as Omit<TripAction, "id">[];
+    const reserved = built.filter((x) => x.kind === "reserve_table" && x.price && x.mode === "auto").map((x) => x.price!);
+    const planned = plannedActions(planData, reserved, { pay });
+    const calendarAt = built.findIndex((x) => x.kind === "calendar");
+    const ordered = calendarAt >= 0 ? [...built.slice(0, calendarAt), ...planned, ...built.slice(calendarAt)] : [...built, ...planned];
+    const actions = [...first, ...ordered].map((x, i) => ({ ...x, id: `a${i + 1}` })) as TripAction[];
     const notes: string[] = [];
+    const check = (deps["trip.plan"].data as TripPlanOutput).stayCheck;
+    if (check?.note) notes.push(check.note);
     if (ctx.signedOut) notes.push("Sign in and I'll book, pay, email and call for you. Until then, everything opens in your own apps.");
     else {
       if (!ctx.email) notes.push("Email sending isn't connected yet, so emails open in your own mail app.");
@@ -883,6 +1094,26 @@ export const tripExecute: Skill<BriefInput, TripExecuteOutput> = {
             ref: held.holdId,
             message: `Rate held: ${Math.round(held.total).toLocaleString("en")} ${held.currency}${held.cancellation ? `. ${held.cancellation}` : ""}. Pay on ${ctx.hotels.name}'s secure page to confirm.`,
             checkoutUrl: held.checkoutUrl,
+          };
+        }
+        // Getting there and back, and the rides on the ground: paid from the wallet with a receipt each.
+        if ((a.kind === "book_travel" || a.kind === "book_rides" || a.kind === "planned") && a.channel === "reserve") {
+          if (!ctx.wallet || !a.price) return { actionId: a.id, status: "ready", ref: null, message: a.kind === "book_travel" ? "Open the route and book at the fare shown." : "Open each ride in the app when you're there." };
+          const paid = await prepay(ctx, a, input);
+          if (paid && "reason" in paid) return { actionId: a.id, status: "needs_info", ref: null, message: paid.reason };
+          const amount = fmtMoney(a.price.total, a.price.currency);
+          const site = a.options?.find((o) => o.best)?.site;
+          return {
+            actionId: a.id,
+            status: "booked",
+            ref: paid && "ref" in paid ? paid.ref : null,
+            message:
+              a.kind === "book_travel"
+                ? `Paid from your wallet: ${a.title} (${amount}). ${a.subject ?? ""}. Confirm the seats${site ? ` on ${site}` : ""} in the mini browser.`
+                : a.kind === "planned"
+                  ? `Set aside from your wallet: ${amount} for ${a.placeName ?? "the trip"}${a.subject ? ` (${a.subject})` : ""}.`
+                  : `Ride budget set aside from your wallet: ${a.rides?.length ?? 0} rides, up to ${amount}. Open each ride in ${a.placeName ?? "the app"} when you're there; anything unspent stays yours.`,
+            paid: paid && "entryId" in paid ? paid : null,
           };
         }
         if (a.channel === "email" && ctx.email && a.to && a.subject && a.body) {

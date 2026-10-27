@@ -424,6 +424,14 @@ export function PlacesSection({ title, places, chosenId, anchor, notes, evidence
 
 const CHANNEL_ICON: Record<TripAction["channel"], string> = { email: "✉", call: "☎", link: "↗", calendar: "▦", reserve: "⌂" };
 
+const SLIP_GROUPS: { id: string; label: string; icon: string; kinds: TripAction["kind"][] }[] = [
+  { id: "travel", label: "Getting there and back", icon: "✈", kinds: ["book_flight", "book_travel"] },
+  { id: "ground", label: "Getting around", icon: "◍", kinds: ["book_rides"] },
+  { id: "stay", label: "Where you'll stay", icon: "⌂", kinds: ["book_stay"] },
+  { id: "tables", label: "Tables and tickets", icon: "✦", kinds: ["reserve_table", "enquire_venue"] },
+  { id: "planned", label: "The rest of the planned spend", icon: "◎", kinds: ["planned"] },
+];
+
 export function ActionsCheckpoint({
   actions,
   demoLine = null,
@@ -488,80 +496,91 @@ export function ActionsCheckpoint({
     return w && cents != null ? walletMoney(w)(cents) : money(a.price.total, a.price.currency);
   };
   const short = w && w.ready && totalUsdCents > w.balance;
+  // The payment slip: every payment the trip needs, grouped the way a trip unfolds.
+  const priced = actions.filter((a) => a.mode === "auto" && a.price && (a.channel === "reserve" || a.channel === "call"));
+  const others = actions.filter((a) => !priced.includes(a));
+  const groups = SLIP_GROUPS.map((g) => ({ ...g, items: priced.filter((a) => g.kinds.includes(a.kind)) })).filter((g) => g.items.length);
+  const sub = (items: TripAction[]) => items.filter((a) => picked.includes(a.id)).reduce((n, a) => n + (local(a.price!.total, a.price!.currency) ?? 0), 0);
+  const line = (a: TripAction) => {
+    if (a.kind === "book_travel" || a.kind === "book_flight") return a.subject ?? "Paid from your wallet";
+    if (a.kind === "book_rides") return `${a.rides?.length ?? 0} rides · ${a.subject ?? "estimated"}`;
+    if (a.kind === "planned") return a.subject || "Set aside from your wallet";
+    if (a.channel === "reserve") return "Booked and paid for every night";
+    if (a.channel === "call") return demoLine ? "Paid, then a call to you to confirm (you play the place)" : `Paid, then a call to ${a.to ?? "the place"} to confirm`;
+    return "";
+  };
   const body = (
     <div className="ck-scrim" role="presentation">
       <section className="lg checkpoint ck" role="dialog" aria-modal="true" aria-labelledby="cp-actions">
-        <p className="eyebrow">One tap to book it all</p>
-        <h2 id="cp-actions" className="cp-title">Approve the whole trip?</h2>
-        <p className="muted">
-          {paid.length > 0
-            ? `${paid.length} booking${paid.length === 1 ? "" : "s"}, paid from your Backline Wallet. Each agent pays its place, then calls to confirm. Every payment gets a receipt.`
-            : "Here's everything I'll take care of."}
-        </p>
-        {w?.ready && paid.length > 0 && (
-          <div className="ck-sum" aria-live="polite">
-            <div><small>Total</small><b>{walletMoney(w)(totalUsdCents)}</b></div>
-            <div><small>Wallet</small><span>{walletMoney(w)(w.balance)}</span></div>
-            <div><small>After</small><span className={short ? "is-short" : ""}>{walletMoney(w)(w.balance - totalUsdCents)}</span></div>
-          </div>
-        )}
-        {short && <p className="ck-warn">Your wallet is short for everything ticked. Untick a booking or add funds in your wallet.</p>}
-        <button type="button" className="ck-toggle" onClick={() => setLook((v) => !v)} aria-expanded={look}>
-          {look ? "Hide the list" : `See every item${actions.length > paid.length ? ` (${actions.length})` : ""}`}
-        </button>
-        {look ? (
-          <ul className="action-list">
-            {actions.map((a) => {
-              const on = picked.includes(a.id);
-              return (
-                <li key={a.id}>
-                  <button type="button" className={`action-row${on ? " on" : ""}`} aria-pressed={on} onClick={() => toggle(a.id)}>
-                    <span className="action-icon" aria-hidden="true">{CHANNEL_ICON[a.channel]}</span>
-                    <span className="cp-text">
-                      <span className="cp-label">{a.title}</span>
-                      <span className="cp-detail">
-                        {a.channel === "reserve" && a.kind === "book_flight" && `${a.subject ? `${a.subject}. ` : ""}Booked and paid. The e-ticket is emailed to you.`}
-                        {a.channel === "reserve" && a.kind !== "book_flight" && "Booked and paid for the whole stay. The confirmation is emailed to you."}
-                        {a.channel === "email" && (a.mode === "auto" ? `I'll email ${a.to}` : `Opens a ready email to ${a.to}`)}
-                        {a.channel === "call" && (a.mode === "auto" ? (demoLine ? `Paid, then I call you as ${a.placeName ?? "the place"} to confirm. Answer and play the business` : `Paid, then I call ${a.to} to confirm`) : `Number and script for ${a.to}`)}
-                        {a.channel === "link" && "Opens with your dates and guests filled in. You pay there."}
-                        {a.channel === "calendar" && "Every stop, in your calendar"}
-                      </span>
-                    </span>
-                    {show(a) && a.mode === "auto" ? <span className="ck-amt">{show(a)}</span> : null}
-                    <span className="cp-check" aria-hidden="true" />
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-        ) : (
-          <ol className="ck-peek">
-            {paid.slice(0, 4).map((a) => (
-              <li key={a.id}><span>{a.title}</span><b>{show(a)}</b></li>
-            ))}
-            {paid.length > 4 && <li className="ck-more"><span>+ {paid.length - 4} more</span></li>}
-          </ol>
-        )}
-        {needsDetails && (
-          <div className="me">
-            <p className="sub">Who I&rsquo;m booking for</p>
-            <div className="me-row">
-              <input aria-label="Your name" placeholder="Your name" value={me.name ?? ""} onChange={(e) => setMe({ ...me, name: e.target.value })} maxLength={80} autoComplete="name" />
-              <input aria-label="Your email" placeholder="Email for replies" type="email" value={me.email ?? ""} onChange={(e) => setMe({ ...me, email: e.target.value })} maxLength={254} autoComplete="email" />
-              <input aria-label="Your phone" placeholder={demoCall ? "Your phone, e.g. +234 811 000 0000" : "Phone (optional)"} type="tel" value={me.phone ?? ""} onChange={(e) => setMe({ ...me, phone: e.target.value })} maxLength={30} autoComplete="tel" required={demoCall} />
+        <header className="ck-head">
+          <p className="eyebrow">Your payment slip</p>
+          <h2 id="cp-actions" className="cp-title">Approve the whole trip?</h2>
+          <p className="muted">{priced.length ? `Everything the trip needs, paid in one tap from your Backline Wallet, with a receipt for each.` : "Here's everything I'll take care of."}</p>
+        </header>
+        <div className="ck-body">
+          {w?.ready && priced.length > 0 && (
+            <div className="ck-sum" aria-live="polite">
+              <div><small>Total</small><b>{walletMoney(w)(totalUsdCents)}</b></div>
+              <div><small>Wallet</small><span>{walletMoney(w)(w.balance)}</span></div>
+              <div><small>After</small><span className={short ? "is-short" : ""}>{walletMoney(w)(w.balance - totalUsdCents)}</span></div>
             </div>
-            {demoCall && <p className="me-hint">This is a demo, so the confirmation calls ring <b>your</b> phone. Pick up and play the restaurant or hotel.</p>}
+          )}
+          {short && <p className="ck-warn">Your wallet is short for everything ticked. Untick something or add funds in your wallet.</p>}
+          <div className="ck-slip">
+            {groups.map((g) => (
+              <section key={g.id} className="ck-group">
+                <h3><span aria-hidden="true">{g.icon}</span>{g.label}{w ? <b>{walletMoney(w)(sub(g.items))}</b> : null}</h3>
+                <ul>
+                  {g.items.map((a) => {
+                    const on = picked.includes(a.id);
+                    return (
+                      <li key={a.id}>
+                        <button type="button" className={`ck-row${on ? " on" : ""}`} aria-pressed={on} onClick={() => toggle(a.id)}>
+                          <span className="ck-tick" aria-hidden="true" />
+                          <span className="ck-txt"><b>{a.title}</b>{look && line(a) ? <small>{line(a)}</small> : null}</span>
+                          <em>{show(a)}</em>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </section>
+            ))}
           </div>
-        )}
-        <div className="cp-foot ck-foot">
-          <button type="button" className="ck-look" onClick={() => (onLook ? onLook() : setLook((v) => !v))}>
-            Take a look first
-          </button>
+          {others.length > 0 && (
+            <details className="ck-also">
+              <summary>Also ready for you ({others.length})</summary>
+              <ul>
+                {others.map((a) => (
+                  <li key={a.id}>
+                    <button type="button" className={`ck-row${picked.includes(a.id) ? " on" : ""}`} aria-pressed={picked.includes(a.id)} onClick={() => toggle(a.id)}>
+                      <span className="ck-tick" aria-hidden="true" />
+                      <span className="ck-txt"><b>{a.title}</b><small>{a.channel === "email" ? (a.mode === "auto" ? `I'll email ${a.to}` : `Opens a ready email to ${a.to}`) : a.channel === "calendar" ? "Every stop, in your calendar" : a.channel === "link" ? "Opens with your dates filled in" : a.channel === "call" ? `Number and script for ${a.to}` : ""}</small></span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </details>
+          )}
+          <button type="button" className="ck-toggle" onClick={() => setLook((v) => !v)} aria-expanded={look}>{look ? "Fewer details" : "Show details for each payment"}</button>
+          {needsDetails && (
+            <div className="me">
+              <p className="sub">Who I&rsquo;m booking for</p>
+              <div className="me-row">
+                <input aria-label="Your name" placeholder="Your name" value={me.name ?? ""} onChange={(e) => setMe({ ...me, name: e.target.value })} maxLength={80} autoComplete="name" />
+                <input aria-label="Your email" placeholder="Email for replies" type="email" value={me.email ?? ""} onChange={(e) => setMe({ ...me, email: e.target.value })} maxLength={254} autoComplete="email" />
+                <input aria-label="Your phone" placeholder={demoCall ? "Your phone, e.g. +234 811 000 0000" : "Phone (optional)"} type="tel" value={me.phone ?? ""} onChange={(e) => setMe({ ...me, phone: e.target.value })} maxLength={30} autoComplete="tel" required={demoCall} />
+              </div>
+              {demoCall && <p className="me-hint">This is a demo, so the confirmation calls ring <b>your</b> phone. Pick up and play the restaurant or hotel.</p>}
+            </div>
+          )}
+        </div>
+        <footer className="cp-foot ck-foot">
+          <button type="button" className="ck-look" onClick={() => (onLook ? onLook() : setLook((v) => !v))}>Take a look first</button>
           <button type="button" className="go" disabled={busy || picked.length === 0 || missing || Boolean(short)} onClick={() => onConfirm(picked, { ...profile, ...me })}>
             {busy ? "Paying…" : paid.length ? `Approve & pay${w?.ready ? ` ${walletMoney(w)(totalUsdCents)}` : ""}` : "Approve"}
           </button>
-        </div>
+        </footer>
       </section>
     </div>
   );

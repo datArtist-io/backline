@@ -3,7 +3,7 @@ import { z } from "zod";
 import { clientIp, rateLimiter } from "@/lib/rate-limit";
 import { getSession } from "@/lib/session";
 import { loadWallet, localCurrency, topUp } from "@/lib/wallet";
-import { loadAccount } from "@/lib/account";
+import { rest } from "@/lib/supabase";
 import type { Session } from "@/lib/session";
 
 /** Their chosen currency, else the one where they're connecting from. */
@@ -11,7 +11,9 @@ async function currencyFor(s: Session, req: Request): Promise<string> {
   // A currency picked in the wallet itself wins.
   const asked = new URL(req.url).searchParams.get("currency")?.toUpperCase();
   if (asked && /^[A-Z]{3}$/.test(asked)) return asked;
-  const chosen = await loadAccount(s).then((a) => a.profile.currency ?? null).catch(() => null);
+  // Only the currency from their details, not the whole account.
+  const rows = await rest<{ details: { currency?: string } | null }[]>(s.cfg, s.accessToken, `profiles?select=details&user_id=eq.${encodeURIComponent(s.user.id)}`).catch(() => []);
+  const chosen = rows[0]?.details?.currency ?? null;
   return localCurrency(chosen, req.headers.get("x-vercel-ip-country"));
 }
 

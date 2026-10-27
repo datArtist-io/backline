@@ -6,6 +6,7 @@ import type { TripActionsOutput, TripExecuteOutput } from "@backline/engine";
 import MiniBrowser from "./MiniBrowser";
 import { loadProfile, saveProfile } from "@/lib/profile";
 import { loadDetails, saveDetails } from "@/lib/auth-client";
+import { keep } from "@/lib/trip-snapshot";
 
 type Action = TripActionsOutput["actions"][number];
 type Result = TripExecuteOutput["results"][number];
@@ -24,8 +25,21 @@ const LABEL: Record<Result["status"], string> = {
   skipped: "Skipped",
 };
 
-function ChannelIcon({ channel, status }: { channel: Action["channel"]; status: Result["status"] }) {
+function ChannelIcon({ channel, status, kind }: { channel: Action["channel"]; status: Result["status"]; kind?: Action["kind"] }) {
   const common = { viewBox: "0 0 24 24", width: 22, height: 22, fill: "none", stroke: "currentColor", strokeWidth: 1.7, strokeLinecap: "round" as const, strokeLinejoin: "round" as const, "aria-hidden": true };
+  if (kind === "book_travel" || kind === "book_flight")
+    return (
+      <svg {...common} className="bk-ico bk-plane">
+        <path d="M21 15.5v-2l-8-5V4a1.5 1.5 0 0 0-3 0v4.5l-8 5v2l8-2.5V18l-2.5 1.8V21L11.5 20l3.5 1v-1.2L12.5 18v-5z" />
+      </svg>
+    );
+  if (kind === "book_rides")
+    return (
+      <svg {...common} className="bk-ico bk-car">
+        <path d="M5 16V11l2-5h10l2 5v5M3.5 16h17M7 16v2.5M17 16v2.5M5 11h14" />
+        <circle cx="8" cy="13.5" r=".6" /><circle cx="16" cy="13.5" r=".6" />
+      </svg>
+    );
   if (status === "booked")
     return (
       <svg {...common} className="bk-ico bk-check">
@@ -98,6 +112,7 @@ const poll = async (id: string): Promise<CallState | null> => {
  */
 function LiveCall({
   id: first,
+  storeKey = null,
   active = true,
   action,
   alternates,
@@ -108,6 +123,8 @@ function LiveCall({
   onDone,
 }: {
   id: string | null;
+  /** Where this call's progress is kept, so leaving the trip and coming back never re-dials. */
+  storeKey?: string | null;
   /** Its turn to ring (demo calls go one at a time). */
   active?: boolean;
   action: Action;
@@ -118,7 +135,10 @@ function LiveCall({
   onWebsite: (url: string, title: string) => void;
   onDone: (ok: boolean) => void;
 }) {
-  const [legs, setLegs] = useState<Leg[]>([{ placeId: action.placeId, name: action.placeName ?? "the place", id: first, state: null, note: null }]);
+  const [legs, setLegs] = useState<Leg[]>(() => (storeKey ? keep<Leg[]>(`legs:${storeKey}`) : null) ?? [{ placeId: action.placeId, name: action.placeName ?? "the place", id: first, state: null, note: null }]);
+  useEffect(() => {
+    if (storeKey) keep(`legs:${storeKey}`, legs);
+  }, [legs, storeKey]);
   const [open, setOpen] = useState(false);
   const cur = legs[legs.length - 1];
   // A queued call places itself the moment its turn comes.
@@ -324,12 +344,15 @@ function Rescue({ action, phone, onGo }: { action: Action; phone: string | null;
 type Paid = { entryId: string; total: number; currency: string; ref: string };
 
 export default function BookingsLive({
+  runKey = null,
   actions,
   execute,
   running,
   places = {},
   onCalendar,
 }: {
+  /** The run this belongs to, so call progress, refunds and rescued rows survive leaving the trip. */
+  runKey?: string | null;
   actions: TripActionsOutput;
   execute: TripExecuteOutput | null;
   running: boolean;
@@ -349,14 +372,20 @@ export default function BookingsLive({
   const byId = new Map(actions.actions.map((a) => [a.id, a]));
   const results = execute?.results ?? [];
   const [browse, setBrowse] = useState<{ url: string; title: string } | null>(null);
-  const [calls, setCalls] = useState<Record<string, boolean>>({});
+  const [calls, setCalls] = useState<Record<string, boolean>>(() => (runKey ? keep<Record<string, boolean>>(`calls:${runKey}`) : null) ?? {});
   // Calls ring one at a time, in plan order.
   const queue = results.filter((r) => r.status === "calling" || r.status === "queued").map((r) => r.actionId);
   // A call only counts as done once it has actually connected and finished.
   const done = results.filter((r) => (r.status === "calling" || r.status === "queued" ? calls[r.actionId] === true : DONE.has(r.status))).length;
   const total = Math.max(1, results.length);
-  const [refunded, setRefunded] = useState<Record<string, boolean>>({});
-  const [rescued, setRescued] = useState<Record<string, { phone: string; paid: Paid | null }>>({});
+  const [refunded, setRefunded] = useState<Record<string, boolean>>(() => (runKey ? keep<Record<string, boolean>>(`refunded:${runKey}`) : null) ?? {});
+  const [rescued, setRescued] = useState<Record<string, { phone: string; paid: Paid | null }>>(() => (runKey ? keep<Record<string, { phone: string; paid: Paid | null }>>(`rescued:${runKey}`) : null) ?? {});
+  useEffect(() => {
+    if (!runKey) return;
+    keep(`calls:${runKey}`, calls);
+    keep(`refunded:${runKey}`, refunded);
+    keep(`rescued:${runKey}`, rescued);
+  }, [runKey, calls, refunded, rescued]);
   const failedCalls = Object.values(calls).filter((x) => x === false).length;
   return (
     <section className="bk" aria-live="polite">
@@ -389,7 +418,7 @@ export default function BookingsLive({
             if (!a) return null;
             return (
               <li key={r.actionId} className={`bk-row is-${r.status}`} style={{ ["--i" as string]: i }}>
-                <span className="bk-badge"><ChannelIcon channel={a.channel} status={r.status} /></span>
+                <span className="bk-badge"><ChannelIcon channel={a.channel} status={r.status} kind={a.kind} /></span>
                 <div className="bk-body">
                   <div className="bk-top">
                     <b>{a.title}</b>
@@ -404,7 +433,7 @@ export default function BookingsLive({
                         <small>Confirmation</small>
                         <code>{r.ref}</code>
                       </div>
-                      {a.price && (
+                      {a.price && !r.paid && (
                         <div>
                           <small>{/Backline Wallet/.test(r.message) ? "Paid from your wallet" : "Paid"}</small>
                           <strong>{Math.round(a.price.total).toLocaleString("en")} {a.price.currency}</strong>
@@ -412,12 +441,40 @@ export default function BookingsLive({
                       )}
                     </div>
                   )}
+                  {a.kind === "book_travel" && a.options?.length ? (
+                    <div className="bk-opts">
+                      <small>Compared {a.options.length} way{a.options.length === 1 ? "" : "s"} to get there</small>
+                      <ol>
+                        {a.options.map((o) => (
+                          <li key={o.title} className={o.best ? "is-best" : ""}>
+                            <span><b>{o.title}</b>{[o.duration, o.price].filter(Boolean).length ? <em>{[o.duration, o.price].filter(Boolean).join(" · ")}</em> : null}</span>
+                            {o.best ? <i>Chosen</i> : null}
+                            {o.url ? <button type="button" className="bk-fb" onClick={() => setBrowse({ url: o.url!, title: o.site ?? o.title })}>{o.site ?? "Open"}</button> : null}
+                          </li>
+                        ))}
+                      </ol>
+                    </div>
+                  ) : null}
+                  {a.kind === "book_rides" && a.rides?.length ? (
+                    <details className="bk-rides">
+                      <summary>Every ride, day by day</summary>
+                      <ol>
+                        {a.rides.map((x, k) => (
+                          <li key={k}>
+                            <span><small>Day {x.day + 1}</small><b>{x.from} → {x.to}</b><em>{Math.round(x.low)}–{Math.round(x.high)} {x.currency}</em></span>
+                            {x.url ? <a className="bk-fb" href={x.url} target="_blank" rel="noopener noreferrer">Open in {/uber/i.test(x.url) ? "Uber" : "app"}</a> : null}
+                          </li>
+                        ))}
+                      </ol>
+                    </details>
+                  ) : null}
                   {r.status === "needs_info" && a.channel === "call" && a.callOpening && !rescued[r.actionId] && (
                     <Rescue action={a} phone={me.phone ?? null} onGo={(phone, paid) => setRescued((m) => ({ ...m, [r.actionId]: { phone, paid } }))} />
                   )}
                   {rescued[r.actionId] && (
                     <LiveCall
                       id={null}
+                      storeKey={runKey ? `${runKey}:${r.actionId}:rescue` : null}
                       active
                       action={a}
                       alternates={alternatesFor(a.placeId)}
@@ -448,6 +505,7 @@ export default function BookingsLive({
                   {(r.status === "calling" || r.status === "queued") && (
                     <LiveCall
                       id={r.status === "calling" ? r.ref : null}
+                      storeKey={runKey ? `${runKey}:${r.actionId}` : null}
                       active={r.status === "calling" || queue.slice(0, queue.indexOf(r.actionId)).every((id) => calls[id] !== undefined)}
                       action={a}
                       alternates={alternatesFor(a.placeId)}

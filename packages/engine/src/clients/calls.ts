@@ -10,6 +10,8 @@ export type CallRequest = {
   businessName: string;
   firstMessage: string;
   instructions: string;
+  /** Hang up after this long (seconds); 300 by default. */
+  maxSeconds?: number;
 };
 export type CallOutcome = "live" | "talked" | "no_answer" | "busy" | "voicemail" | "no_audio" | "failed";
 export type CallStatus = {
@@ -111,7 +113,7 @@ export class VapiCaller implements CallPlacer {
       firstMessage: call.firstMessage,
       model: { provider: "openai", model: this.config.model || "gpt-4o-mini", temperature: 0.3, maxTokens: 160, messages: [{ role: "system", content: call.instructions }] },
       endCallFunctionEnabled: true,
-      maxDurationSeconds: 300,
+      maxDurationSeconds: Math.min(600, Math.max(30, call.maxSeconds ?? 300)),
       metadata: { app: "backline", owner: call.owner ?? null },
     };
     // Tuned for real phone lines: a transcriber that copes with accents and noise, quick turn-taking,

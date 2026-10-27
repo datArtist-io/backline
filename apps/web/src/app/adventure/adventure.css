@@ -234,8 +234,8 @@
 .eq-play.on .eq-ico svg { margin-left: 0; }
 
 /* days: a segmented control with one white thumb that slides, like the landing page's switch */
-.eq-days { position: relative; flex: 1; min-width: 0; display: flex; gap: 0; padding: 4px; overflow-x: auto; scrollbar-width: none; border-radius: 999px; background: rgba(16, 19, 43, 0.05); box-shadow: inset 0 1px 2px rgba(16, 19, 43, 0.08); isolation: isolate; }
-.eq-ink { position: absolute; left: 0; top: 4px; bottom: 4px; z-index: 0; border-radius: 999px; background: #fff; box-shadow: 0 1px 1px rgba(16, 19, 43, 0.06), 0 6px 16px -6px rgba(16, 19, 43, 0.3); transition: transform 0.55s var(--spring), width 0.55s var(--spring); pointer-events: none; }
+.eq-days { position: relative; flex: 1; min-width: 0; display: flex; gap: 0; padding: 4px; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; border-radius: 999px; background: rgba(16, 19, 43, 0.05); box-shadow: inset 0 1px 2px rgba(16, 19, 43, 0.08); isolation: isolate; }
+.eq-ink { position: absolute; left: 0; top: 4px; bottom: 4px; z-index: 0; border-radius: 999px; background: #fff; box-shadow: 0 1px 1px rgba(16, 19, 43, 0.06), 0 6px 16px -6px rgba(16, 19, 43, 0.3); transition: transform 0.5s cubic-bezier(.22,1,.36,1), width 0.5s cubic-bezier(.22,1,.36,1); pointer-events: none; }
 .eq-days button { --c: var(--violet); position: relative; z-index: 1; flex: none; display: grid; justify-items: start; gap: 1px; min-width: 104px; max-width: 220px; padding: 7px 16px 8px; border: 0; border-radius: 999px; background: transparent; text-align: left; color: var(--ink-soft); transition: color 0.3s var(--ease); }
 .eq-days button span { display: inline-flex; align-items: center; gap: 7px; font-size: 14px; font-weight: 700; }
 .eq-days button span::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--c); }
@@ -277,7 +277,7 @@
 /* While flying, the scenery gets the screen. */
 .eq-qloo, .eq-doors { transition: opacity 0.5s var(--ease), transform 0.6s var(--ease); }
 .eq.is-flying .eq-qloo { opacity: 0; transform: translateX(-40px); pointer-events: none; }
-.eq.is-flying .eq-doors { opacity: 0; pointer-events: none; }
+/* The menu stays usable while the trip plays: open the bookings, wallet or guide mid-flight. */
 .eq-earth[data-z="far"] .eq-pin { opacity: 0; pointer-events: none; }
 .eq-earth .eq-pin { transition: opacity 0.4s; }
 .eq-earth[data-z="city"] .eq-pin:not(.picked) { opacity: 0; pointer-events: none; }
@@ -1072,3 +1072,63 @@ button:hover .ki-stop .ki-plane, .eq-card:hover .ki-stop .ki-plane { animation: 
 .kyc-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 @media (max-width: 520px) { .wl-more { padding-left: 14px; } .wl-stats dd { font-size: 15px; } }
 @media (prefers-reduced-motion: reduce) { .wl-flip .wl-card { transition: none; } }
+
+/* Getting there: the ways compared, the chosen one marked */
+.bk-opts { margin-top: 10px; display: grid; gap: 6px; }
+.bk-opts > small, .bk-rides summary { font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; opacity: .75; }
+.bk-opts ol, .bk-rides ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.bk-opts li, .bk-rides li { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 12px; background: rgba(127,127,160,.08); }
+.bk-opts li.is-best { background: rgba(123,92,255,.14); box-shadow: inset 0 0 0 1px rgba(123,92,255,.35); }
+.bk-opts li > span, .bk-rides li > span { flex: 1; min-width: 0; display: grid; gap: 1px; }
+.bk-opts b, .bk-rides b { font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bk-opts em, .bk-rides em { font-style: normal; font-size: 12.5px; opacity: .78; }
+.bk-opts i { font-style: normal; font-size: 11.5px; font-weight: 700; padding: 3px 8px; border-radius: 999px; color: #fff; background: linear-gradient(135deg,#7b5cff,#ff4fa3); }
+.bk-rides { margin-top: 10px; }
+.bk-rides summary { cursor: pointer; padding: 4px 0; }
+.bk-rides small { font-size: 11.5px; opacity: .7; }
+.bk-plane { animation: bk-fly 3.2s ease-in-out infinite; }
+@keyframes bk-fly { 0%,100% { transform: translate(0,0) rotate(0); } 50% { transform: translate(2px,-2px) rotate(-6deg); } }
+@media (prefers-reduced-motion: reduce) { .bk-plane { animation: none; } }
+
+/* ---------- The payment slip: clean, grouped, never wider than the screen ---------- */
+.ck-scrim .ck { box-sizing: border-box; width: min(600px, 100%); max-height: min(90vh, 860px); padding: 0; display: flex; flex-direction: column; overflow: hidden; }
+.ck-scrim .ck * { box-sizing: border-box; min-width: 0; }
+.ck-head { padding: 22px 24px 8px; }
+.ck-head .cp-title { margin: 4px 0 6px; }
+.ck-head .muted { margin: 0; font-size: 14.5px; line-height: 1.5; }
+.ck-body { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 6px 24px 14px; overscroll-behavior: contain; }
+.ck-sum { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.ck-sum b, .ck-sum span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; }
+.ck-slip { display: grid; gap: 14px; margin: 12px 0 6px; }
+.ck-group h3 { display: flex; align-items: center; gap: 8px; margin: 0 0 6px; font-size: 12.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: #5a6070; }
+.ck-group h3 span { display: grid; place-items: center; width: 22px; height: 22px; border-radius: 7px; font-size: 12px; color: #fff; background: linear-gradient(135deg, #7b5cff, #ff4fa3); letter-spacing: 0; }
+.ck-group h3 b { margin-left: auto; color: #14171c; letter-spacing: 0; text-transform: none; font-size: 14px; }
+.ck-group ul, .ck-also ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.ck-row { width: 100%; display: grid; grid-template-columns: 20px minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 10px 12px; border: 0; border-radius: 12px; background: #f3f1ec; color: #14171c; text-align: left; font: inherit; cursor: pointer; transition: background .2s, opacity .2s; }
+.ck-row:hover { background: #ece9e1; }
+.ck-row:not(.on) { opacity: .55; }
+.ck-row:not(.on) em { text-decoration: line-through; }
+.ck-tick { width: 18px; height: 18px; border-radius: 6px; border: 1.5px solid #c7c1b2; background: #fff; transition: background .2s, border-color .2s; }
+.ck-row.on .ck-tick { border-color: transparent; background: linear-gradient(135deg, #7b5cff, #ff4fa3) center/100% no-repeat; box-shadow: inset 0 0 0 4px #fff0; }
+.ck-row.on .ck-tick::after { content: ""; display: block; width: 9px; height: 5px; margin: 5px 0 0 4px; border-left: 2px solid #fff; border-bottom: 2px solid #fff; transform: rotate(-45deg); }
+.ck-txt { display: grid; gap: 2px; }
+.ck-txt b { font-size: 14px; font-weight: 600; line-height: 1.35; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.ck-txt small { font-size: 12.5px; color: #5a6070; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ck-row em { font-style: normal; font-weight: 700; font-size: 14px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.ck-also { margin: 10px 0 4px; }
+.ck-also summary { cursor: pointer; font-size: 13.5px; font-weight: 600; color: #5a6070; padding: 4px 0; }
+.ck-scrim .me-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }
+.ck-scrim .me-row input { width: 100%; }
+.ck-foot { margin: 0; padding: 14px 24px 18px; border-top: 1px solid #e7e3d9; background: #fbfaf7; }
+@media (max-width: 520px) { .ck-head, .ck-body { padding-left: 16px; padding-right: 16px; } .ck-foot { padding: 12px 16px 16px; } }
+.ck .me-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }
+.ck .me-row input { width: 100%; min-width: 0; }
+.ck .me-hint { overflow-wrap: anywhere; }
+.ck-scrim .ck.checkpoint { box-shadow: 0 30px 80px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.8); animation: none; }
+@media (max-width: 520px) {
+  .ck-sum { gap: 6px; }
+  .ck-sum > div { padding: 8px 9px; }
+  .ck-sum b { font-size: 15px; }
+  .ck-sum span { font-size: 13px; }
+  .ck-sum b, .ck-sum span { white-space: nowrap; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+}

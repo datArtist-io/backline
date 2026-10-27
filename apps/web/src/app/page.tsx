@@ -9,6 +9,7 @@ import PromptBar from "./PromptBar";
 import Capabilities from "./Capabilities";
 import RecentSearches from "./RecentSearches";
 import TryPrompts from "./TryPrompts";
+import CallMeDemo from "./CallMeDemo";
 import { useMe } from "@/lib/auth-client";
 import GlassFilter from "./GlassFilter";
 import { Logo } from "./Logo";
@@ -23,6 +24,14 @@ export default function Landing() {
   const [mode, setMode] = useState<Autonomy>("auto");
   const [launching, setLaunching] = useState(false);
   const [hint, setHint] = useState(0);
+  // While the mode tip shows, it takes the chips' place instead of covering them.
+  const [tipOn, setTipOn] = useState(false);
+  useEffect(() => {
+    if (!hint) return;
+    setTipOn(true);
+    const t = setTimeout(() => setTipOn(false), 4600);
+    return () => clearTimeout(t);
+  }, [hint]);
 
   useEffect(() => {
     router.prefetch("/mission");
@@ -57,7 +66,7 @@ export default function Landing() {
       </header>
 
       <main>
-        <section className={`hero${launching ? " is-launching" : ""}`} aria-labelledby="hero-title">
+        <section className={`hero${launching ? " is-launching" : ""}${tipOn ? " tip-on" : ""}`} aria-labelledby="hero-title">
           <Background />
           <h1 id="hero-title" className="hero-title">
             <span className="hero-line">Say where.</span>
@@ -84,6 +93,7 @@ export default function Landing() {
           <TryPrompts onPick={(q) => go(q, [])} extra={<RecentSearches onPick={(q) => go(q, [])} />} />
         </section>
 
+        <CallMeDemo />
         <Capabilities />
       </main>
 

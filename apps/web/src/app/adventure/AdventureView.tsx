@@ -358,10 +358,19 @@ export default function AdventureView({
   // The day selector's indicator glides to the active day.
   useEffect(() => {
     const box = daysRef.current;
-    const el = box?.querySelector<HTMLElement>(`[data-day="${activeDay}"]`);
-    if (!box || !el) return setInk(null);
-    el.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "smooth" });
-    setInk({ x: el.offsetLeft, w: el.offsetWidth, c: typeof activeDay === "number" ? routes.find((r) => r.day === activeDay)?.color ?? "#ff3d9a" : "#ff3d9a" });
+    const measure = () => {
+      const el = box?.querySelector<HTMLElement>(`[data-day="${activeDay}"]`);
+      if (!box || !el) return setInk(null);
+      setInk({ x: el.offsetLeft, w: el.offsetWidth, c: typeof activeDay === "number" ? routes.find((r) => r.day === activeDay)?.color ?? "#ff3d9a" : "#ff3d9a" });
+      // Scroll only the strip (never the page) so the active day sits fully in view.
+      const left = el.offsetLeft - (box.clientWidth - el.offsetWidth) / 2;
+      box.scrollTo({ left: Math.max(0, left), behavior: "smooth" });
+    };
+    measure();
+    if (!box) return;
+    const ro = new ResizeObserver(measure);
+    ro.observe(box);
+    return () => ro.disconnect();
   }, [activeDay, routes, narrow, ready]);
   const shownMatch = useCountUp(model?.stats.match ?? null, ready);
 
