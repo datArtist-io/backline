@@ -1,0 +1,103 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>Backline launch film</title>
+<style>
+@font-face { font-family: "UB"; src: url(fonts/unbounded-latin-300-normal.woff2) format("woff2"); font-weight: 300; }
+@font-face { font-family: "UB"; src: url(fonts/unbounded-latin-400-normal.woff2) format("woff2"); font-weight: 400; }
+@font-face { font-family: "UB"; src: url(fonts/unbounded-latin-500-normal.woff2) format("woff2"); font-weight: 500; }
+@font-face { font-family: "UB"; src: url(fonts/unbounded-latin-600-normal.woff2) format("woff2"); font-weight: 600; }
+@font-face { font-family: "HG"; src: url(fonts/hanken-grotesk-latin-400-normal.woff2) format("woff2"); font-weight: 400; }
+@font-face { font-family: "HG"; src: url(fonts/hanken-grotesk-latin-500-normal.woff2) format("woff2"); font-weight: 500; }
+@font-face { font-family: "HG"; src: url(fonts/hanken-grotesk-latin-600-normal.woff2) format("woff2"); font-weight: 600; }
+@font-face { font-family: "HG"; src: url(fonts/hanken-grotesk-latin-700-normal.woff2) format("woff2"); font-weight: 700; }
+@font-face { font-family: "IS"; src: url(fonts/instrument-serif-latin-400-italic.woff2) format("woff2"); font-style: italic; }
+:root { --ink: #10132b; --soft: #5b5f7a; --violet: #7b5cff; --pink: #ff4fa3; --amber: #ffb547; --cyan: #38d3ff; --paper: #fbfaf7; }
+html, body { margin: 0; background: #000; }
+#stage { position: relative; width: 1920px; height: 1080px; overflow: hidden; background: #f4f2fb; font-family: HG, sans-serif; color: var(--ink); -webkit-font-smoothing: antialiased; }
+.abs { position: absolute; }
+.blob { position: absolute; border-radius: 50%; filter: blur(70px); opacity: 0.55; }
+/* open */
+#mark { position: absolute; left: 0; top: 0; }
+.bar { position: absolute; height: 40px; border-radius: 20px; background: linear-gradient(135deg, #ff4fa3, #7b5cff 55%, #38d3ff); }
+#word { position: absolute; font-family: UB; font-weight: 500; font-size: 150px; letter-spacing: -0.04em; white-space: nowrap; line-height: 1; }
+#word span { display: inline-block; }
+#pill { position: absolute; background: #0d0f22; overflow: hidden; display: grid; place-items: center; }
+#pillText { color: #fff; font-family: UB; font-weight: 400; font-size: 46px; letter-spacing: -0.03em; white-space: nowrap; }
+/* fly-over */
+#fly { position: absolute; inset: 0; perspective: 1500px; perspective-origin: 960px 420px; overflow: hidden; }
+#plane { position: absolute; left: 0; top: 0; width: 1440px; height: 2280px; transform-style: preserve-3d; }
+#plane .pg { position: absolute; inset: 0; background-size: 1440px 2280px; border-radius: 24px; }
+#plane .pg.blur { filter: blur(7px); }
+.piece { position: absolute; background-size: cover; transform-origin: 50% 100%; }
+/* shape */
+#shape { position: absolute; overflow: hidden; }
+.layer { position: absolute; inset: 0; }
+.mask { overflow: hidden; display: block; }
+.mask > span { display: inline-block; }
+/* prompt */
+.ph { position: absolute; left: 62px; top: 50%; transform: translateY(-50%); font-size: 44px; color: #8a8fa8; white-space: nowrap; }
+.typed { position: absolute; left: 62px; top: 50%; transform: translateY(-50%); font-size: 44px; color: var(--ink); white-space: nowrap; font-weight: 500; letter-spacing: -0.01em; }
+.caret { display: inline-block; width: 3px; height: 50px; margin-left: 3px; vertical-align: -8px; background: var(--violet); border-radius: 2px; }
+.ibtn { position: absolute; top: 50%; width: 92px; height: 92px; border-radius: 50%; transform: translateY(-50%); display: grid; place-items: center; }
+#switch { position: absolute; height: 72px; width: 420px; border-radius: 36px; background: rgba(255, 255, 255, 0.6); box-shadow: inset 0 0 0 1px rgba(16, 19, 43, 0.08), 0 20px 40px -24px rgba(16, 19, 43, 0.4); }
+#switch .lbl { position: absolute; top: 0; height: 72px; line-height: 72px; width: 210px; text-align: center; font-size: 25px; font-weight: 700; }
+#thumb { position: absolute; top: 6px; height: 60px; border-radius: 30px; background: #fff; box-shadow: 0 8px 18px -8px rgba(16, 19, 43, 0.45); }
+/* taste */
+.row { position: absolute; left: 64px; right: 64px; height: 96px; border-radius: 26px; background: rgba(255, 255, 255, 0.06); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08); display: flex; align-items: center; gap: 22px; padding: 0 30px; box-sizing: border-box; color: #fff; }
+.row .k { font-size: 20px; color: #a9acc9; width: 170px; }
+.row .v { font-size: 30px; font-weight: 600; flex: 1; }
+.row .s { font-family: UB; font-size: 34px; font-weight: 500; background: linear-gradient(90deg, #b9a8ff, #ff8bc5); -webkit-background-clip: text; background-clip: text; color: transparent; font-variant-numeric: tabular-nums; }
+.chip { position: absolute; height: 56px; padding: 0 26px; border-radius: 28px; font-size: 24px; font-weight: 600; line-height: 56px; white-space: nowrap; }
+/* plan */
+.stop { position: absolute; left: 120px; height: 66px; display: flex; align-items: center; gap: 22px; font-size: 27px; }
+.stop .tm { width: 90px; color: var(--soft); font-variant-numeric: tabular-nums; font-weight: 600; }
+.stop .dt { width: 20px; height: 20px; border-radius: 50%; }
+.stop .rk { font-family: UB; font-size: 20px; color: #7b5cff; margin-left: 10px; }
+/* slip */
+.grp { position: absolute; left: 56px; right: 56px; font-size: 16px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #8b8f9e; }
+.line { position: absolute; left: 56px; right: 56px; height: 50px; border-radius: 16px; background: #f2f0ea; display: flex; align-items: center; gap: 18px; padding: 0 18px; box-sizing: border-box; font-size: 21px; }
+.line .t { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 600; }
+.line .a { font-variant-numeric: tabular-nums; font-weight: 700; }
+.tick { width: 26px; height: 26px; border-radius: 50%; flex: none; position: relative; }
+/* call */
+.bub { position: absolute; max-width: 600px; padding: 18px 24px; border-radius: 26px; font-size: 25px; line-height: 1.35; }
+/* cursor */
+#cursor { position: absolute; left: 0; top: 0; width: 44px; height: 44px; z-index: 50; transform-origin: 6px 4px; }
+#ripple { position: absolute; border-radius: 50%; border: 3px solid rgba(123, 92, 255, 0.6); z-index: 49; }
+/* end */
+#end { position: absolute; inset: 0; }
+.ttl { position: absolute; left: 0; right: 0; text-align: center; white-space: nowrap; }
+.w { display: inline-block; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div class="blob" id="b1" style="width:900px;height:900px;background:#c9b8ff"></div>
+  <div class="blob" id="b2" style="width:700px;height:700px;background:#ffc6e4"></div>
+  <div class="blob" id="b3" style="width:620px;height:620px;background:#bfe9ff"></div>
+
+  <div id="fly"><div id="plane"><div class="pg" id="pgSharp"></div><div class="pg blur" id="pgBlur"></div></div></div>
+
+  <div id="open">
+    <div id="mark"><div class="bar" id="bar0"></div><div class="bar" id="bar1"></div><div class="bar" id="bar2"></div></div>
+    <div id="word"></div>
+    <div id="pill"><div id="pillText" class="mask"><span>Say where.</span></div></div>
+  </div>
+
+  <div id="switch"><div id="thumb"></div><div class="lbl" style="left:0">Check with me</div><div class="lbl" style="left:210px">Just do it</div></div>
+  <div id="shape"></div>
+  <div id="toast" class="abs"></div>
+  <div id="end"></div>
+  <div id="ripple"></div>
+  <svg id="cursor" viewBox="0 0 44 44"><path d="M6 4 L6 34 L14 26 L20 39 L26 36.5 L20 24 L31 24 Z" fill="#10132b" stroke="#fff" stroke-width="2.4" stroke-linejoin="round"/></svg>
+</div>
+<script src="d3-array.min.js"></script>
+<script src="d3-geo.min.js"></script>
+<script src="topojson-client.min.js"></script>
+<script src="core.js"></script>
+<script src="data.js"></script>
+<script src="scenes.js"></script>
+</body>
+</html>
