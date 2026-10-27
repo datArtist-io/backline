@@ -13,6 +13,7 @@ create table if not exists public.wallet_entries (
   original_currency text check (char_length(original_currency) = 3),
   label             text not null check (char_length(label) between 1 and 200),
   ref               text check (char_length(ref) <= 120),
+  details           jsonb not null default '{}'::jsonb,                -- receipt: business, date, party, address, trip
   created_at        timestamptz not null default now(),
   updated_at        timestamptz not null default now()
 );
@@ -50,16 +51,17 @@ begin
 end $$;
 
 -- Hold a payment if the balance covers it. Returns the entry id, or null when funds are short.
-create or replace function public.wallet_hold(amount_minor bigint, label text, original_amount numeric default null, original_currency text default null) returns uuid
+create or replace function public.wallet_hold(amount_minor bigint, label text, original_amount numeric default null, original_currency text default null, details jsonb default '{}'::jsonb) returns uuid
 language plpgsql security definer set search_path = public as $$
 declare entry uuid;
 begin
   if auth.uid() is null then raise exception 'not signed in'; end if;
   if amount_minor <= 0 or amount_minor > 5000000 then raise exception 'amount out of range'; end if;
+  if pg_column_size(details) > 4000 then raise exception 'details too large'; end if;
   perform pg_advisory_xact_lock(hashtext(auth.uid()::text));
   if public.wallet_balance() < amount_minor then return null; end if;
-  insert into public.wallet_entries (user_id, kind, status, amount_minor, label, original_amount, original_currency)
-    values (auth.uid(), 'payment', 'held', amount_minor, left(label, 200), original_amount, upper(original_currency))
+  insert into public.wallet_entries (user_id, kind, status, amount_minor, label, original_amount, original_currency, details)
+    values (auth.uid(), 'payment', 'held', amount_minor, left(label, 200), original_amount, upper(original_currency), coalesce(details, '{}'::jsonb))
     returning id into entry;
   return entry;
 end $$;
@@ -70,14 +72,21 @@ language sql security definer set search_path = public as $$
   where id = entry and user_id = auth.uid() and status = 'held';
 $$;
 
+-- Refund a paid booking that couldn't go ahead (the place couldn't take it).
+create or replace function public.wallet_refund(entry uuid) returns void
+language sql security definer set search_path = public as $$
+  update public.wallet_entries set status = 'void', updated_at = now(), details = details || '{"refunded": true}'::jsonb
+  where id = entry and user_id = auth.uid() and kind = 'payment' and status in ('held', 'paid');
+$$;
+
 create or replace function public.wallet_release(entry uuid) returns void
 language sql security definer set search_path = public as $$
   update public.wallet_entries set status = 'void', updated_at = now()
   where id = entry and user_id = auth.uid() and status = 'held';
 $$;
 
-revoke all on function public.wallet_balance(), public.wallet_topup(bigint), public.wallet_hold(bigint, text, numeric, text), public.wallet_capture(uuid, text), public.wallet_release(uuid) from public, anon;
-grant execute on function public.wallet_balance(), public.wallet_topup(bigint), public.wallet_hold(bigint, text, numeric, text), public.wallet_capture(uuid, text), public.wallet_release(uuid) to authenticated;
+revoke all on function public.wallet_balance(), public.wallet_topup(bigint), public.wallet_hold(bigint, text, numeric, text, jsonb), public.wallet_capture(uuid, text), public.wallet_release(uuid), public.wallet_refund(uuid) from public, anon;
+grant execute on function public.wallet_balance(), public.wallet_topup(bigint), public.wallet_hold(bigint, text, numeric, text, jsonb), public.wallet_capture(uuid, text), public.wallet_release(uuid), public.wallet_refund(uuid) to authenticated;
 
 -- Identity checks (KYC) with Persona: which inquiry belongs to whom. The result itself is always read
 -- from Persona's API on the server, never trusted from this table or the browser.
