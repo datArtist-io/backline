@@ -113,6 +113,28 @@ export function shapeTravel(raw: z.infer<typeof rawSchema>, sources: WebResult[]
   return { options: top, used: [...used].map((id) => byId.get(id)!) };
 }
 
+/** Hours in "3 hours 30 minutes", "7h 30m", "7–8 h", "around 8 hrs"; null if none. Pure. */
+export function hoursIn(d: string): number | null {
+  const h = d.match(/(\d+(?:\.\d+)?)\s*(?:[-–]\s*(\d+(?:\.\d+)?)\s*)?(?:h\b|hrs?\b|hours?\b)/i);
+  const m = d.match(/(\d+)\s*(?:m\b|mins?\b|minutes?\b)/i);
+  if (!h && !m) return null;
+  const hrs = h ? (h[2] ? (Number(h[1]) + Number(h[2])) / 2 : Number(h[1])) : 0;
+  return hrs + (m ? Number(m[1]) / 60 : 0);
+}
+
+/**
+ * A flight time that can't be right for the distance (a source mixing up legs, or a typo) is replaced
+ * by an honest estimate from the distance, so "New York → Paris · 3 h 30" never shows. Pure.
+ */
+export function checkedDuration(mode: string, duration: string | null, km: number | null): string | null {
+  if (mode !== "flight" || !km || km < 300) return duration;
+  const expect = km / 820 + 0.5;
+  const said = duration ? hoursIn(duration) : null;
+  if (said != null && said >= expect * 0.7 && said <= expect * 1.9) return duration;
+  const h = Math.floor(expect), mins = Math.round(((expect - h) * 60) / 15) * 15;
+  return `about ${h} h${mins ? ` ${mins} min` : ""} (estimate)`;
+}
+
 async function search(ctx: Parameters<NonNullable<Skill["run"]>>[0], q: string): Promise<WebResult[]> {
   if (!ctx.web) return [];
   try {
@@ -192,7 +214,7 @@ export const tripTravel: Skill<BriefInput, TripTravelOutput> = {
       const shaped = shapeTravel(rawSchema.parse(raw), sources);
       ctx.progress?.({ kind: "saw", id: "tr.find", tool: "travel", ok: shaped.options.length > 0, text: shaped.options.length ? `${shaped.options.length} ways to get there` : "No reliable options found", ms: Date.now() - t0, by: "autopilot" });
       return {
-        data: { origin, destination: t.destination, km, from, to, options: shaped.options, gaps: shaped.options.length ? [] : ["How to get there"] },
+        data: { origin, destination: t.destination, km, from, to, options: shaped.options.map((o) => ({ ...o, duration: checkedDuration(o.mode, o.duration, km) })), gaps: shaped.options.length ? [] : ["How to get there"] },
         evidence: shaped.used.map((s) => webEvidence(s)),
         notes: [],
       };
