@@ -29,6 +29,7 @@ import { localCurrency } from "@/lib/wallet";
 import { DIAL, underDailyCap } from "@/lib/demo-calls";
 import { loadWallet, walletFor } from "@/lib/wallet";
 import { kycConfigured, kycFor } from "@/lib/kyc";
+import { saidOrigin } from "@/lib/origin";
 import { clientIp, rateLimiter } from "@/lib/rate-limit";
 import { getSession } from "@/lib/session";
 import { supabaseConfig } from "@/lib/supabase";
@@ -190,6 +191,9 @@ export async function POST(req: Request) {
           );
           // Where they're travelling from, so getting there, fares and the journey in are never blank:
           // what they said, else their home city, else the city their connection comes from (said so).
+          // A starting city only counts if the person actually said it (or it's their saved home city):
+          // the model must never guess one, or every judge would "fly from" somewhere they're not.
+          if (plan.trip?.origin && !saidOrigin(plan.trip.origin, body.goal ?? "", profile.homeCity ?? null)) plan.trip.origin = null;
           if (plan.trip && !plan.trip.origin) {
             const from = profile.homeCity?.trim() || cityFromRequest(req);
             if (from) {
@@ -385,7 +389,7 @@ function cityFromRequest(req: Request): string | null {
   };
   const city = dec(h.get("x-vercel-ip-city"));
   const country = dec(h.get("x-vercel-ip-country"));
-  if (!city) return null;
+  if (!city && !country) return null;
   let countryName = country;
   try {
     countryName = country ? (new Intl.DisplayNames(["en"], { type: "region" }).of(country) ?? country) : "";
@@ -394,6 +398,7 @@ function cityFromRequest(req: Request): string | null {
   }
   return [city, countryName].filter(Boolean).join(", ").slice(0, 80);
 }
+
 
 /** The plan the person reviewed (days and hotel), from a sealed or remembered run. */
 function previousPlan(results: Record<string, SkillResult<unknown>>) {
