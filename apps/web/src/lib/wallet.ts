@@ -4,7 +4,7 @@ import { rest } from "./supabase";
 import type { Session } from "./session";
 
 export type WalletEntry = { id: string; kind: "topup" | "payment"; status: "credited" | "held" | "paid" | "void"; amount_minor: number; original_amount: number | null; original_currency: string | null; label: string; ref: string | null; details: Record<string, unknown>; created_at: string };
-export type Wallet = { ready: boolean; balance: number; entries: WalletEntry[]; currency: string; perUsd: number };
+export type Wallet = { ready: boolean; balance: number; entries: WalletEntry[]; currency: string; perUsd: number; rates: Record<string, number> };
 
 /** The currency people pay in, by country (from their connection) when they haven't chosen one. */
 const COUNTRY_CURRENCY: Record<string, string> = {
@@ -33,9 +33,9 @@ export async function loadWallet(s: Session, currency = "USD"): Promise<Wallet> 
       rpc<number>(s, "wallet_balance"),
       rest<WalletEntry[]>(s.cfg, s.accessToken, "wallet_entries?select=id,kind,status,amount_minor,original_amount,original_currency,label,ref,details,created_at&order=created_at.desc&limit=50"),
     ]);
-    return { ready: true, balance: Number(balance) || 0, entries, currency: shown, perUsd: per ?? 1 };
+    return { ready: true, balance: Number(balance) || 0, entries, currency: shown, perUsd: per ?? 1, rates: (await usdRates()) ?? { USD: 1 } };
   } catch (err) {
-    if (/404|PGRST202|PGRST205|does not exist/i.test(String(err))) return { ready: false, balance: 0, entries: [], currency: "USD", perUsd: 1 };
+    if (/404|PGRST202|PGRST205|does not exist/i.test(String(err))) return { ready: false, balance: 0, entries: [], currency: "USD", perUsd: 1, rates: { USD: 1 } };
     throw err;
   }
 }
@@ -56,6 +56,13 @@ async function usdRates(): Promise<Record<string, number> | null> {
     /* keep the last rates */
   }
   return fx?.usd ?? null;
+}
+
+/** Units of a currency per US dollar, or null when the rate isn't known. */
+export async function perUsd(currency: string): Promise<number | null> {
+  const c = currency.toUpperCase();
+  if (c === "USD") return 1;
+  return (await usdRates())?.[c] ?? null;
 }
 
 /** An amount in any currency as US cents, or null when the rate isn't known. */

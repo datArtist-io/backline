@@ -907,7 +907,14 @@ export const tripExecute: Skill<BriefInput, TripExecuteOutput> = {
           // Approved trips are prepaid from the wallet; the agent settles with the business on the call.
           const paid = await prepay(ctx, a, input);
           if (paid && "reason" in paid) return { actionId: a.id, status: "needs_info", ref: null, message: paid.reason };
-          const started = await ctx.calls.start({ to: (demo ?? a.to)!, owner: ctx.userId ?? null, businessName: a.placeName ?? "the business", firstMessage: a.callOpening, instructions: callInstructions(a, profile.name ?? "my client") }, ctx.signal);
+          let started: { id: string };
+          try {
+            started = await ctx.calls.start({ to: (demo ?? a.to)!, owner: ctx.userId ?? null, businessName: a.placeName ?? "the business", firstMessage: a.callOpening, instructions: callInstructions(a, profile.name ?? "my client") }, ctx.signal);
+          } catch (err) {
+            // The call never went out, so the prepayment goes straight back.
+            if (paid && "entryId" in paid) await ctx.wallet?.refund?.(paid.entryId).catch(() => undefined);
+            throw err;
+          }
           return {
             actionId: a.id,
             status: "calling",

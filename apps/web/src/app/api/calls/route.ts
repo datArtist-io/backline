@@ -5,6 +5,7 @@ import { callInstructions, createContext, toE164 } from "@backline/engine";
 import { clientIp, rateLimiter } from "@/lib/rate-limit";
 import { getSession } from "@/lib/session";
 import { DIAL, underDailyCap } from "@/lib/demo-calls";
+import { loadAccount } from "@/lib/account";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -31,7 +32,9 @@ export async function POST(req: Request) {
   const ctx = createContext(process.env, { signal: req.signal });
   if (!ctx.calls) return Response.json({ error: "Calling isn't connected." }, { status: 503 });
   const cc = DIAL[(req.headers.get("x-vercel-ip-country") ?? "").toUpperCase()];
-  const target = ctx.callsLive ? toE164(b.to ?? null, cc) : toE164(b.phone ?? null, cc);
+  // Demo calls ring the person's own phone: the one saved on their account wins over anything sent.
+  const saved = ctx.callsLive ? null : await loadAccount(session).then((a) => a.profile.phone ?? null).catch(() => null);
+  const target = ctx.callsLive ? toE164(b.to ?? null, cc) : toE164(saved ?? b.phone ?? null, cc);
   if (!target) return Response.json({ error: ctx.callsLive ? "That place has no phone number." : "Add your phone number for the demo call." }, { status: 400 });
   if (!ctx.callsLive && !underDailyCap(session.user.id)) return Response.json({ error: "That's today's demo calls used up." }, { status: 429 });
   const client = b.client?.trim() || session.user.name || "my client";

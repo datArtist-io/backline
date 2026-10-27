@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import "../adventure/adventure.css";
 
 type Entry = { id: string; kind: "topup" | "payment"; status: "credited" | "held" | "paid" | "void"; amount_minor: number; original_amount: number | null; original_currency: string | null; label: string; ref: string | null; details?: Record<string, unknown>; created_at: string };
-type W = { ready: boolean; balance: number; entries: Entry[]; currency: string; perUsd: number };
+type W = { ready: boolean; balance: number; entries: Entry[]; currency: string; perUsd: number; rates?: Record<string, number> };
 
 /** US cents shown in the person's own currency. */
 const moneyIn = (w: Pick<W, "currency" | "perUsd">) => (cents: number) =>
@@ -40,6 +40,7 @@ export function useWallet() {
       const c = currency ?? pick();
       const r = await fetch(`/api/wallet${c ? `?currency=${c}` : ""}`, { cache: "no-store" });
       const d = await r.json();
+      if (r.status === 401) setW(null);
       if (!r.ok) throw new Error(d.error);
       setW(d);
       setErr(null);
@@ -62,10 +63,15 @@ export default function WalletPanel() {
   const [filter, setFilter] = useState<Filter>("all");
   const [open, setOpen] = useState<string | null>(null);
   const [showAll, setShowAll] = useState(false);
+  // Keep the balance live while the wallet is open and the person is signed in; stop once they're not.
+  const live = Boolean(w?.ready);
   useEffect(() => {
-    const t = setInterval(() => load(), 8000);
+    if (!live) return;
+    const t = setInterval(() => {
+      if (document.visibilityState === "visible") load();
+    }, 8000);
     return () => clearInterval(t);
-  }, [load]);
+  }, [load, live]);
 
   const entries = useMemo(() => {
     const all = w?.entries ?? [];

@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
   const s = await getSession();
-  if (!s) return Response.json({ searches: [] }, { status: 401 });
+  if (!s) return Response.json({ searches: [], signedIn: false });
   const limit = Number(new URL(req.url).searchParams.get("limit") ?? 30) || 30;
   try {
     return Response.json({ searches: await loadSearches(s, limit) });

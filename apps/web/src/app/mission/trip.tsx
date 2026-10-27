@@ -475,10 +475,18 @@ export function ActionsCheckpoint({
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
   // Everything the agent will pay for, in the person's own currency (prices are quoted in USD or the place's currency).
-  const local = (n: number, c: string) => (c === "USD" ? Math.round(n * 100) : null);
+  // Every amount as US cents (the wallet's unit), at the day's rate.
+  const local = (n: number, c: string) => {
+    const per = c.toUpperCase() === "USD" ? 1 : w?.rates?.[c.toUpperCase()];
+    return per ? Math.round((n / per) * 100) : null;
+  };
   const paid = actions.filter((a) => picked.includes(a.id) && a.mode === "auto" && a.price && (a.channel === "reserve" || a.channel === "call"));
   const totalUsdCents = paid.reduce((n, a) => n + (local(a.price!.total, a.price!.currency) ?? 0), 0);
-  const show = (a: TripAction) => (a.price ? (w && a.price.currency === "USD" ? walletMoney(w)(a.price.total * 100) : money(a.price.total, a.price.currency)) : null);
+  const show = (a: TripAction) => {
+    if (!a.price) return null;
+    const cents = w ? local(a.price.total, a.price.currency) : null;
+    return w && cents != null ? walletMoney(w)(cents) : money(a.price.total, a.price.currency);
+  };
   const short = w && w.ready && totalUsdCents > w.balance;
   const body = (
     <div className="ck-scrim" role="presentation">

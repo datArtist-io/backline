@@ -1010,7 +1010,8 @@ button:hover .ki-stop .ki-plane, .eq-card:hover .ki-stop .ki-plane { animation: 
 
 /* ---- Wallet, refined: card and controls side by side, a balance that always fits ---- */
 .wl-top { display: grid; gap: 20px; align-items: stretch; }
-@media (min-width: 760px) { .wl-top { grid-template-columns: minmax(300px, 420px) minmax(0, 1fr); } }
+.wl { container-type: inline-size; }
+@container (min-width: 720px) { .wl-top { grid-template-columns: minmax(300px, 420px) minmax(0, 1fr); } }
 .wl-card { container-type: inline-size; width: 100%; max-width: 420px; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto 1fr auto; }
 .wl-card-top { min-width: 0; gap: 10px; }
 .wl-brand { white-space: nowrap; }

@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import type { TripActionsOutput, TripExecuteOutput } from "@backline/engine";
 import MiniBrowser from "./MiniBrowser";
 import { loadProfile, saveProfile } from "@/lib/profile";
+import { loadDetails, saveDetails } from "@/lib/auth-client";
 
 type Action = TripActionsOutput["actions"][number];
 type Result = TripExecuteOutput["results"][number];
@@ -299,11 +300,10 @@ function Rescue({ action, phone, onGo }: { action: Action; phone: string | null;
         if (!r.ok) throw new Error(d.error);
         paid = d;
       }
-      try {
-        saveProfile({ ...loadProfile(), phone: p.trim() });
-      } catch {
-        /* the number is still used for this call */
-      }
+      // Keep the number on the account too, so every later demo call rings the same phone.
+      await loadDetails(true)
+        .then((cur) => saveDetails({ ...cur, phone: p.trim() }, true))
+        .catch(() => saveProfile({ ...loadProfile(), phone: p.trim() }));
       onGo(p.trim(), paid);
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Couldn't start that.");

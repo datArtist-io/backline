@@ -2,7 +2,7 @@
 import { getSession } from "@/lib/session";
 import { rest } from "@/lib/supabase";
 import { loadAccount } from "@/lib/account";
-import { localCurrency, toUsdCents, type WalletEntry } from "@/lib/wallet";
+import { localCurrency, perUsd, type WalletEntry } from "@/lib/wallet";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -16,10 +16,11 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   const e = rows[0];
   if (!e) return Response.json({ error: "Receipt not found." }, { status: 404 });
   const profile = await loadAccount(s).then((a) => a.profile).catch(() => ({ currency: undefined, name: undefined }));
-  const currency = localCurrency(profile.currency, req.headers.get("x-vercel-ip-country"));
-  const unit = (await toUsdCents(1, currency)) ?? 100;
+  const wanted = localCurrency(profile.currency, req.headers.get("x-vercel-ip-country"));
+  const per = await perUsd(wanted);
+  const currency = per ? wanted : "USD";
   return Response.json(
-    { entry: e, payer: { name: profile.name ?? s.user.name, email: s.user.email }, local: { currency, amount: Math.round((e.amount_minor / unit) * 100) / 100 } },
+    { entry: e, payer: { name: profile.name ?? s.user.name, email: s.user.email }, local: { currency, amount: Math.round((e.amount_minor / 100) * (per ?? 1) * 100) / 100 } },
     { headers: { "Cache-Control": "no-store" } }
   );
 }
