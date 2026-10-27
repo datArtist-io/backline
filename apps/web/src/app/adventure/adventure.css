@@ -667,3 +667,21 @@ button:hover .ki-stop .ki-plane, .eq-card:hover .ki-stop .ki-plane { animation: 
   .eq-overlay { padding: 12px; align-items: end; }
   .eq-overlay > * { max-height: calc(100svh - 24px); }
 }
+
+/* ---- Readability pass: every text at least WCAG AA (4.5:1 body, 3:1 large) ---- */
+.eq { --ink-faint: #6b7090; }
+.eq[data-theme="dark"] { --ink-faint: #a3a9c6; }
+.eq .eq-sheet, .eq .eq-overlay { --violet: #5a3ee6; }
+.eq .eq-days button small { color: var(--ink-soft); font-size: 12px; }
+.eq .eq-x { color: #10132b; background: #fff; }
+.eq .day-n { color: #5a3ee6; }
+.eq .lane-rank { color: color-mix(in srgb, var(--lane) 62%, #10132b); }
+.eq .lane-book, .eq .lane-dot { background: color-mix(in srgb, var(--lane, var(--c)) 78%, #10132b); }
+.eq .lane-dot { background: color-mix(in srgb, var(--c) 78%, #10132b); }
+.eq .travel-link { background: #1d7f4a; }
+.eq .travel-link + .travel-link { background: #10132b; }
+.eq .export-btn.primary { background: linear-gradient(135deg, #5a3ee6, #d1306f); }
+/* Comfortable reading inside sheets: body 15px, generous line height, nothing tiny */
+.eq .eq-sheet { font-size: 15px; line-height: 1.6; }
+.eq .eq-sheet small, .eq .eq-sheet .muted.small { font-size: 12.5px; }
+.eq .eq-sheet .cp-detail { font-size: 14px; }
