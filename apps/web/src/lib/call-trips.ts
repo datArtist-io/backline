@@ -21,10 +21,12 @@ export async function backlineNumber(): Promise<string | null> {
   if (!vapiReady()) return null;
   if (Date.now() - numberCache.at < 5 * 60_000) return numberCache.number;
   const list = await vapi<Record<string, unknown>[]>("/phone-number?limit=50").catch(() => null);
-  const hit = list?.find((p) => {
+  const ours = (list ?? []).filter((p) => {
     const url = String((p.server as { url?: string } | undefined)?.url ?? p.serverUrl ?? "");
     return url.includes(INBOUND_PATH) && typeof p.number === "string";
   });
+  // A carrier number (Telnyx, Twilio) takes calls from anywhere; Vapi's free numbers are US-only.
+  const hit = ours.find((p) => p.provider !== "vapi") ?? ours[0];
   numberCache = { at: Date.now(), number: (hit?.number as string | undefined) ?? null };
   return numberCache.number;
 }
