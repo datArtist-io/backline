@@ -176,7 +176,7 @@ The checks run against live Missions, their findings and the resulting fixes are
 
 16.4 Demo calls are capped per person per day.
 
-## 17. Backline Wallet (test funds)
+## 17. Backline Wallet (demo balance)
 
 17.1 Each person has a ledger (`wallet_entries`, migration 0006). They can read it; every change goes through database functions that check the caller, cap top-ups ($1,000 at a time, $2,000 a day) and check the balance under a per-person lock.
 
@@ -191,3 +191,29 @@ The checks run against live Missions, their findings and the resulting fixes are
 18.1 When `PERSONA_API_KEY` and `NEXT_PUBLIC_PERSONA_TEMPLATE_ID` are set, paid bookings (flights, hotel rooms) wait until the traveller is verified.
 
 18.2 Verification runs in Persona's embedded flow with the account id as the reference. The server records the inquiry id only after confirming with Persona's API that the inquiry was made for this account, and reads the result from Persona each time (cached for one minute). The browser's word is never trusted.
+
+## 19. One-tap trip checkout
+
+19.1 Every trip stops once for approval, in both modes. When the plan is ready, a centred checkout opens by itself ("Just do it" after about a second, "Check with me" after the landing settles). It lists each booking with its amount, the total in the traveller's currency, and the wallet balance before and after. **Approve & pay** books everything; **Take a look first** returns to the trip to vet and adjust it (section 14). Approval is sealed to the exact plan shown (section 6).
+
+19.2 Approved reservations and stays are prepaid from the wallet before the agent calls to confirm. Amounts for calls are estimates from the place's price level (meals per person by level, rooms per night by tier), stated as such; live hotel and flight rates are the provider's price. Each payment is held and captured in the database with a receipt's details (place, when, party, trip, reference).
+
+19.3 Calls then go one at a time, day by day, until every booking is done. If no place can take a booking (the first choice and up to three of Qloo's next best of the same kind), its payment is refunded to the wallet automatically (`wallet_refund`) and the row says so.
+
+19.4 A booking that stopped for a missing phone number shows a phone field and **Pay & call me** on its row; it pays (`/api/wallet/pay`) and places the call there and then.
+
+19.5 Every payment has a receipt at `/receipt/<id>`: amount in the traveller's currency, the amount charged by the business, place, dates, guests, booking reference, cancellation terms, payer and receipt number; printable or saved as PDF. Row-level security keeps each receipt to its owner.
+
+19.6 Each live booking shows the hand-off (you → your agent → the business, with the payment and the call) and the call as a conversation.
+
+## 20. Traveller record and identity
+
+20.1 The account keeps the details airlines and hotels ask for, grouped and collapsible: legal first, middle and last name; contact; date of birth, gender, nationality, residence, language; home address; emergency contact; seat, meal, loyalty programmes, accessibility needs, dietary needs and hotel preferences; taste. Flights and hotels use the legal first and last name when given.
+
+20.2 The passport is stored encrypted (TRAVEL_DOCS_KEY) and used only to issue tickets. Identity verification (section 18) has its own section under Wallet & ID, always visible; it opens Persona's flow when Persona is configured.
+
+## 21. Currency and starting point
+
+21.1 Prices, budgets and the wallet are in the traveller's own currency: the one they chose, else the currency of the country they're connecting from (Vercel's IP country). A currency named in the request wins for that trip.
+
+21.2 The journey starts from where the traveller is: what they said, else their home city, else the city they're connecting from, stated on the trip so they can change it.

@@ -48,6 +48,11 @@ Live Missions run against production (`backline-beta-one.vercel.app`), what was 
 | V33 | Lagos dinner | Taste | Request names afrobeats and suya | **"Because you love Drake"** from an older trip | Request likes lead; saved likes only fill in when none are named |
 | V34 | Any trip, tab in background | Camera | — | **Stuck on the globe** | Lands in the city when the tab is shown again |
 | V35 | Site check | Hilton, example.com, a missing domain, 127.0.0.1, OpenTable | Live | Live / live and framable / "doesn't exist" / refused / "slow, couldn't confirm" | — |
+| V36 | Tokyo, auto | "That's the trip" popup | — | **Off-centre**: the entry animation's transform overrode the centring | Centred with `translate`, which animations don't override |
+| V37 | Tokyo, auto | Pause button while playing | — | **White on white** label on the dark bar | Dark glass with a purple ring and white label |
+| V38 | Wallet, NGN | Balance on the card | ₦27,198,238 | **Cut off**, currency pill clipped | Fits at any width (container-sized), narrow symbol |
+| V39 | NYC, auto | Bookings | All reservations | **One booked**, rows needing a phone not actionable | Checkout approves all; each prepaid; phone + "Pay & call me" on the row |
+| V40 | Checkout | Wallet short | — | — | Approve disabled with a clear message; nothing paid |
 
 ## Automated tests
 
@@ -57,6 +62,7 @@ Live Missions run against production (`backline-beta-one.vercel.app`), what was 
 - `apps/web/test/adventure.test.ts`: world model geography (airport north of Alfama, Belém west), route coordinates within the city, Qloo zone and heat bounds.
 - `packages/engine/test/booking.test.ts` (calls fail closed): no business is dialled without the live switch; the demo line replaces the business.
 - `apps/web/test/run-seal.test.ts`: a sealed plan round-trips exactly; tampered, foreign and expired seals are rejected.
+- `packages/engine/test/booking.test.ts` (prepaid from the wallet): a reservation is held, captured with a BL reference and returned with its receipt before the call; a short wallet stops the call with a clear message.
 - `apps/web/test/place-in.test.ts`: destination read from the request ("…TO LONDON FOR ME…" → London).
 
-Run all: `npm test` (engine 265, web 20 at time of writing).
+Run all: `npm test` (engine 282, web 25 at time of writing).

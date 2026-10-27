@@ -2,9 +2,17 @@
 
 ## 2026-10-27
 
+### Checkout, wallet and identity
+- One-tap trip checkout: approve the whole trip once; each booking prepaid from the wallet, confirmed one call at a time, refunded automatically if no place can take it.
+- Receipts for every payment (`/receipt/<id>`), printable; linked from Bookings and the wallet.
+- Interactive wallet: turn the card over, switch currency, add any amount, filter activity, open any payment.
+- Identity verification (Persona) always visible under Wallet & ID; full traveller record in collapsible groups.
+- Prices in the traveller's own currency; trips start from where they are.
+- Plane flies the arc on the way in; agent exchange and live conversation on each booking.
+
 ### Execution
 - Demo calls ring each signed-in person's own phone; every reservation across the days, one call at a time; agreed details captured as a reservation card; "fully booked" or no connection moves on to Qloo's next best.
-- Backline Wallet (test funds) with database-checked holds and captures for hotel and flight payments.
+- Backline Wallet (demo balance) with database-checked holds and captures for hotel and flight payments.
 - Identity checks with Persona; paid bookings wait for a verified traveller.
 - Home page example requests.
 - Review before booking: swap (Qloo's next best first) or remove any stop, or describe a change; only the plan is rewritten, in seconds; nothing is booked until "Review & book".
