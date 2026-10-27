@@ -550,3 +550,6 @@ button:hover .ki-stop .ki-plane, .eq-card:hover .ki-stop .ki-plane { animation: 
 .eq-head h1.is-waiting { color: #f1f3ff; filter: drop-shadow(0 4px 24px rgba(0, 0, 0, 0.6)); }
 .eq .eq-shade { background: linear-gradient(180deg, rgba(4, 5, 16, 0.35) 0%, transparent 18%, transparent 76%, rgba(4, 5, 16, 0.4) 100%); }
 .eq-blobs { display: none; }
+.eq[data-theme="dark"] .eq-chapters .is-succeeded i { background: var(--violet); box-shadow: none; }
+.eq[data-theme="dark"] .eq-chapters .is-running i { background: var(--brand); box-shadow: 0 0 0 5px rgba(123, 92, 255, 0.3); }
+.eq[data-theme="dark"] .eq-chapters .is-succeeded::before, .eq[data-theme="dark"] .eq-chapters .is-running::before { background: linear-gradient(90deg, #7b5cff, #ff4fa3); }

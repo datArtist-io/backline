@@ -102,7 +102,7 @@ const describePlaces = (label: string, ps: Place[], toRef: Map<string, string>, 
   ps
     .map(
       (p) =>
-        `${toRef.get(p.id)} [${label}${picked.includes(p.id) ? ", agent's pick" : ""}] ${p.name}${p.address ? `, ${p.address}` : ""}${p.distanceKm != null ? `, ${p.distanceKm} km away` : ""}${p.priceLevel ? `, price level ${p.priceLevel}/4` : ""}${p.rating ? `, rated ${p.rating}` : ""}${p.match != null && p.match >= 0.75 ? ", taste match" : ""}${p.offer ? `, live rate ${Math.round(p.offer.total)} ${p.offer.currency} for the stay` : ""}${p.priceNote ? `, ${p.priceNote}` : ""}${p.extra ? `, ${p.extra}` : ""}${p.why.length ? ` (why: ${p.why.slice(0, 2).join("; ")})` : ""}`
+        `${toRef.get(p.id)} [${label}${picked.includes(p.id) ? ", agent's pick" : ""}] ${p.name}${p.tags.length ? ` (${p.tags.slice(0, 3).join(", ")})` : ""}${p.address ? `, ${p.address}` : ""}${p.distanceKm != null ? `, ${p.distanceKm} km away` : ""}${p.priceLevel ? `, price level ${p.priceLevel}/4` : ""}${p.rating ? `, rated ${p.rating}` : ""}${p.match != null && p.match >= 0.75 ? ", taste match" : ""}${p.offer ? `, live rate ${Math.round(p.offer.total)} ${p.offer.currency} for the stay` : ""}${p.priceNote ? `, ${p.priceNote}` : ""}${p.extra ? `, ${p.extra}` : ""}${p.why.length ? ` (why: ${p.why.slice(0, 2).join("; ")})` : ""}`
     )
     .join("\n");
 
@@ -146,6 +146,9 @@ export const tripPlan: Skill<BriefInput, TripPlanOutput> = {
             'Give each day a short label. Times like "09:00". Account for travel time between places (distances are given) and local realities like traffic and opening hours. Include check-in and check-out, and the journey in and out if they said how they travel.',
             "If they're attending an event at a stop, put it in the plan at its time (use the research notes) with that stop's id. If a stop is a station or airport, use it for the arrival and departure items.",
             "Every item at a listed place or stop must carry its id: each day's route is drawn on a map from them.",
+            "Match each meal to what the place really is (its kind is in brackets): an ice-cream shop, bakery or café is a treat or a coffee, not dinner. Don't send them to the same place twice unless there's nothing else.",
+            "Never say a show, concert, match or performance is on at a given time unless the research notes confirm it. Otherwise write it as \"See what's on at <place>\" and say to check the schedule.",
+            "Don't invent arrival or departure times: if no flight or train is booked, say \"Arrive\" and leave the time to them in the note.",
             "Ids go only in placeId, stayId and venueId. In the summary, titles, notes and tips use names, never ids.",
             "budget: line items with an estimated amount in the trip's currency only where listed rates, price notes or levels justify it; otherwise amount null. basis says how you estimated. Skip anything the user handles themselves.",
             "tips: up to 4 practical, specific tips for this destination and plan.",

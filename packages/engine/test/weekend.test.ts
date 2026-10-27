@@ -22,3 +22,13 @@ describe("weekendDates", () => {
     expect(weekendDates("3 nights in Tokyo", "2026-10-27")).toBeNull();
   });
 });
+
+import { nameRefs } from "../src/skills/trip-agent";
+describe("nameRefs", () => {
+  const names = new Map([["d3", "Cafe Washington"], ["v2", "Teatro dell'Opera"]]);
+  it("swaps ids for names without doubling a name that's already there", () => {
+    expect(nameRefs("Lunch at Cafe Washington D3", names)).toBe("Lunch at Cafe Washington");
+    expect(nameRefs("Lunch at D3", names)).toBe("Lunch at Cafe Washington");
+    expect(nameRefs("See what's on at V2 tonight", names)).toBe("See what's on at Teatro dell'Opera tonight");
+  });
+});

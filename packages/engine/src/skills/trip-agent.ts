@@ -389,7 +389,13 @@ export function nameRefs(text: string, names: Map<string, string>): string {
     if (kept.length === parts.length) return m;
     return kept.length ? ` (${kept.join(", ")})` : "";
   });
-  out = out.replace(/\b([SDVAP]\d{1,2})\b(?![-\w])/gi, (m, r: string) => names.get(r.toLowerCase()) ?? m);
+  out = out.replace(/\b([SDVAP]\d{1,2})\b(?![-\w])/gi, (m, r: string, at: number, whole: string) => {
+    const name = names.get(r.toLowerCase());
+    if (!name) return m;
+    // "Lunch at Cafe Washington D3": the name is already there, so the id just goes.
+    const before = whole.slice(0, at).trimEnd().toLowerCase();
+    return before.endsWith(name.toLowerCase()) ? "" : name;
+  });
   return out.replace(/[ \t]{2,}/g, " ").replace(/\s+([.,;:!?])/g, "$1").trim();
 }
 
