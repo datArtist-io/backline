@@ -1,7 +1,7 @@
 // The "Call Backline" board: trips planned by phone in the last two days, newest first. Built from
 // Vapi's own call records (plus this instance's memory, so a trip shows the moment the agent plans
 // it). Shows a 4-digit code and the trip only: never the caller's number or email.
-import { INBOUND_PATH, tripCode, tripFromCall, tripUrl, vapi, vapiReady, type CallTrip } from "./vapi";
+import { INBOUND_PATH, isBacklineCall, tripCode, tripFromCall, tripUrl, vapi, vapiReady, type CallTrip } from "./vapi";
 
 const recent = new Map<string, { trip: CallTrip; at: number }>();
 export function remember(callId: string, trip: CallTrip) {
@@ -40,8 +40,7 @@ export async function board(): Promise<BoardItem[]> {
   const calls = await vapi<Record<string, unknown>[]>(`/call?limit=60&createdAtGt=${encodeURIComponent(since)}`).catch(() => null);
   const items: BoardItem[] = [];
   for (const c of calls ?? []) {
-    const meta = ((c.assistant as Record<string, unknown> | undefined)?.metadata ?? {}) as { app?: string; kind?: string };
-    if (c.type !== "inboundPhoneCall" || meta.app !== "backline" || meta.kind !== "inbound") continue;
+    if (!isBacklineCall(c)) continue;
     const id = String(c.id ?? "");
     if (!id) continue;
     const trip = tripFromCall(c) ?? recent.get(id)?.trip ?? null;
@@ -57,4 +56,15 @@ export async function board(): Promise<BoardItem[]> {
   items.sort((a, b) => b.at.localeCompare(a.at));
   boardCache = { at: Date.now(), items: items.slice(0, 12) };
   return boardCache.items;
+}
+
+/** One call's trip, for the browser that's on that call (by Vapi's call id, which only that browser has). */
+export async function tripForCall(callId: string): Promise<BoardItem | null> {
+  const mem = recent.get(callId);
+  if (mem) return { code: tripCode(callId), at: new Date(mem.at).toISOString(), live: true, ...strip(mem.trip) };
+  if (!vapiReady()) return null;
+  const c = await vapi<Record<string, unknown>>(`/call/${encodeURIComponent(callId)}`).catch(() => null);
+  if (!c || !isBacklineCall(c)) return null;
+  const trip = tripFromCall(c);
+  return trip ? { code: tripCode(callId), at: String(c.createdAt ?? ""), live: c.status !== "ended", ...strip(trip) } : null;
 }
