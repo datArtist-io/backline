@@ -229,6 +229,24 @@ export type Profile = {
   likes?: string[];
   stayPrefs?: string[];
   notes?: string;
+  /** Traveller record: legal name parts, citizenship, address, emergency contact and travel preferences. */
+  firstName?: string;
+  middleName?: string;
+  lastName?: string;
+  nationality?: string;
+  residence?: string;
+  addressLine?: string;
+  addressCity?: string;
+  addressPostcode?: string;
+  addressCountry?: string;
+  emergencyName?: string;
+  emergencyRelation?: string;
+  emergencyPhone?: string;
+  seat?: "window" | "aisle" | "any";
+  meal?: string;
+  loyalty?: string[];
+  accessibility?: string[];
+  language?: string;
 };
 
 export type TripRequest = {

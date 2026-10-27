@@ -1031,3 +1031,43 @@ button:hover .ki-stop .ki-plane, .eq-card:hover .ki-stop .ki-plane { animation: 
 .eq-play.on .eq-face { color: #fff; background: rgba(22, 24, 44, 0.72); box-shadow: inset 0 0 0 1.5px rgba(160, 132, 255, 0.85), 0 10px 24px -12px rgba(0, 0, 0, 0.6); }
 .eq-play.on .eq-ico { color: #fff; background: linear-gradient(135deg, #7b5cff, #ff4fa3); }
 .eq-play.on em { color: #fff; }
+
+/* ---- Wallet, interactive ---- */
+.wl-flip { position: relative; width: 100%; max-width: 420px; aspect-ratio: 1.586; perspective: 1200px; }
+.wl-flip .wl-card { position: absolute; inset: 0; margin: 0; border: 0; font: inherit; text-align: left; cursor: pointer; backface-visibility: hidden; -webkit-backface-visibility: hidden; transition: transform 0.7s var(--spring, cubic-bezier(.2,.8,.2,1)); aspect-ratio: auto; }
+.wl-flip .wl-back { transform: rotateY(180deg); background: linear-gradient(135deg, #1a1d3a, #2b1f6b 60%, #5a3ee6); }
+.wl-flip.is-flipped .wl-front { transform: rotateY(-180deg); }
+.wl-flip.is-flipped .wl-back { transform: rotateY(0); }
+.wl-flip .wl-card:focus-visible { outline: 3px solid #a58bff; outline-offset: 3px; }
+.wl-backdl { align-self: end; display: grid; gap: 8px; margin: 0; }
+.wl-backdl div { display: flex; justify-content: space-between; gap: 12px; font-size: 13.5px; }
+.wl-backdl dt { opacity: 0.75; }
+.wl-backdl dd { margin: 0; font-weight: 650; text-align: right; }
+.wl-add-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.wl-add-head > span { font-size: 13px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink-soft); }
+.wl-cur select { height: 34px; padding: 0 10px; border-radius: 999px; border: 1px solid rgba(127, 127, 160, 0.35); background: rgba(255, 255, 255, 0.85); color: #14171c; font: 650 13.5px/1 var(--font-body, inherit); cursor: pointer; }
+.wl-custom { display: flex; gap: 8px; }
+.wl-custom input { flex: 1; min-width: 0; height: 44px; padding: 0 14px; border-radius: 999px; border: 1px solid rgba(127, 127, 160, 0.35); background: rgba(255, 255, 255, 0.9); color: #14171c; font-size: 15px; }
+.wl-custom button { height: 44px; padding: 0 20px; border: 0; border-radius: 999px; font: 700 15px/1 var(--font-body, inherit); color: #fff; background: linear-gradient(135deg, #5a3ee6, #d1306f); cursor: pointer; }
+.wl-custom button:disabled { opacity: 0.45; cursor: not-allowed; }
+.wl-err { color: #b3261e !important; }
+.wl-activity { display: grid; gap: 10px; }
+.wl-activity-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
+.wl-activity-head h3 { margin: 0; font-size: 16px; }
+.wl-filters { display: flex; gap: 4px; padding: 4px; border-radius: 999px; background: rgba(127, 127, 160, 0.1); }
+.wl-filters button { height: 32px; padding: 0 12px; border: 0; border-radius: 999px; font: 650 13px/1 var(--font-body, inherit); color: var(--ink-soft); background: transparent; cursor: pointer; }
+.wl-filters button.on { color: #14171c; background: #fff; box-shadow: 0 4px 12px -6px rgba(16, 19, 43, 0.35); }
+.wl-list li { display: block; padding: 0; }
+.wl-row { display: grid; grid-template-columns: 36px minmax(0, 1fr) auto; gap: 12px; align-items: center; width: 100%; padding: 10px 12px; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; border-radius: 16px; }
+.wl-row:hover { background: rgba(127, 127, 160, 0.08); }
+.wl-row-txt { display: grid; min-width: 0; }
+.wl-more { padding: 0 14px 12px 60px; display: grid; gap: 8px; animation: accin 0.25s ease-out both; }
+.wl-more dl { margin: 0; display: grid; gap: 4px; }
+.wl-more dl div { display: grid; grid-template-columns: 100px 1fr; gap: 8px; font-size: 13.5px; }
+.wl-more dt { color: var(--ink-soft); }
+.wl-more dd { margin: 0; font-weight: 600; overflow-wrap: anywhere; }
+.wl-receipt { justify-self: start; font-weight: 700; font-size: 14px; color: #5a3ee6; }
+.kyc-steps { margin: 8px 0 0; padding-left: 18px; display: grid; gap: 3px; font-size: 13.5px; color: var(--ink-soft); }
+.kyc-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+@media (max-width: 520px) { .wl-more { padding-left: 14px; } .wl-stats dd { font-size: 15px; } }
+@media (prefers-reduced-motion: reduce) { .wl-flip .wl-card { transition: none; } }

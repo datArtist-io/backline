@@ -1450,3 +1450,17 @@ a { color: inherit; text-decoration: none; }
 .recent.try { flex-wrap: wrap; justify-content: center; overflow: visible; row-gap: 8px; max-width: min(640px, calc(100vw - 32px)); margin-inline: auto; }
 .recent.try .recent-chip { max-width: min(260px, calc(100vw - 80px)); }
 @media (max-width: 640px) { .recent.try { justify-content: center; } }
+
+/* ---- account: grouped, collapsible details ---- */
+.acc-form { display: grid; gap: 10px; }
+.acc-group { border-radius: 18px; background: rgba(255, 255, 255, 0.6); box-shadow: inset 0 0 0 1px rgba(16, 19, 43, 0.08); }
+.acc-group > summary { list-style: none; display: grid; grid-template-columns: 1fr auto; gap: 2px 12px; padding: 14px 18px; cursor: pointer; }
+.acc-group > summary::-webkit-details-marker { display: none; }
+.acc-group > summary::after { content: "+"; grid-row: 1 / span 2; grid-column: 2; align-self: center; width: 28px; height: 28px; display: grid; place-items: center; border-radius: 50%; font-weight: 700; color: #5a3ee6; background: rgba(90, 62, 230, 0.1); transition: transform 0.3s; }
+.acc-group[open] > summary::after { transform: rotate(45deg); }
+.acc-group > summary b { font-size: 15.5px; }
+.acc-group > summary small { font-size: 13px; color: var(--ink-soft); }
+.acc-group > .pref-grid { padding: 4px 18px 18px; }
+.acc-docs > summary { padding: 4px 0 8px; }
+.acc-docs { background: none; box-shadow: none; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }

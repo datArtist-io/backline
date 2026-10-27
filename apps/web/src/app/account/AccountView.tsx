@@ -111,7 +111,7 @@ export default function AccountView() {
       />
     </label>
   );
-  const listField = (key: "likes" | "dietary" | "stayPrefs", label: string, placeholder: string) => (
+  const listField = (key: "likes" | "dietary" | "stayPrefs" | "loyalty" | "accessibility", label: string, placeholder: string) => (
     <label className="pref-field">
       <span>{label}</span>
       <input
@@ -168,25 +168,79 @@ export default function AccountView() {
       {tab === "details" && <section className="lg account-card account-pane">
         <h2 className="account-h">Your details</h2>
         <p className="fine">Used to book flights and rooms in your name. Only you can see them.</p>
-        <form className="pref-grid" onSubmit={save}>
-          {field("name", "Full name (as on your passport)", { auto: "name" })}
-          {field("email", "Email for bookings", { type: "email", auto: "email" })}
-          {field("phone", "Phone", { type: "tel", auto: "tel", placeholder: "+1 555 123 4567" })}
-          {field("homeCity", "Home city", { placeholder: "Where you live" })}
-          {field("birthDate", "Date of birth", { type: "date", auto: "bday" })}
-          <label className="pref-field">
-            <span>Gender (for airline records)</span>
-            <select value={p.gender ?? ""} onChange={(e) => setP({ ...p, gender: (e.target.value || undefined) as Profile["gender"] })}>
-              <option value="">Prefer not to say</option>
-              <option value="f">Female</option>
-              <option value="m">Male</option>
-            </select>
-          </label>
-          {field("currency", "Currency", { placeholder: "USD, EUR, NGN…" })}
-          {listField("likes", "Things you love", "Radiohead, Fleabag, Japanese food")}
-          {listField("dietary", "Dietary needs", "Vegetarian, no pork")}
-          {listField("stayPrefs", "Hotel preferences", "Quiet room, pool")}
-          {field("notes", "Anything else", { placeholder: "Travels with a toddler…" })}
+        <form className="acc-form" onSubmit={save}>
+          <details className="acc-group" open>
+            <summary><b>Legal name and contact</b><small>Exactly as on your passport</small></summary>
+            <div className="pref-grid">
+              {field("firstName", "First name", { auto: "given-name" })}
+              {field("middleName", "Middle name(s)", { auto: "additional-name", placeholder: "Optional" })}
+              {field("lastName", "Last name", { auto: "family-name" })}
+              {field("name", "Name on bookings", { auto: "name", placeholder: "How places should greet you" })}
+              {field("email", "Email for bookings", { type: "email", auto: "email" })}
+              {field("phone", "Phone (for booking calls)", { type: "tel", auto: "tel", placeholder: "+234 811 000 0000" })}
+            </div>
+          </details>
+          <details className="acc-group">
+            <summary><b>Personal details</b><small>Airlines need these for every ticket</small></summary>
+            <div className="pref-grid">
+              {field("birthDate", "Date of birth", { type: "date", auto: "bday" })}
+              <label className="pref-field">
+                <span>Gender (as on your passport)</span>
+                <select value={p.gender ?? ""} onChange={(e) => setP({ ...p, gender: (e.target.value || undefined) as Profile["gender"] })}>
+                  <option value="">Prefer not to say</option>
+                  <option value="f">Female</option>
+                  <option value="m">Male</option>
+                </select>
+              </label>
+              {field("nationality", "Nationality", { placeholder: "Nigerian" })}
+              {field("residence", "Country you live in", { auto: "country-name" })}
+              {field("language", "Preferred language", { placeholder: "English" })}
+            </div>
+          </details>
+          <details className="acc-group">
+            <summary><b>Home address</b><small>For hotel registration and receipts</small></summary>
+            <div className="pref-grid">
+              {field("addressLine", "Street address", { auto: "street-address" })}
+              {field("addressCity", "City", { auto: "address-level2" })}
+              {field("homeCity", "Home city for trips", { placeholder: "Where trips start" })}
+              {field("addressPostcode", "Postcode", { auto: "postal-code" })}
+              {field("addressCountry", "Country", { auto: "country-name" })}
+            </div>
+          </details>
+          <details className="acc-group">
+            <summary><b>Emergency contact</b><small>Shared only with a booking that asks for it</small></summary>
+            <div className="pref-grid">
+              {field("emergencyName", "Name")}
+              {field("emergencyRelation", "Relationship", { placeholder: "Sister, partner…" })}
+              {field("emergencyPhone", "Phone", { type: "tel" })}
+            </div>
+          </details>
+          <details className="acc-group">
+            <summary><b>Travel preferences</b><small>Seats, meals, loyalty and access needs</small></summary>
+            <div className="pref-grid">
+              <label className="pref-field">
+                <span>Seat</span>
+                <select value={p.seat ?? ""} onChange={(e) => setP({ ...p, seat: (e.target.value || undefined) as Profile["seat"] })}>
+                  <option value="">No preference</option>
+                  <option value="window">Window</option>
+                  <option value="aisle">Aisle</option>
+                </select>
+              </label>
+              {field("meal", "In-flight meal", { placeholder: "Vegetarian, halal…" })}
+              {field("currency", "Currency", { placeholder: "USD, EUR, NGN…" })}
+              {listField("loyalty", "Loyalty programmes", "Emirates Skywards 123456789")}
+              {listField("accessibility", "Accessibility needs", "Wheelchair at the airport, step-free room")}
+              {listField("dietary", "Dietary needs", "Vegetarian, no pork")}
+              {listField("stayPrefs", "Hotel preferences", "Quiet room, pool")}
+            </div>
+          </details>
+          <details className="acc-group">
+            <summary><b>Taste</b><small>What Qloo uses to plan for you</small></summary>
+            <div className="pref-grid">
+              {listField("likes", "Things you love", "Radiohead, Fleabag, Japanese food")}
+              {field("notes", "Anything else", { placeholder: "Travels with a toddler…" })}
+            </div>
+          </details>
           <div className="account-save">
             {error && <p className="join-error">{error}</p>}
             {saved && <p className="fine">Saved.</p>}
@@ -200,8 +254,15 @@ export default function AccountView() {
       {tab === "wallet" && (
         <div className="account-pane account-stack">
           <section className="lg account-card account-wallet" aria-label="Wallet"><WalletPanel /></section>
-          <Verify />
-          <TravelDocuments />
+          <section className="lg account-card" aria-labelledby="id-h">
+            <h2 className="account-h" id="id-h">Identity verification</h2>
+            <p className="fine">Verified with Persona: a photo of your passport or national ID and a quick selfie. Flights and hotels that need ID only book for a verified traveller.</p>
+            <Verify always />
+          </section>
+          <details className="lg account-card acc-group acc-docs">
+            <summary><b>Passport for bookings</b><small>Stored encrypted, used only to issue tickets</small></summary>
+            <TravelDocuments />
+          </details>
         </div>
       )}
 

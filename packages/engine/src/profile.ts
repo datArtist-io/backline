@@ -23,6 +23,24 @@ export const profileSchema = z
     likes: list(20).optional(),
     stayPrefs: list(8).optional(),
     notes: short(600).optional(),
+    // Traveller record, as airlines and hotels ask for it.
+    firstName: short(60).optional(),
+    middleName: short(60).optional(),
+    lastName: short(60).optional(),
+    nationality: short(60).optional(),
+    residence: short(60).optional(),
+    addressLine: short(160).optional(),
+    addressCity: short(80).optional(),
+    addressPostcode: short(20).optional(),
+    addressCountry: short(60).optional(),
+    emergencyName: short(80).optional(),
+    emergencyRelation: short(40).optional(),
+    emergencyPhone: short(30).optional(),
+    seat: z.enum(["window", "aisle", "any"]).optional().catch(undefined),
+    meal: short(60).optional(),
+    loyalty: list(6, 80).optional(),
+    accessibility: list(6, 80).optional(),
+    language: short(40).optional(),
   })
   .strip();
 

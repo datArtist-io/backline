@@ -8,6 +8,9 @@ import type { Session } from "@/lib/session";
 
 /** Their chosen currency, else the one where they're connecting from. */
 async function currencyFor(s: Session, req: Request): Promise<string> {
+  // A currency picked in the wallet itself wins.
+  const asked = new URL(req.url).searchParams.get("currency")?.toUpperCase();
+  if (asked && /^[A-Z]{3}$/.test(asked)) return asked;
   const chosen = await loadAccount(s).then((a) => a.profile.currency ?? null).catch(() => null);
   return localCurrency(chosen, req.headers.get("x-vercel-ip-country"));
 }

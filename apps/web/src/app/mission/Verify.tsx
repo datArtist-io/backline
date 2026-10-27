@@ -14,7 +14,7 @@ const TEXT: Record<K["status"], { title: string; body: string }> = {
   declined: { title: "Verification didn't pass", body: "Try again with a clear photo of a valid document." },
 };
 
-export default function Verify({ compact = false }: { compact?: boolean }) {
+export default function Verify({ compact = false, always = false }: { compact?: boolean; always?: boolean }) {
   const [k, setK] = useState<K | null>(null);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
@@ -22,7 +22,23 @@ export default function Verify({ compact = false }: { compact?: boolean }) {
   useEffect(() => {
     load();
   }, [load]);
-  if (!k?.configured) return null;
+  if (!k?.configured) {
+    if (!always) return null;
+    return (
+      <section className="kyc is-none" aria-live="polite">
+        <span className="kyc-badge" aria-hidden="true">ID</span>
+        <div>
+          <b>{k ? "Verification opens shortly" : "Checking…"}</b>
+          <ol className="kyc-steps">
+            <li>Photo of your passport or national ID</li>
+            <li>A short selfie, matched to the photo</li>
+            <li>Persona confirms it in about a minute</li>
+          </ol>
+        </div>
+        <button type="button" className="kyc-btn" disabled>Verify now</button>
+      </section>
+    );
+  }
   const start = async () => {
     setBusy(true);
     setMsg(null);
@@ -60,6 +76,13 @@ export default function Verify({ compact = false }: { compact?: boolean }) {
       <div>
         <b>{t.title}</b>
         {!compact && <p>{t.body}</p>}
+        {!compact && (k.status === "none" || k.status === "declined") && (
+          <ol className="kyc-steps">
+            <li>Photo of your passport or national ID</li>
+            <li>A short selfie, matched to the photo</li>
+            <li>Persona confirms it in about a minute</li>
+          </ol>
+        )}
         {msg && <p className="kyc-msg">{msg}</p>}
       </div>
       {(k.status === "none" || k.status === "declined") && (

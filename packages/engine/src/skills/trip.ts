@@ -796,8 +796,8 @@ export const tripExecute: Skill<BriefInput, TripExecuteOutput> = {
             return { actionId: a.id, status: "needs_info", ref: null, message: `The flight costs ${Math.round(flight.total).toLocaleString("en")} ${flight.currency}, over your ${b.amount.toLocaleString("en")} ${b.currency} budget, so I didn't pay. Approve it or raise the budget.` };
           const passport = ctx.traveller?.passport ?? null;
           if (flight.documentsRequired && !passport)
-            return { actionId: a.id, status: "needs_info", ref: null, message: "This airline needs your passport to issue the ticket. Add it under Account → Travel documents and I'll book it." };
-          const name = splitName(profile.name ?? "");
+            return { actionId: a.id, status: "needs_info", ref: null, message: "This airline needs your passport to issue the ticket. Add it under Account → Wallet & ID → Passport for bookings and I'll book it." };
+          const name = profile.firstName && profile.lastName ? { firstName: [profile.firstName, profile.middleName].filter(Boolean).join(" "), lastName: profile.lastName } : splitName(profile.name ?? "");
           const traveller = passport
             ? { givenName: passport.givenNames, familyName: passport.familyName, email: profile.email ?? "", phone: toE164(profile.phone ?? null) ?? profile.phone ?? "", bornOn: passport.birthDate, gender: passport.gender, passport: { number: passport.number, issuingCountry: passport.issuingCountry, expiresOn: passport.expiresOn } }
             : { givenName: name.firstName, familyName: name.lastName, email: profile.email ?? "", phone: toE164(profile.phone ?? null) ?? profile.phone ?? "", bornOn: profile.birthDate ?? "", gender: profile.gender ?? "m" };
@@ -822,7 +822,7 @@ export const tripExecute: Skill<BriefInput, TripExecuteOutput> = {
         }
         if (a.channel === "reserve" && ctx.hotels && a.offerId) {
           if (++reserves > ACTION_LIMITS.reserve) return { actionId: a.id, status: "skipped", ref: null, message: "One room booking per mission." };
-          const guest = { ...splitName(profile.name ?? ""), email: profile.email ?? "", phone: profile.phone };
+          const guest = { ...(profile.firstName && profile.lastName ? { firstName: profile.firstName, lastName: profile.lastName } : splitName(profile.name ?? "")), email: profile.email ?? "", phone: profile.phone };
           // If the chosen room has just sold out, book the next best hotel that's still bookable.
           const alternates = (agent?.stays ?? [])
             .filter((p) => p.offer && p.offer.offerId !== a.offerId)
