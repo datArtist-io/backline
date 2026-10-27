@@ -38,6 +38,8 @@ Live Missions run against production (`backline-beta-one.vercel.app`), what was 
 | V23 | same | Real call to the demo line | Vercel runtime log | **Blocked**: Vapi 400 "Free Vapi numbers do not support international calls" | Needs a paid number (Telnyx or Twilio) imported into Vapi; nothing else changes |
 | V24 | Re-run after the fixes, Telnyx line | Date, venue, approval | Calendar; plan on screen | Correct: "Call Food Shack to book a table for 2, Fri, 30 Oct 2026 at 20:00" | — |
 | V25 | same | Checkpoint asked a signed-in user to type name and email, and named the venue's number while the demo line would ring | — | **Friction / misleading** | Name and email filled from the account; checkpoint says "I'll call your demo line … as if it were …" — this release |
+| V26 | same | Time asked ("at 8pm") | The request | **Wrong**: the call asked for 19:30 | Asked time read from the request and held on the named meal; planner told; tests — this release |
+| V27 | same | Real call via Telnyx line +1 618 260 1647 | Vapi call status | Vapi accepted and placed the call; it ended with "assistant did not receive customer audio" | Under investigation (audio path between Telnyx and Vapi) |
 
 ## Automated tests
 

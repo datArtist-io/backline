@@ -7,6 +7,7 @@ import type { BriefInput, Profile, Skill, SkillResult, TripRequest } from "../ty
 import { languageRule } from "../grounding";
 import { EngineError } from "../errors";
 import { mapLimit } from "../util";
+import { askedTime, holdAskedTime } from "../trip-request";
 import { placeSchema, scorePlace, toPlace, type Place } from "./places";
 import { isArrivalStop, nameRefs, type Stop, type TripAgentOutput } from "./trip-agent";
 import type { TripFlightsOutput } from "./flights";
@@ -149,6 +150,7 @@ export const tripPlan: Skill<BriefInput, TripPlanOutput> = {
             "Match each meal to what the place really is (its kind is in brackets): an ice-cream shop, bakery or café is a treat or a coffee, not dinner. Don't send them to the same place twice unless there's nothing else.",
             "Never say a show, concert, match or performance is on at a given time unless the research notes confirm it. Otherwise write it as \"See what's on at <place>\" and say to check the schedule.",
             "Don't invent arrival or departure times: if no flight or train is booked, say \"Arrive\" and leave the time to them in the note.",
+            askedTime(input.request ?? "") ? `They asked for ${askedTime(input.request ?? "")}: put the meal or booking they named at exactly that time.` : "",
             "Ids go only in placeId, stayId and venueId. In the summary, titles, notes and tips use names, never ids.",
             "budget: line items with an estimated amount in the trip's currency only where listed rates, price notes or levels justify it; otherwise amount null. basis says how you estimated. Skip anything the user handles themselves.",
             "tips: up to 4 practical, specific tips for this destination and plan.",
@@ -211,6 +213,9 @@ export const tripPlan: Skill<BriefInput, TripPlanOutput> = {
             note: it.note ? words(it.note).slice(0, 240) : null,
           })),
         }));
+        // The time they asked for ("dinner at 8pm") stands, whatever the model wrote.
+        const held = holdAskedTime(days, input.request ?? "", (id) => dines.some((p) => p.id === id));
+        days.splice(0, days.length, ...held);
         const stayId = resolve(out.stayId);
         const venueId = resolve(out.venueId);
         return {

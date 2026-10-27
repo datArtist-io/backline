@@ -50,3 +50,25 @@ describe("dayDate", () => {
     expect(dayDate("a trip to Rome", "2026-10-27")).toBeNull();
   });
 });
+
+import { askedTime, holdAskedTime } from "../src/trip-request";
+describe("asked time", () => {
+  it("reads the time asked for", () => {
+    expect(askedTime("Book dinner for 2 in Lagos this Friday at 8pm")).toBe("20:00");
+    expect(askedTime("lunch at 12:30")).toBe("12:30");
+    expect(askedTime("brunch 11.30 am")).toBe("11:30");
+    expect(askedTime("dinner at 8 for 4")).toBe("20:00");
+    expect(askedTime("dinner for 4 at 8 people")).toBeNull();
+    expect(askedTime("a weekend in Rome")).toBeNull();
+  });
+  it("holds the meal at that time and keeps the day in order", () => {
+    const days = [{ date: "2026-10-30", items: [
+      { time: "18:00", title: "Walk on Adeola Odeku", placeId: null },
+      { time: "19:30", title: "Dinner at Z Kitchen", placeId: "D1" },
+      { time: "21:30", title: "Drinks nearby", placeId: null },
+    ] }];
+    const out = holdAskedTime(days, "Book dinner for 2 this Friday at 8pm", (id) => id === "D1");
+    expect(out[0].items.map((i) => `${i.time} ${i.title}`)).toEqual(["18:00 Walk on Adeola Odeku", "20:00 Dinner at Z Kitchen", "21:30 Drinks nearby"]);
+    expect(holdAskedTime(days, "Trip to Lagos, flight at 9am", () => true)).toBe(days);
+  });
+});

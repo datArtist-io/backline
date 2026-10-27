@@ -398,3 +398,51 @@ export function dayDate(text: string, today: string): string | null {
   if (m[1] === "next" && n === 0) n = 7;
   return add(n);
 }
+
+/** "at 8pm", "8:30 pm", "20:00", "at 8" (evening meals) → "20:00". Null when no time is asked for. Pure. */
+export function askedTime(text: string): string | null {
+  const t = text.toLowerCase();
+  const pad = (h: number, m: number) => `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+  const ampm = t.match(/\b(\d{1,2})(?:[:.](\d{2}))?\s*(am|pm|a\.m\.|p\.m\.)/);
+  if (ampm) {
+    let h = Number(ampm[1]) % 12;
+    if (ampm[3].startsWith("p")) h += 12;
+    const m = Number(ampm[2] ?? 0);
+    return h < 24 && m < 60 ? pad(h, m) : null;
+  }
+  const h24 = t.match(/\b([01]?\d|2[0-3])[:h]([0-5]\d)\b/);
+  if (h24) return pad(Number(h24[1]), Number(h24[2]));
+  if (t.includes("noon")) return "12:00";
+  const bare = t.match(/\bat (\d{1,2})\b(?!\s*(?:people|guests|of|th|st|nd|rd|%))/);
+  if (bare && /\b(dinner|supper|drinks|tonight|evening)\b/.test(t)) {
+    const h = Number(bare[1]);
+    if (h >= 1 && h <= 11) return pad(h + 12, 0);
+  }
+  return null;
+}
+
+const MEAL_WORD = /\b(breakfast|brunch|lunch|dinner|supper|drinks|table)\b/;
+
+/**
+ * Keeps the time the person asked for: the meal they named ("dinner at 8pm") is set to that time on
+ * the day it falls, whatever the model wrote. Returns the days unchanged when no time was asked. Pure.
+ */
+export function holdAskedTime<D extends { date: string | null; items: { time: string; title: string; placeId: string | null }[] }>(days: D[], request: string, isMealPlace: (id: string) => boolean): D[] {
+  const time = askedTime(request);
+  if (!time) return days;
+  // Only a meal or table booking: "flight at 9am" must not move a restaurant.
+  const meal = request.toLowerCase().match(MEAL_WORD)?.[1] ?? null;
+  if (!meal) return days;
+  for (const d of days) {
+    const i = d.items.findIndex((it) => it.placeId != null && isMealPlace(it.placeId));
+    const named = meal && meal !== "table" ? d.items.findIndex((it) => new RegExp(`\\b${meal}\\b`, "i").test(it.title) && it.placeId != null) : -1;
+    const at = named >= 0 ? named : i;
+    if (at < 0) continue;
+    const items = d.items.map((it, k) => (k === at ? { ...it, time } : it));
+    items.sort((a, b) => (/^\d{2}:\d{2}/.test(a.time) && /^\d{2}:\d{2}/.test(b.time) ? a.time.localeCompare(b.time) : 0));
+    const out = days.slice();
+    out[days.indexOf(d)] = { ...d, items };
+    return out;
+  }
+  return days;
+}
