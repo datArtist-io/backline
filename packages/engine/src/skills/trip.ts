@@ -444,13 +444,16 @@ export function buildActions(
   plan: TripPlanOutput,
   places: { stays: Place[]; dines: Place[]; venues: Place[] },
   profile: Profile,
-  can: { email: boolean; calls: boolean; hotels?: boolean }
+  can: { email: boolean; calls: boolean; hotels?: boolean; demo?: boolean }
 ): TripAction[] {
   const who = profile.name?.trim() || null;
   const sign = who ?? "[Your name]";
   const contactLine = [profile.phone, profile.email].filter(Boolean).join(" · ");
   const missingContact = !who || !profile.email ? "Add your name and email so replies reach you." : null;
-  const missingCaller = !who ? "Add your name so the caller can book for you." : null;
+  // Demo calling rings the person themselves (they play the business), so every booking gets a call,
+  // even where the business lists no phone number.
+  const demo = Boolean(can.calls && can.demo);
+  const missingCaller = !who ? "Add your name so the caller can book for you." : demo && !profile.phone ? "Add your phone number: in demo mode I call you, and you play the restaurant or hotel." : null;
   const cc = countryCodeFor(trip.destination) ?? countryCodeFor(profile.homeCity ?? "");
   const actions: TripAction[] = [];
   const base = { placeId: null, placeName: null, to: null, url: null, subject: null, body: null, callOpening: null, callBrief: null, missing: null, offerId: null, price: null } as const;
@@ -498,7 +501,7 @@ export function buildActions(
         missing: can.email ? missingContact : null,
       });
     const sPhone = toE164(stay.phone, cc);
-    if (sPhone && !stay.email && !(stay.offer && can.hotels))
+    if ((sPhone || demo) && (!stay.email || demo) && !(stay.offer && can.hotels))
       add({
         kind: "book_stay",
         channel: "call",
@@ -573,7 +576,7 @@ export function buildActions(
     const party = isEventMeal ? (trip.event!.guests ?? trip.adults) : trip.adults;
     const when = `${fmtDate(m.date)} at ${m.time}`;
     const phone = toE164(p.phone, cc);
-    if (phone)
+    if (phone || demo)
       add({
         kind: "reserve_table",
         channel: "call",
@@ -655,7 +658,7 @@ export const tripActions: Skill<BriefInput, TripActionsOutput> = {
       deps["trip.plan"].data as TripPlanOutput,
       { stays: a.stays, dines: a.dines, venues: a.venues },
       input.profile ?? {},
-      { email: Boolean(ctx.email), calls: Boolean(ctx.calls), hotels: Boolean(ctx.hotels) }
+      { email: Boolean(ctx.email), calls: Boolean(ctx.calls), hotels: Boolean(ctx.hotels), demo: Boolean(ctx.calls) && !ctx.callsLive }
     );
     const actions = flight && ctx.flights ? [flightAction(flight, input.profile ?? {}, Boolean(ctx.traveller?.passport)), ...built].map((x, i) => ({ ...x, id: `a${i + 1}` })) : built;
     const notes: string[] = [];
@@ -664,8 +667,8 @@ export const tripActions: Skill<BriefInput, TripActionsOutput> = {
       if (!ctx.email) notes.push("Email sending isn't connected yet, so emails open in your own mail app.");
       if (!ctx.calls) notes.push("AI calling isn't connected yet, so calls show the number and what to say.");
     }
-    const demoLine = ctx.calls && ctx.callDemoTo ? ctx.callDemoTo : null;
-    if (demoLine && actions.some((x) => x.channel === "call" && x.mode === "auto")) notes.push(`Demo mode: calls ring the test line ${demoLine}, where someone plays the business, not the business itself.`);
+    const demoLine = ctx.calls && !ctx.callsLive ? (ctx.callDemoTo ?? "your phone") : null;
+    if (demoLine && actions.some((x) => x.channel === "call" && x.mode === "auto")) notes.push("Demo mode: booking calls ring your own phone, and you play the business.");
     return { data: { actions, demoLine }, evidence: [], notes };
   },
 };
@@ -822,17 +825,17 @@ export const tripExecute: Skill<BriefInput, TripExecuteOutput> = {
           );
           return { actionId: a.id, status: "sent", ref: sent.id, message: `Sent to ${a.to}. Replies go to ${profile.email}.` };
         }
-        if (a.channel === "call" && ctx.calls && a.to && a.callOpening && a.callBrief) {
+        if (a.channel === "call" && ctx.calls && (a.to || ctx.callDemoTo) && a.callOpening && a.callBrief) {
           if (++calls > ACTION_LIMITS.call) return { actionId: a.id, status: "skipped", ref: null, message: "Call limit for one mission reached." };
           const demo = ctx.callDemoTo ?? null;
           // Fail closed: a real business is only ever dialled when live calling is switched on.
-          if (!demo && !ctx.callsLive) return { actionId: a.id, status: "ready", ref: null, message: "Live calls to businesses are switched off, so here's the number and what to say." };
-          const started = await ctx.calls.start({ to: demo ?? a.to, owner: ctx.userId ?? null, businessName: a.placeName ?? "the business", firstMessage: a.callOpening, instructions: callInstructions(a, profile.name ?? "my client") }, ctx.signal);
+          if (!demo && !ctx.callsLive) return { actionId: a.id, status: "needs_info", ref: null, message: "Add your phone number and I'll call you to show the booking call (you play the business)." };
+          const started = await ctx.calls.start({ to: (demo ?? a.to)!, owner: ctx.userId ?? null, businessName: a.placeName ?? "the business", firstMessage: a.callOpening, instructions: callInstructions(a, profile.name ?? "my client") }, ctx.signal);
           return {
             actionId: a.id,
             status: "calling",
             ref: started.id,
-            message: demo ? `Calling ${a.placeName} on the demo line (${demo.slice(0, 4)}…${demo.slice(-3)} plays the business)…` : `Calling ${a.placeName}…`,
+            message: demo ? `Calling you as ${a.placeName}: answer and play the business (demo).` : `Calling ${a.placeName}…`,
           };
         }
         return { actionId: a.id, status: "ready", ref: null, message: "Ready for you." };

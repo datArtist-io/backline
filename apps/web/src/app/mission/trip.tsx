@@ -461,7 +461,9 @@ export function ActionsCheckpoint({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   const needsDetails = actions.some((a) => picked.includes(a.id) && a.mode === "auto");
-  const missing = needsDetails && (!me.name?.trim() || !me.email?.trim());
+  const demoCall = Boolean(demoLine) && actions.some((a) => picked.includes(a.id) && a.channel === "call" && a.mode === "auto");
+  const phoneOk = /^\+?[\d\s().-]{8,20}$/.test(me.phone?.trim() ?? "");
+  const missing = needsDetails && (!me.name?.trim() || !me.email?.trim() || (demoCall && !phoneOk));
   const toggle = (id: string) => setPicked((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]));
   return (
     <section className="lg checkpoint" aria-labelledby="cp-actions">
@@ -485,7 +487,7 @@ export function ActionsCheckpoint({
                     {a.channel === "reserve" && a.kind === "book_flight" && `${a.subject ? `${a.subject}. ` : ""}I'll book and pay${a.price ? ` ${money(a.price.total, a.price.currency)}` : ""} for the tickets, within your budget. The e-ticket is emailed to you.`}
                     {a.channel === "reserve" && a.kind !== "book_flight" && `I'll book and pay${a.price ? ` ${money(a.price.total, a.price.currency)} for the whole stay` : ""}, only at this price and within your budget. The confirmation is emailed to you.`}
                     {a.channel === "email" && (a.mode === "auto" ? `I'll email ${a.to}` : `Opens a ready email to ${a.to}`)}
-                    {a.channel === "call" && (a.mode === "auto" ? (demoLine ? `I'll call your demo line ${demoLine} as if it were ${a.to}` : `I'll call ${a.to}`) : `Number and script for ${a.to}`)}
+                    {a.channel === "call" && (a.mode === "auto" ? (demoLine ? `Demo: I'll call you as ${a.placeName ?? "the place"}. Answer and play the business` : `I'll call ${a.to}`) : `Number and script for ${a.to}`)}
                     {a.channel === "link" && "Opens with your dates and guests filled in. You pay there."}
                     {a.channel === "calendar" && "Every stop, in your calendar"}
                   </span>
@@ -502,8 +504,9 @@ export function ActionsCheckpoint({
           <div className="me-row">
             <input aria-label="Your name" placeholder="Your name" value={me.name ?? ""} onChange={(e) => setMe({ ...me, name: e.target.value })} maxLength={80} autoComplete="name" />
             <input aria-label="Your email" placeholder="Email for replies" type="email" value={me.email ?? ""} onChange={(e) => setMe({ ...me, email: e.target.value })} maxLength={254} autoComplete="email" />
-            <input aria-label="Your phone" placeholder="Phone (optional)" type="tel" value={me.phone ?? ""} onChange={(e) => setMe({ ...me, phone: e.target.value })} maxLength={30} autoComplete="tel" />
+            <input aria-label="Your phone" placeholder={demoCall ? "Your phone, e.g. +234 811 000 0000" : "Phone (optional)"} type="tel" value={me.phone ?? ""} onChange={(e) => setMe({ ...me, phone: e.target.value })} maxLength={30} autoComplete="tel" required={demoCall} />
           </div>
+          {demoCall && <p className="me-hint">This is a demo, so the booking call rings <b>your</b> phone. Pick up and play the restaurant or hotel to hear the agent book it.</p>}
         </div>
       )}
       <div className="cp-foot">

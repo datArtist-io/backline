@@ -606,7 +606,7 @@ export default function AdventureView({
             </div>
           )}
 
-          {strip.length > 0 && (
+          {strip.length > 0 && !(narrow && scanning) && (
             <ol className={`eq-strip${day ? " is-day" : ""}`} aria-label={day ? `Day ${day.day + 1} stops` : "Places picked for you"}>
               {strip.map((s, i) => (
                 <li key={s.key} className={`${s.seen ? "seen" : ""}${s.node && selectedId === s.node.id ? " sel" : ""}`} style={{ ["--i" as string]: Math.min(i, 12) }}>
@@ -621,7 +621,7 @@ export default function AdventureView({
             </ol>
           )}
 
-          {(routes.length > 0 || (model && model.nodes.length > 0)) && (
+          {(routes.length > 0 || (!scanning && model && model.nodes.length > 0)) && (
             <div className="eq-bar">
               {routes.length > 0 && (
                 <button type="button" className={`eq-play${play ? " on" : ""}`} onClick={play ? stop : start} aria-label={play ? "Pause" : "Fly the trip"}>
@@ -765,10 +765,10 @@ export function gradeVars(kind: Sky, hour: number): Record<string, string> {
   const night = h < 6 || h >= 20 ? 1 : h < 7 ? 1 - (h - 6) : h >= 19 ? h - 19 : 0;
   const golden = Math.max(0, 1 - Math.abs(h - 18) / 1.6, 1 - Math.abs(h - 7.2) / 1.2) * (1 - night);
   const wet = kind === "rain" || kind === "storm" ? 1 : kind === "cloudy" || kind === "fog" ? 0.55 : kind === "snow" ? 0.4 : 0;
-  const sat = 1.28 - wet * 0.32 - night * 0.35 + golden * 0.12;
+  const sat = 1.1 - wet * 0.22 - night * 0.3 + golden * 0.08;
   const bright = 1.02 - night * 0.42 - wet * 0.06;
-  const contrast = 1.1 + golden * 0.06 + night * 0.08;
-  const sepia = golden * 0.22 + (1 - wet) * 0.04;
+  const contrast = 1.06 + golden * 0.04 + night * 0.06;
+  const sepia = golden * 0.12;
   const tint = night > 0.5 ? "rgba(40, 60, 150, 0.55)" : golden > 0.2 ? `rgba(255, 150, 70, ${(0.22 + golden * 0.3).toFixed(2)})` : wet > 0.5 ? "rgba(120, 140, 165, 0.32)" : "rgba(255, 205, 140, 0.16)";
   const haze = night > 0.5 ? "rgba(30, 40, 90, 0.5)" : golden > 0.2 ? "rgba(255, 196, 150, 0.55)" : wet > 0.5 ? "rgba(205, 212, 222, 0.62)" : "rgba(214, 232, 255, 0.5)";
   return {

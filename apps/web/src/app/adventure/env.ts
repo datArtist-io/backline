@@ -150,7 +150,7 @@ export class Environment {
       m.opacity = 0.22 + w.cloud * 0.3;
     });
     this.rain.visible = w.rain > 0;
-    (this.rain.material as THREE.LineBasicMaterial).opacity = 0.25 + w.rain * 0.35;
+    (this.rain.material as THREE.LineBasicMaterial).opacity = 0.12 + w.rain * 0.16;
     this.snow.visible = w.snow > 0;
   }
 

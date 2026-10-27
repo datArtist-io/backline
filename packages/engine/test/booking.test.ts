@@ -188,7 +188,7 @@ describe("calls fail closed", () => {
     const calls = caller();
     const r = await tripExecute.run({ ...ctxWith(), calls, callDemoTo: null, callsLive: false } as never, { artist: "", trip, profile: { name: "Ada", email: "ada@example.com" } }, deps);
     expect(calls.start).not.toHaveBeenCalled();
-    expect(r.data.results[0].status).toBe("ready");
+    expect(r.data.results[0].status).toBe("needs_info");
   });
   it("rings the demo line instead of the business", async () => {
     const calls = caller();

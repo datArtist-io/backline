@@ -61,6 +61,7 @@ import { streamMission, type CheckpointRequest, type MissionDebug, type MissionR
 import DebugPanel from "./DebugPanel";
 import { buildReport } from "@/lib/report";
 import { downloadFile, slug } from "@/lib/actions";
+import { buildIcs } from "@/lib/ics";
 import { rememberArtist, rememberedArtist } from "@/lib/memory";
 import { useRouter } from "next/navigation";
 import FollowUp from "./FollowUp";
@@ -864,16 +865,24 @@ function TripGame({
   const actionsOut = r<TripActionsOutput>("trip.actions")?.data;
   const execOut = r<TripExecuteOutput>("trip.execute")?.data ?? null;
   const executing = steps.find((s) => s.id === "trip.execute")?.status === "running";
-  const reach = useMemo(() => {
-    const out: Record<string, Reach> = {};
-    for (const p of agent ? [...agent.stays, ...agent.dines, ...agent.venues, ...agent.activities] : []) out[p.id] = { name: p.name, website: p.website ?? null, email: (p as { email?: string | null }).email ?? null, phone: p.phone ?? null };
-    return out;
-  }, [agent]);
-  const live = actionsOut && (execOut || executing) ? <BookingsLive actions={actionsOut} execute={execOut} running={executing} places={reach} /> : null;
   // Fly the moment the page opens: the place named in the request, before the agent has even read it.
   const guess = usePlace(where?.city ? null : trip?.destination ?? placeIn(goal));
   const destination: Spot | null = where?.city ? { name: where.city.display ?? where.city.name, lat: where.city.lat, lon: where.city.lon } : travel?.to && travel.destination ? { name: travel.destination, ...travel.to } : guess;
   const model = useMemo(() => buildAdventure({ title: goal, agent, plan, routes, taste, intel, travel, destination }), [goal, agent, plan, routes, taste, intel, travel, destination]);
+  const reach = useMemo(() => {
+    const out: Record<string, Reach> = {};
+    const aff = new Map((model?.nodes ?? []).map((n) => [n.id, n.affinity ?? n.match ?? null]));
+    const lists: [string, Place[]][] = agent ? [["stay", agent.stays], ["dine", agent.dines], ["venue", agent.venues], ["activity", agent.activities]] : [];
+    for (const [kind, list] of lists)
+      for (const p of list) out[p.id] = { name: p.name, website: p.website ?? null, email: (p as { email?: string | null }).email ?? null, phone: p.phone ?? null, kind, affinity: aff.get(p.id) ?? null };
+    return out;
+  }, [agent, model]);
+  const calendar = () => {
+    if (!plan || !agent) return;
+    const map = new Map<string, Place>([...agent.stays, ...agent.dines, ...agent.venues, ...agent.activities].map((p) => [p.id, p]));
+    downloadFile(`${slug(goal || "trip")}.ics`, buildIcs(goal || "Trip", plan, map), "text/calendar;charset=utf-8");
+  };
+  const live = actionsOut && (execOut || executing) ? <BookingsLive actions={actionsOut} execute={execOut} running={executing} places={reach} onCalendar={calendar} /> : null;
   const origin: Spot | null = travel?.from && travel.origin ? { name: travel.origin, ...travel.from } : null;
   const subtitle = trip?.destination ? tripChips(trip, where).slice(1).filter((c) => !/^By /.test(c)).concat(travel?.origin ? [`from ${travel.origin.split(",")[0]}`] : []).join(", ") : goal ? `“${goal}”` : null;
   const shown = useMemo(() => steps.map((s) => ({ id: s.id, title: s.title, status: s.status })), [steps]);

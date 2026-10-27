@@ -212,8 +212,11 @@ const tasteMaterial = () =>
         vec3 base = vec3(1.0, 0.31, 0.64);
         vec3 top = vec3(1.0, 0.82, 0.48);
         vec3 col = mix(base, top, vH * vC.r);
-        float edge = smoothstep(0.0, 0.08, vH) * (1.0 - vH);
-        float a = (0.12 + 0.5 * vC.r) * (0.55 + 0.45 * edge) * (0.85 + 0.15 * sin(uTime * 1.3 + vC.b * 40.0));
+        // A slim pillar of light: bright at the foot, fading up, with a crisp glowing cap.
+        float body = (1.0 - vH) * smoothstep(0.0, 0.04, vH);
+        float cap = smoothstep(0.93, 1.0, vH) * 1.6;
+        float pulse = 0.88 + 0.12 * sin(uTime * 1.3 + vC.b * 40.0);
+        float a = (0.05 + 0.28 * vC.r) * body * pulse + cap * (0.25 + 0.5 * vC.r);
         gl_FragColor = vec4(col, a * uFade);
       }`,
   });
@@ -353,10 +356,13 @@ class Scene3D implements CustomLayerInterface {
       const m = (a: { lat: number; lon: number }, b: { lat: number; lon: number }) => Math.hypot((a.lon - b.lon) * 111320 * Math.cos(rad(a.lat)), (a.lat - b.lat) * 110574);
       const nn = pts.slice(0, 60).map((p) => Math.min(...pts.filter((q) => q !== p).map((q) => m(p, q)), 2000)).sort((a, b) => a - b);
       const cell = Math.max(70, Math.min(420, (nn[Math.floor(nn.length / 2)] ?? 300) * 0.5));
-      this.tasteSpots = pts.map((p) => ({ lat: p.lat, lon: p.lon, h: 40 + Math.pow(p.w, 1.4) * 620, r: cell }));
+      // Slim pillars, not slabs: a fraction of the cell wide, so the city still reads underneath.
+      const r = Math.max(12, Math.min(48, cell * 0.16));
+      this.tasteSpots = pts.slice(0, 90).map((p) => ({ lat: p.lat, lon: p.lon, h: 30 + Math.pow(p.w, 1.5) * 360, r }));
       const geo = new THREE.CylinderGeometry(1, 1, 1, 6, 1, true).translate(0, 0.5, 0);
-      const mesh = new THREE.InstancedMesh(geo, tasteMaterial(), pts.length);
-      pts.forEach((p, i) => mesh.setColorAt(i, new THREE.Color(p.w, p.w, (i * 0.137) % 1)));
+      const shown = pts.slice(0, 90);
+      const mesh = new THREE.InstancedMesh(geo, tasteMaterial(), shown.length);
+      shown.forEach((p, i) => mesh.setColorAt(i, new THREE.Color(p.w, p.w, (i * 0.137) % 1)));
       mesh.frustumCulled = false;
       this.taste = mesh;
       this.scene.add(mesh);
@@ -441,7 +447,8 @@ class Scene3D implements CustomLayerInterface {
     if (this.taste) {
       const mat = this.taste.material as THREE.ShaderMaterial;
       mat.uniforms.uTime.value = t;
-      const want = !this.tasteOn ? 0 : this.travelling ? 0.25 : zoom < 9 ? 0 : zoom < 10.5 ? (zoom - 9) / 1.5 : zoom > 15.5 ? Math.max(0.2, 1 - (zoom - 15.5) / 1.5) : 1;
+      // Strong at city scale, a whisper at street level and while a place is open.
+      const want = !this.tasteOn ? 0 : this.travelling ? 0.2 : zoom < 9 ? 0 : zoom < 10.5 ? (zoom - 9) / 1.5 : zoom > 14 ? Math.max(0.12, 1 - (zoom - 14) / 1.5) : 1;
       mat.uniforms.uFade.value += (want - mat.uniforms.uFade.value) * 0.08;
     }
     this.traveller.visible = this.travelling;
@@ -524,7 +531,7 @@ export default function Earth(props: EarthProps) {
           "heatmap-intensity": ["interpolate", ["linear"], ["zoom"], 9, 0.6, 15, 1.4],
           "heatmap-radius": ["interpolate", ["exponential", 2], ["zoom"], 9, 14, 13, 50, 16, 160],
           "heatmap-color": ["interpolate", ["linear"], ["heatmap-density"], 0, "rgba(255,79,163,0)", 0.25, "rgba(255,79,163,0.18)", 0.55, "rgba(255,79,163,0.42)", 0.85, "rgba(255,170,120,0.55)", 1, "rgba(255,214,140,0.7)"],
-          "heatmap-opacity": ["interpolate", ["linear"], ["zoom"], 8.5, 0, 10, 0.7, 15, 0.45, 17, 0],
+          "heatmap-opacity": ["interpolate", ["linear"], ["zoom"], 8.5, 0, 10, 0.5, 13, 0.22, 14.5, 0],
         },
       });
       map.addLayer({ id: "zone", type: "line", source: "zone", paint: { "line-color": GOLD, "line-width": 1.4, "line-dasharray": [2, 3], "line-opacity": ["interpolate", ["linear"], ["zoom"], 9, 0, 11, 0.8] } });

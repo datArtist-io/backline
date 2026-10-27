@@ -20,9 +20,11 @@ import {
   type BriefInput,
   type Plan,
   type SkillResult,
+  toE164,
 } from "@backline/engine";
 import { getRun, isRunId, saveRun } from "@/lib/run-store";
 import { openRun, sealRun } from "@/lib/run-seal";
+import { DIAL, underDailyCap } from "@/lib/demo-calls";
 import { clientIp, rateLimiter } from "@/lib/rate-limit";
 import { getSession } from "@/lib/session";
 import { supabaseConfig } from "@/lib/supabase";
@@ -160,6 +162,12 @@ export async function POST(req: Request) {
         const merged = account ? mergeProfile(account.profile, local, account.memories) : local;
         // Signed in with Google or email: their name and email are enough to book in their name.
         const profile = session ? { ...merged, name: merged.name || session.user.name || undefined, email: merged.email || session.user.email || undefined } : merged;
+        // Demo calling rings the signed-in person's own phone (they play the business). Without sign-in
+        // configured (local development), the CALL_DEMO_TO line is used instead.
+        if (ctx.calls && !ctx.callsLive) {
+          const own = session ? toE164(profile.phone ?? null, DIAL[(req.headers.get("x-vercel-ip-country") ?? "").toUpperCase()]) : null;
+          ctx.callDemoTo = session ? (own && underDailyCap(session.user.id) ? own : null) : supabaseConfig() ? null : ctx.callDemoTo;
+        }
         let plan: Plan;
         if (prior) {
           plan = prior.plan;

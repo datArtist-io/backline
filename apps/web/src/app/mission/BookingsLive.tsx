@@ -4,6 +4,7 @@
 import { useEffect, useState } from "react";
 import type { TripActionsOutput, TripExecuteOutput } from "@backline/engine";
 import MiniBrowser from "./MiniBrowser";
+import { loadProfile } from "@/lib/profile";
 
 type Action = TripActionsOutput["actions"][number];
 type Result = TripExecuteOutput["results"][number];
@@ -63,102 +64,140 @@ function ChannelIcon({ channel, status }: { channel: Action["channel"]; status: 
   );
 }
 
-/** Where else a place can be reached, for when one way fails. */
-export type Reach = { name: string; website: string | null; email: string | null; phone: string | null };
+/** Where else a place can be reached, and how well it fits (Qloo affinity), for rerouting. */
+export type Reach = { name: string; website: string | null; email: string | null; phone: string | null; kind: string; affinity: number | null };
 type CallState = { id: string; status: string; ended: boolean; outcome: string; retryable: boolean; summary: string | null; transcript: string | null; endedReason: string | null };
+type Leg = { placeId: string | null; name: string; id: string | null; state: CallState | null; note: string | null };
 
-const OUTCOME_TEXT: Record<string, string> = {
-  live: "On the call now",
-  talked: "Call finished",
-  no_answer: "No one picked up",
-  busy: "The line was busy",
-  voicemail: "Went to voicemail; I asked them to call you back",
-  no_audio: "The call connected but no sound came through from their side",
-  failed: "The call couldn't go through",
+/** Short, calm words for how a call ended. Never an error code. */
+const LEG_TEXT: Record<string, string> = {
+  live: "On the call",
+  talked: "Booked by phone",
+  no_answer: "No answer",
+  busy: "Line busy",
+  voicemail: "Left a message",
+  no_audio: "Line dropped",
+  failed: "Couldn't connect",
 };
 
-/** Follows one AI call: live status, transcript, one automatic retry, then other ways to book. */
-function LiveCall({ id: first, reach, onWebsite, onDone }: { id: string; reach: Reach | null; onWebsite: (url: string) => void; onDone: (ok: boolean) => void }) {
-  const [id, setId] = useState(first);
-  const [s, setS] = useState<CallState | null>(null);
-  const [tries, setTries] = useState(1);
-  const [note, setNote] = useState<string | null>(null);
+const poll = async (id: string): Promise<CallState | null> => {
+  try {
+    const res = await fetch(`/api/calls/${encodeURIComponent(id)}`, { cache: "no-store" });
+    return res.ok ? ((await res.json()) as CallState) : null;
+  } catch {
+    return null;
+  }
+};
+
+/**
+ * Follows a booking call. If a place doesn't connect, it moves straight on to Qloo's next best place
+ * of the same kind and calls that one, and so on; only when none connect does it offer the website.
+ */
+function LiveCall({
+  id: first,
+  action,
+  alternates,
+  phone,
+  client,
+  reachOf,
+  onWebsite,
+  onDone,
+}: {
+  id: string;
+  action: Action;
+  reachOf: (id: string | null) => Reach | null;
+  alternates: (Reach & { id: string })[];
+  phone: string | null;
+  client: string | null;
+  onWebsite: (url: string, title: string) => void;
+  onDone: (ok: boolean) => void;
+}) {
+  const [legs, setLegs] = useState<Leg[]>([{ placeId: action.placeId, name: action.placeName ?? "the place", id: first, state: null, note: null }]);
+  const [open, setOpen] = useState(false);
+  const cur = legs[legs.length - 1];
+  const finished = legs.some((l) => l.state?.outcome === "talked" || l.state?.outcome === "voicemail") || (cur.state?.ended && legs.length > alternates.length) || cur.note === "end";
+
+  // Follow the current call every 3 seconds until it ends.
   useEffect(() => {
+    if (!cur.id) return;
     let stop = false;
     let n = 0;
     const tick = async () => {
+      const st = await poll(cur.id!);
       if (stop) return;
-      try {
-        const res = await fetch(`/api/calls/${encodeURIComponent(id)}`, { cache: "no-store" });
-        const d = (await res.json()) as CallState & { error?: string };
-        if (!res.ok) throw new Error(d.error);
-        if (stop) return;
-        setS(d);
-        if (d.ended) return;
-      } catch {
-        /* keep trying */
-      }
+      if (st) setLegs((ls) => ls.map((l, i) => (i === ls.length - 1 ? { ...l, state: st } : l)));
+      if (st?.ended) return;
       if (++n < 150) setTimeout(tick, 3000);
     };
     tick();
     return () => {
       stop = true;
     };
-  }, [id]);
-  const ended = Boolean(s?.ended);
-  const ok = ended && (s?.outcome === "talked" || s?.outcome === "voicemail");
-  const failed = ended && !ok;
+  }, [cur.id]);
+
+  // When a call ends without getting through, call the next best place.
   useEffect(() => {
-    if (!ended) return;
-    if (failed && s?.retryable && tries < 2) {
-      // One more try straight away: a dropped line is often a one-off.
-      setNote("Trying the call once more…");
-      fetch(`/api/calls/${encodeURIComponent(id)}`, { method: "POST" })
-        .then((r) => r.json())
-        .then((d: { id?: string; error?: string }) => {
-          if (d.id) {
-            setTries((t) => t + 1);
-            setS(null);
-            setId(d.id);
-            setNote(null);
-          } else {
-            setTries(2);
-            setNote(d.error ?? "Couldn't place it again.");
-            onDone(false);
-          }
-        })
-        .catch(() => {
-          setTries(2);
-          onDone(false);
-        });
+    const st = cur.state;
+    if (!st?.ended) return;
+    const ok = st.outcome === "talked" || st.outcome === "voicemail";
+    if (ok) {
+      onDone(true);
       return;
     }
-    onDone(ok);
+    const next = alternates[legs.length - 1];
+    if (!next) {
+      onDone(false);
+      return;
+    }
+    const rename = (t: string | null) => (t ?? "").split(action.placeName ?? "\u0000").join(next.name);
+    setLegs((ls) => [...ls, { placeId: next.id, name: next.name, id: null, state: null, note: null }]);
+    fetch("/api/calls", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ placeName: next.name, opening: rename(action.callOpening), brief: rename(action.callBrief), to: next.phone, phone, client }),
+    })
+      .then((r) => r.json())
+      .then((d: { id?: string; error?: string }) =>
+        setLegs((ls) => ls.map((l, i) => (i === ls.length - 1 ? { ...l, id: d.id ?? null, note: d.id ? null : "end" } : l)))
+      )
+      .catch(() => setLegs((ls) => ls.map((l, i) => (i === ls.length - 1 ? { ...l, note: "end" } : l))));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ended, id]);
-  const label = !s ? "Connecting…" : s.ended ? (OUTCOME_TEXT[s.outcome] ?? "Call finished") : s.status === "in-progress" ? "On the call now" : s.status === "ringing" ? "Ringing" : "Placing the call";
+  }, [cur.state?.ended]);
+
+  const talked = legs.find((l) => l.state?.outcome === "talked" || l.state?.outcome === "voicemail");
+  const live = !finished && cur.id && !cur.state?.ended;
+  const lastWithSite = [...legs].reverse().map((l) => reachOf(l.placeId)).find((r) => r?.website);
+  const site = lastWithSite?.website ?? null;
   return (
-    <div className={`bk-callbox${failed ? " is-failed" : ok ? " is-ok" : ""}`}>
-      <p className="bk-callline">
-        <span className={`bk-calldot${ended ? (ok ? " ok" : " bad") : ""}`} aria-hidden="true" />
-        <b>{label}</b>
-        {tries > 1 && <em>try {tries} of 2</em>}
-      </p>
-      {note && <p className="bk-callnote">{note}</p>}
-      {s?.summary && <p className="bk-callsum">{s.summary}</p>}
-      {s?.transcript && (
-        <details className="bk-transcript">
+    <div className={`bk-callbox${talked ? " is-ok" : finished ? " is-done" : ""}`}>
+      <ol className="bk-legs">
+        {legs.map((l, i) => {
+          const st = l.state;
+          const label = !l.id && l.note !== "end" ? "Dialling…" : l.note === "end" ? "Skipped" : !st ? "Connecting…" : st.ended ? (LEG_TEXT[st.outcome] ?? "Finished") : st.status === "in-progress" ? "On the call" : st.status === "ringing" ? "Ringing" : "Dialling…";
+          const state = st?.ended ? (st.outcome === "talked" || st.outcome === "voicemail" ? "ok" : "moved") : "live";
+          return (
+            <li key={i} className={`bk-leg is-${state}`} style={{ ["--i" as string]: i }}>
+              <span className="bk-leg-dot" aria-hidden="true" />
+              <b>{l.name}</b>
+              <em>{label}</em>
+            </li>
+          );
+        })}
+      </ol>
+      {live && legs.length > 1 && <p className="bk-callnote">{legs[legs.length - 2].name} couldn&rsquo;t take the call, so I&rsquo;m trying {cur.name}, Qloo&rsquo;s next best.</p>}
+      {talked?.state?.summary && <p className="bk-callsum">{talked.state.summary}</p>}
+      {legs.some((l) => l.state?.transcript) && (
+        <details className="bk-transcript" open={open} onToggle={(e) => setOpen((e.target as HTMLDetailsElement).open)}>
           <summary>Transcript</summary>
-          <pre>{s.transcript}</pre>
+          <pre>{(talked ?? cur).state?.transcript ?? ""}</pre>
         </details>
       )}
-      {failed && tries >= 2 && (
+      {finished && !talked && (
         <div className="bk-fallback">
-          <p>The call didn&rsquo;t work, so here are other ways to book{reach ? ` ${reach.name}` : ""}. Everything else carries on.</p>
+          <p>No one could take the call right now, so let&rsquo;s book it online instead.</p>
           <div className="bk-fallback-acts">
-            {reach?.website && <button type="button" className="bk-fb primary" onClick={() => onWebsite(reach.website!)}>Book on their website</button>}
-            {reach?.email && <a className="bk-fb" href={`mailto:${reach.email}`}>Email them</a>}
-            {reach?.phone && <a className="bk-fb" href={`tel:${reach.phone}`}>Call them yourself</a>}
+            {site && <button type="button" className="bk-fb primary" onClick={() => onWebsite(site, lastWithSite!.name)}>Book on {lastWithSite!.name}&rsquo;s website</button>}
+            {!site && action.placeName && <a className="bk-fb primary" href={`https://www.google.com/search?q=${encodeURIComponent(`${action.placeName} reservation`)}`} target="_blank" rel="noopener noreferrer">Find a booking page</a>}
           </div>
         </div>
       )}
@@ -166,7 +205,29 @@ function LiveCall({ id: first, reach, onWebsite, onDone }: { id: string; reach: 
   );
 }
 
-export default function BookingsLive({ actions, execute, running, places = {} }: { actions: TripActionsOutput; execute: TripExecuteOutput | null; running: boolean; places?: Record<string, Reach> }) {
+export default function BookingsLive({
+  actions,
+  execute,
+  running,
+  places = {},
+  onCalendar,
+}: {
+  actions: TripActionsOutput;
+  execute: TripExecuteOutput | null;
+  running: boolean;
+  places?: Record<string, Reach>;
+  onCalendar?: () => void;
+}) {
+  const me = typeof window !== "undefined" ? loadProfile() : {};
+  const used = new Set(actions.actions.map((a) => a.placeId).filter(Boolean));
+  const alternatesFor = (placeId: string | null) => {
+    const kind = placeId ? places[placeId]?.kind : null;
+    return Object.entries(places)
+      .filter(([id, p]) => kind && p.kind === kind && id !== placeId && !used.has(id))
+      .sort((a, b) => (b[1].affinity ?? 0) - (a[1].affinity ?? 0))
+      .slice(0, 3)
+      .map(([id, p]) => ({ ...p, id }));
+  };
   const byId = new Map(actions.actions.map((a) => [a.id, a]));
   const results = execute?.results ?? [];
   const [browse, setBrowse] = useState<{ url: string; title: string } | null>(null);
@@ -235,10 +296,17 @@ export default function BookingsLive({ actions, execute, running, places = {} }:
                   {r.status === "calling" && r.ref && (
                     <LiveCall
                       id={r.ref}
-                      reach={a.placeId ? (places[a.placeId] ?? null) : null}
-                      onWebsite={(url) => setBrowse({ url, title: a.placeName ?? "Their website" })}
+                      action={a}
+                      alternates={alternatesFor(a.placeId)}
+                      phone={me.phone ?? null}
+                      client={me.name ?? null}
+                      reachOf={(id) => (id ? (places[id] ?? null) : null)}
+                      onWebsite={(url, title) => setBrowse({ url, title })}
                       onDone={(ok) => setCalls((c) => ({ ...c, [r.actionId]: ok }))}
                     />
+                  )}
+                  {a.channel === "calendar" && onCalendar && (
+                    <button type="button" className="bk-fb primary" onClick={onCalendar}>Add to calendar</button>
                   )}
                   {r.status === "failed" && a.placeId && places[a.placeId] && (places[a.placeId].website || places[a.placeId].email) && (
                     <div className="bk-fallback">
