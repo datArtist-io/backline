@@ -173,6 +173,20 @@ describe("trip.taste", () => {
     expect((qloo.heatmap as ReturnType<typeof vi.fn>).mock.calls[0]).toEqual([["W"], "Lagos, Nigeria", undefined, { tagIds: ["urn:tag:genre:music:jazz"] }]);
   });
 
+  it("reads the destination through Qloo when no taste is given", async () => {
+    const qloo = stubQloo({
+      search: vi.fn(async () => [entity({ id: "DXB", name: "Dubai", type: "urn:entity:destination" })]),
+      tagInsights: vi.fn(async () => [tag("Upscale", "urn:tag:style:qloo")]),
+      demographics: vi.fn(async () => []),
+      insights: vi.fn(async () => []),
+      heatmap: vi.fn(async () => []),
+    });
+    const r = await tripTaste.run(ctxWith({ qloo }), { artist: "", trip: normalizeTrip({ destination: "Dubai" }, "Dubai")!, profile: {} }, {});
+    expect(r.data.signals).toEqual([expect.objectContaining({ id: "DXB", from: "place" })]);
+    expect(r.data.vibes).toEqual(["Upscale"]);
+    expect(r.notes?.[0]).toMatch(/You didn't say what you love/);
+  });
+
   it("says so when there's no taste to read", async () => {
     const r = await tripTaste.run(ctxWith(), { artist: "", trip: normalizeTrip({ destination: "Lagos" }, "Lagos")!, profile: {} }, {});
     expect(r.data.signals).toEqual([]);

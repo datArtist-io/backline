@@ -32,6 +32,8 @@ const tagIcon = (id: string) => (/:music/.test(id) ? "♪" : /:place|dish/.test(
 export function tasteHeadline(t: Pick<TasteOutput, "signals" | "tags">): string {
   const star = t.signals.find((s) => s.from === "star");
   if (star) return `Planned like ${star.name}`;
+  const place = t.signals.find((s) => s.from === "place");
+  if (place && t.signals.length === 1 && t.tags.length === 0) return `What lovers of ${place.name} go for`;
   const names = [...t.signals.map((s) => s.name), ...t.tags.map((x) => x.name)].slice(0, 3);
   if (names.length === 0) return "";
   return `Tuned to ${names.length === 1 ? names[0] : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`}`;

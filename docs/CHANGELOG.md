@@ -14,6 +14,7 @@
 - Planner sees each place's kind; no doubled names; no unconfirmed events; no invented arrival times.
 - "Getting there" research from route planners, fare and journey-time pages; fare and time on the flight arc.
 - Test-airline fares never surfaced.
+- Taste never empty: with no likes given, the destination is read through Qloo (what people who love it go for), and the trip says so.
 
 ### Experience
 - Full-screen expedition on the real Earth (MapLibre globe, satellite, terrain, 3D buildings) with a Three.js layer: beacons, Qloo taste columns, trees, clouds, rain, sunlight, traveller.

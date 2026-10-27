@@ -18,8 +18,8 @@ export const tasteSignalSchema = z.object({
   name: z.string(),
   type: z.string().nullable(),
   image: z.string().nullable().optional(),
-  /** Where it came from: a celebrity to plan like, the request, or saved likes. */
-  from: z.enum(["star", "request", "saved"]).optional(),
+  /** Where it came from: a celebrity to plan like, the request, saved likes, or (with no taste given) the destination itself. */
+  from: z.enum(["star", "request", "saved", "place"]).optional(),
 });
 
 const pickSchema = z.object({ id: z.string(), name: z.string(), type: z.string().nullable(), image: z.string().nullable() });
@@ -170,12 +170,20 @@ export const tripTaste: Skill<BriefInput, TasteOutput> = {
     const said = (input.trip?.likes ?? []).map((l) => l.trim()).filter(Boolean);
     const saved = (input.profile?.likes ?? []).map((l) => l.trim()).filter(Boolean);
     const likes = [...said.map((name) => ({ name, from: "request" as const })), ...saved.filter((s) => !said.some((x) => x.toLowerCase() === s.toLowerCase())).map((name) => ({ name, from: "saved" as const }))].slice(0, 6);
-    if (likes.length === 0 && !star)
-      return {
-        data: EMPTY,
-        evidence: [],
-        notes: ["No taste to go on yet, so picks lean on distance, ratings and budget. Mention what you love (an artist, a film, a cuisine) or plan it like a favourite star would."],
-      };
+    const city = input.trip?.destination?.trim() || "";
+    // No taste given: read the destination through Qloo instead — what people who love this place
+    // go for — so the trip is still tuned by taste data, and say so.
+    let placeHit: QlooEntity | null = null;
+    if (likes.length === 0 && !star) {
+      placeHit = city ? ((await ctx.qloo.search(city, { types: ["urn:entity:destination"], take: 1, signal: ctx.signal }).catch(() => [] as QlooEntity[]))[0] ?? null) : null;
+      ctx.usage.add("qloo", city ? 1 : 0);
+      if (!placeHit)
+        return {
+          data: EMPTY,
+          evidence: [],
+          notes: ["No taste to go on yet, so picks lean on distance, ratings and budget. Mention what you love (an artist, a film, a cuisine) or plan it like a favourite star would."],
+        };
+    }
 
     // Names first: each like becomes a Qloo entity (an artist, film, place) or a tag (a genre, a cuisine).
     const [starHits, ...found] = await Promise.all([
@@ -187,6 +195,7 @@ export const tripTaste: Skill<BriefInput, TasteOutput> = {
     ctx.usage.add("qloo", likes.length * 2 + (star ? 1 : 0));
     const signals: TasteOutput["signals"] = [];
     const tags: TasteOutput["tags"] = [];
+    if (placeHit) signals.push({ id: placeHit.id, name: placeHit.name, type: placeHit.type, image: placeHit.image, from: "place" });
     if (starHits[0]) signals.push({ id: starHits[0].id, name: starHits[0].name, type: starHits[0].type, image: starHits[0].image, from: "star" });
     likes.forEach((l, i) => {
       const read = readLike(l.name, found[i][0], found[i][1]);
@@ -204,7 +213,6 @@ export const tripTaste: Skill<BriefInput, TasteOutput> = {
     }
 
     // Then everything Qloo can say about that taste, in parallel.
-    const city = input.trip?.destination?.trim() || "";
     const q = { tagIds };
     const [tagRows, demo, artists, brands, heat] = await Promise.all([
       part(ctx.qloo.tagInsights(ids, 40, ctx.signal, { ...q, tagTypes: ["urn:tag:style:qloo", "urn:tag:genre:place", "urn:tag:specialty_dish:place", "urn:tag:cost_description:place"] }), [] as QlooTag[], "Taste themes"),
@@ -226,8 +234,10 @@ export const tripTaste: Skill<BriefInput, TasteOutput> = {
     }
 
     const data: TasteOutput = { signals, tags, ...readTags(tagRows), audience: ageLean(demo), alsoLoved, zone, heat: heatForMap(heat) };
-    const label = star && signals[0]?.from === "star" ? `places fans of ${signals[0].name} love` : "your taste";
-    const notes = star && !starHits[0] ? [`I couldn't find ${star} in the taste data, so picks follow the rest of your taste.`] : [];
+    const label = placeHit ? `what people who love ${placeHit.name} go for` : star && signals[0]?.from === "star" ? `places fans of ${signals[0].name} love` : "your taste";
+    const notes = placeHit
+      ? [`You didn't say what you love, so I read ${placeHit.name} through Qloo: what people who love it go for. Tell me an artist, film or cuisine you love to tune it to you.`]
+      : star && !starHits[0] ? [`I couldn't find ${star} in the taste data, so picks follow the rest of your taste.`] : [];
     return {
       data,
       evidence: [

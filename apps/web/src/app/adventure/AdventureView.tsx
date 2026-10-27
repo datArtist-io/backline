@@ -447,7 +447,7 @@ export default function AdventureView({
               </svg>
               <div className="eq-score-txt">
                 <b>Qloo affinity</b>
-                {narrow && model.taste?.signals.length ? <span className="eq-because">Because you love {model.taste.signals.slice(0, 2).join(", ")}</span> : null}
+                {narrow && model.taste?.signals.length ? <span className="eq-because">{model.taste.because}</span> : null}
                 <span>{model.stats.picked} places · {model.stats.days ? `${model.stats.days} days` : "plan coming"}{model.stats.km ? ` · ${Math.round(model.stats.km)} km` : ""}</span>
               </div>
             </div>
@@ -502,7 +502,7 @@ export default function AdventureView({
         {model?.taste && !narrow && (
           <aside className="eq-qloo" aria-label="Your taste, from Qloo">
             <h2><span className="eq-q" aria-hidden="true" />Your taste, by Qloo</h2>
-            {model.taste.signals.length > 0 && <p className="eq-sig">Because you love {model.taste.signals.slice(0, 4).join(", ")}</p>}
+            {model.taste.because && <p className="eq-sig">{model.taste.because}</p>}
             <ol className="eq-tops" aria-label="Qloo's top pick of each kind">
               {topPicks.map((n) => (
                 <li key={n.id} style={{ ["--c" as string]: KIND_COLOR[n.kind] }}>

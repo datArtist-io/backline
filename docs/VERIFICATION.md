@@ -30,7 +30,8 @@ Live Missions run against production (`backline-beta-one.vercel.app`), what was 
 | V15 | Rome (re-run after V12–V14) | Meals, names, departure time | — | Fixed: no gelato dinners, no doubled names, departure time left to the traveller | — |
 | V16 | Map | 3D beacons vs pins at street zoom, 10 km from centre | Pixel comparison | **~15 px drift** (single local frame) | Mercator-exact local frame, re-anchored under the camera — `2f6bb16` |
 | V17 | Map | Pin positions | Pixel comparison vs route vertices | **Wrong** (marker classes overwritten) | Keep MapLibre's own marker classes — `2f6bb16` |
-| V18 | Trip to Dubai (no origin, no dates) | Getting there, weather | — | **Empty** | Origin from home city or connection; coming long weekend when no dates; both stated as assumptions — this release |
+| V18 | Trip to Dubai (no origin, no dates) | Getting there, weather | — | **Empty** | Origin from home city or connection; coming long weekend when no dates; both stated as assumptions — `4bbe840` |
+| V19 | same | "Your taste" | — | **Empty** (no likes given) | Destination read through Qloo ("What people who love Dubai go for"), stated as an assumption; test — this release |
 
 ## Automated tests
 

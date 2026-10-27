@@ -73,7 +73,7 @@ export type AdventureModel = {
   extent: number;
   /** World units per kilometre. */
   scale: number;
-  taste: { signals: string[]; vibes: string[]; scenes: string[]; dishes: string[]; audience: string | null; alsoLoved: string[] } | null;
+  taste: { signals: string[]; because: string; vibes: string[]; scenes: string[]; dishes: string[]; audience: string | null; alsoLoved: string[] } | null;
   intel: TripIntelOutput | null;
   travel: TripTravelOutput | null;
   summary: string | null;
@@ -270,7 +270,7 @@ export function buildAdventure(src: AdventureSource): AdventureModel | null {
     destination: a.where.city ? { name: a.where.city.display ?? a.where.city.name, lat: a.where.city.lat, lon: a.where.city.lon } : src.travel?.to && src.travel.destination ? { name: src.travel.destination, ...src.travel.to } : null,
     scale,
     taste: taste && (taste.signals.length || taste.tags.length || taste.vibes.length)
-      ? { signals: [...taste.signals.map((s) => s.name), ...taste.tags.map((t) => t.name)].slice(0, 6), vibes: taste.vibes, scenes: taste.scenes, dishes: taste.dishes, audience: taste.audience, alsoLoved: taste.alsoLoved.map((x) => x.name).slice(0, 4) }
+      ? { signals: [...taste.signals.map((s) => s.name), ...taste.tags.map((t) => t.name)].slice(0, 6), because: tasteBecause(taste), vibes: taste.vibes, scenes: taste.scenes, dishes: taste.dishes, audience: taste.audience, alsoLoved: taste.alsoLoved.map((x) => x.name).slice(0, 4) }
       : null,
     intel: src.intel ?? null,
     travel: src.travel ?? null,
@@ -321,10 +321,18 @@ function tasteOnly(src: AdventureSource): AdventureModel | null {
     center: { lat: lat0, lon: lon0 },
     origin: src.travel?.from && src.travel.origin ? { name: src.travel.origin, ...src.travel.from } : null,
     destination: src.destination ?? null,
-    taste: taste.signals.length || taste.tags.length || taste.vibes.length ? { signals: [...taste.signals.map((s) => s.name), ...taste.tags.map((t) => t.name)].slice(0, 6), vibes: taste.vibes, scenes: taste.scenes, dishes: taste.dishes, audience: taste.audience, alsoLoved: taste.alsoLoved.map((x) => x.name).slice(0, 4) } : null,
+    taste: taste.signals.length || taste.tags.length || taste.vibes.length ? { signals: [...taste.signals.map((s) => s.name), ...taste.tags.map((t) => t.name)].slice(0, 6), because: tasteBecause(taste), vibes: taste.vibes, scenes: taste.scenes, dishes: taste.dishes, audience: taste.audience, alsoLoved: taste.alsoLoved.map((x) => x.name).slice(0, 4) } : null,
     intel: src.intel ?? null,
     travel: src.travel ?? null,
     summary: null,
     stats: { places: 0, picked: 0, km: 0, match: null, xp: 0, days: 0 },
   };
+}
+
+/** "Because you love X, Y" or, when no taste was given, "What people who love Dubai go for". Pure. */
+export function tasteBecause(t: { signals: { name: string; from?: string }[]; tags: { name: string }[] }): string {
+  const place = t.signals.find((s) => s.from === "place");
+  if (place && t.signals.length === 1 && t.tags.length === 0) return `What people who love ${place.name} go for`;
+  const names = [...t.signals.map((s) => s.name), ...t.tags.map((x) => x.name)];
+  return names.length ? `Because you love ${names.slice(0, 4).join(", ")}` : "";
 }
