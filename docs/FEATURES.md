@@ -34,10 +34,20 @@ What the product does today, how each part works and how it's checked. Engine te
 - Ride fares between stops from published rates, with a ride link; walking for short hops.
 - Tests: `routes-docs.test.ts`, `tiers-rides.test.ts`.
 
-### Booking with the user
-- Booking links with the dates filled in, reservation emails, calls with a script, and the whole plan as a calendar file.
-- Only a signed-in person can have things paid, emailed or called (when sign-in is on); everyone else gets the plan and booking links. A repeat of the same request within six hours isn't booked again unless the person taps Run again. Automatic booking covers one traveller and one room.
-- Nothing runs before the user approves it. Limits per mission: 4 emails, 3 calls, 1 reservation. Calls say they're from an AI assistant. It books and pays for the hotel through the booking provider, only at the approved price and within budget; card details never pass through Backline.
+### Review, approve once, and it books everything
+- **Review:** swap any stop for Qloo's next best of the same kind, remove it, or describe a change; only the plan is rewritten, in seconds.
+- **One-tap checkout:** when the trip is ready a centred checkout opens by itself (both modes): every booking with its amount, the total in the traveller's currency, the wallet before and after, and "Approve & pay" or "Take a look first". The approval is sealed to the exact plan shown.
+- **Prepaid, then confirmed:** each reservation and stay is paid from the Backline Wallet, then confirmed by a real AI call, one at a time, day by day. A place that can't take it hands over to Qloo's next best (up to three), then the website (checked live, opened in a mini browser). A booking nobody could take is refunded automatically; a call that can't be placed is refunded too.
+- **Receipts:** every payment has a printable receipt (`/receipt/<id>`) to show on arrival.
+- **Demo calls** ring the signed-in person's own phone (they play the business). Real businesses are called only with `CALLS_LIVE=1`.
+- Also: booking links with dates filled in, reservation emails, the whole plan as a calendar file. Hotels and flights book through LiteAPI and Duffel (sandbox in the demo).
+- Only a signed-in person can have things paid, emailed or called; everyone else gets the plan and links. A repeat of the same request within six hours isn't booked again unless the person taps Run again. Limits per mission: 4 emails, 8 calls, 1 room reservation. Calls say they're from an AI assistant and never give or ask for card details.
+- Tests: `booking.test.ts` (fail-closed calls, call outcomes, booking reader, Backline references, prepayment, refunds), `run-seal.test.ts`, `site-check.test.ts`.
+
+### Wallet and identity
+- **Backline Wallet:** a database ledger with a $20,000 demo balance per person, shown in their own currency. Turn the card over, switch currency, add any amount, filter activity, open any payment for its receipt. Holds, captures and refunds run in database functions under a per-person lock.
+- **Identity verification** with Persona (ID photo and selfie); paid flights and hotels wait for a verified traveller when Persona is configured.
+- **Traveller record:** legal name, contact, date of birth, gender, nationality, residence, address, emergency contact, seat, meal, loyalty programmes, accessibility, dietary and hotel preferences, grouped and collapsible. The passport is stored encrypted.
 
 ### Taking it with you
 - Add to calendar (.ics), PDF, Word document, PowerPoint (.pptx) and a web slide deck to present. The taste profile is included in each.

@@ -13,9 +13,9 @@ Where this document and the code disagree, the code governs and this document is
 1.3 **Mission** means one run of the engine on one Request, identified by a `runId`.
 1.4 **Skill** means a single, typed unit of engine work (`packages/engine/src/skills/*`) whose output is validated with Zod before any other part of the system may use it.
 1.5 **Action** means a step that affects the world outside Backline: a booking, a payment, an email, a phone call or a calendar entry (`buildActions`, `packages/engine/src/skills/trip.ts`).
-1.6 **Approval** means the Person's explicit go-ahead for a set of Actions, given with one button ("Do it") at the Actions checkpoint, or given in advance by choosing **Just do it** before the Mission starts.
-1.7 **Test mode** means a provider's sandbox: LiteAPI keys starting `sand_`, Duffel tokens starting `duffel_test_`. In Test mode bookings are created and confirmed by the provider and return real references, but **no money moves**.
-1.8 **Demo line** means the phone number in `CALL_DEMO_TO`. When set, every booking call rings the Demo line instead of the business.
+1.6 **Approval** means the Person's explicit go-ahead for a set of Actions, given with one button (**Approve & pay**) at the one-tap checkout (§19). Trips always stop there once, in both modes; **Just do it** opens the checkout straight away.
+1.7 **Test mode** means a provider's sandbox: LiteAPI keys starting `sand_`, Duffel tokens starting `duffel_test_`. In Test mode bookings are created and confirmed by the provider and return real references, but **no money moves**. A placeholder reference such as "test" is shown as a Backline reference (§17.4).
+1.8 **Demo line** means the phone that booking calls ring instead of the business: the signed-in Person's own phone (§16), or the number in `CALL_DEMO_TO` when set.
 1.9 **Expedition** means the full-screen, real-Earth interface for trip Missions (`apps/web/src/app/adventure/*`).
 
 ## 2. Purpose and scope
@@ -65,8 +65,8 @@ A Mission is a dependency graph of Skills run by the orchestrator (`packages/eng
 
 ## 6. Actions, Approval and limits
 
-6.1 Actions are proposed in S8 and shown at one checkpoint with a single **Do it** button. Nothing in §7–§8 happens before Approval.
-6.2 Per-Mission limits (`ACTION_LIMITS`): **4 emails, 3 calls, 1 room reservation**.
+6.1 Actions are proposed in S8 and shown at one checkout (§19) with a single **Approve & pay** button. Nothing in §7–§8 happens before Approval.
+6.2 Per-Mission limits (`ACTION_LIMITS`): **4 emails, 8 calls, 1 room reservation**; up to six meals across the trip are reserved by call.
 6.3 With sign-in enabled, a signed-out Person receives the full plan and links but no Action is executed for them (`api/mission/route.ts`: `ctx.signedOut`, providers nulled).
 6.4 The same Request is not booked twice within six hours unless the Person taps **Run again** (`alreadyBooked`).
 6.5 Automatic booking covers **one traveller** for flights and **one room** for hotels; larger parties get links, because each traveller and room needs its own details.
@@ -85,10 +85,10 @@ A Mission is a dependency graph of Skills run by the orchestrator (`packages/eng
 
 ## 8. Payments and bookings
 
-8.1 Hotels: LiteAPI **prebook → book** using the account's payment method. In Test mode the provider simulates payment and returns a booking reference; the result says "Test booking: no real money moved".
+8.1 Hotels: LiteAPI **prebook → book** using the account's payment method. In Test mode the provider simulates payment and returns a booking reference. The amount is held and captured in the Backline Wallet (§17) and the result says "Paid from your Backline Wallet".
 8.2 Flights: Duffel order creation for one traveller with passport details decrypted server-side for that call only. In Test mode the booking is on Duffel's test airline.
 8.3 Card details never pass through Backline.
-8.4 The Bookings panel shows, for each booked Action, the confirmation reference and the amount, labelled **Test payment** and **Test mode · no money moved** whenever Test mode applied.
+8.4 The Bookings panel shows, for each booked Action, the confirmation reference, the amount paid from the wallet and a link to its receipt (§19.5). The wallet carries one quiet "Demo balance" line; no real money moves.
 
 ## 9. Personal data
 
@@ -135,7 +135,7 @@ All keys are server-side except those prefixed `NEXT_PUBLIC_`.
 
 ## 12. Verification
 
-The checks run against live Missions, their findings and the resulting fixes are recorded in [`VERIFICATION.md`](VERIFICATION.md). Automated tests: engine 265, web 20 (`npm test`).
+The checks run against live Missions, their findings and the resulting fixes are recorded in [`VERIFICATION.md`](VERIFICATION.md). Automated tests: engine 283, web 25 (`npm test`). The production build (`next build`) compiles with no type errors.
 
 ## 13. Known limitations
 
@@ -143,6 +143,10 @@ The checks run against live Missions, their findings and the resulting fixes are
 13.2 Hotel prices outside Test mode depend on what is listed online for the dates; some hotels show "Not listed".
 13.3 The planner is a model: §5 constrains it and §12 audits it, but its prose can still be imperfect; facts in the plan are traceable to listed places and cited notes.
 13.4 Event schedules are not fetched from ticketing systems; the plan defers to the venue's schedule (§5.5).
+13.5 Identity verification needs Persona keys; until they are set the section shows the steps with verification disabled.
+13.6 Amounts for call bookings are estimates from the place's price level until a business quotes a price on the call.
+13.7 Demo calls ring the phone the Person gives (their account phone wins once saved), capped per day. The number is not verified by a code, so a Person could enter someone else's number; the daily cap limits this.
+13.8 Call audio over the Telnyx number imported into Vapi has shown one-way audio once; a Twilio number or a BYO SIP trunk is the more reliable path.
 
 ## 14. Review before booking
 
@@ -198,9 +202,13 @@ The checks run against live Missions, their findings and the resulting fixes are
 
 19.2 Approved reservations and stays are prepaid from the wallet before the agent calls to confirm. Amounts for calls are estimates from the place's price level (meals per person by level, rooms per night by tier), stated as such; live hotel and flight rates are the provider's price. Each payment is held and captured in the database with a receipt's details (place, when, party, trip, reference).
 
-19.3 Calls then go one at a time, day by day, until every booking is done. If no place can take a booking (the first choice and up to three of Qloo's next best of the same kind), its payment is refunded to the wallet automatically (`wallet_refund`) and the row says so.
+19.3 Calls then go one at a time, day by day, until every booking is done. If no place can take a booking (the first choice and up to three of Qloo's next best of the same kind), its payment is refunded to the wallet automatically (`wallet_refund`) and the row says so. If a call cannot be placed at all, its prepayment is refunded at once (test: `booking.test.ts`).
 
-19.4 A booking that stopped for a missing phone number shows a phone field and **Pay & call me** on its row; it pays (`/api/wallet/pay`) and places the call there and then.
+19.3a Refunds through `/api/wallet/refund` apply only to call prepayments made in the last 24 hours; hotel and flight bookings are cancelled with their provider. Wallet pay and refund are rate limited per address.
+
+19.4 A booking that stopped for a missing phone number shows a phone field and **Pay & call me** on its row; it pays (`/api/wallet/pay`), saves the number to the account, and places the call there and then.
+
+19.7 The checkout totals every booking in the wallet's currency at the day's rate, whatever currency each place quotes; when the wallet is short, Approve is disabled and nothing is paid.
 
 19.5 Every payment has a receipt at `/receipt/<id>`: amount in the traveller's currency, the amount charged by the business, place, dates, guests, booking reference, cancellation terms, payer and receipt number; printable or saved as PDF. Row-level security keeps each receipt to its owner.
 

@@ -2,6 +2,15 @@
 
 ## 2026-10-27
 
+### Fixes
+- A prepayment is refunded when its call can't be placed.
+- Checkout totals include prices in any currency, at the day's rate.
+- Receipts convert small-unit currencies correctly (naira, yen).
+- Refunds limited to call prepayments from the last day; wallet pay and refund rate limited.
+- Demo calls ring the account's saved phone; "Pay & call me" saves the number to the account.
+- No 401 noise for signed-out visitors; the wallet stops polling without a session.
+- The wallet lays out by its own width (container queries), so it fits inside the trip sheet.
+
 ### Checkout, wallet and identity
 - One-tap trip checkout: approve the whole trip once; each booking prepaid from the wallet, confirmed one call at a time, refunded automatically if no place can take it.
 - Receipts for every payment (`/receipt/<id>`), printable; linked from Bookings and the wallet.

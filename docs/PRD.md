@@ -22,7 +22,7 @@ One sentence in ("a weekend in Lagos, I love Wizkid and jazz"), a finished plan 
 3. **Checks real prices**: hotel rates are shown only when they're listed for the dates, with the page linked.
 4. **Sorts hotels into lanes**: premium, closest, best value and lowest price.
 5. **Writes the plan** day by day, with the map, routes on real roads, ride fares between stops and the round trip home.
-6. **Books and pays**: live hotel rates, booked and paid through the booking provider at the approved price and within budget; reservation emails and calls for restaurants and venues; a calendar file. Card details never pass through Backline.
+6. **Books and pays, after one approval**: a checkout shows every booking and the total in the traveller's currency; each is paid from the Backline Wallet and confirmed by a real AI call, one at a time, day by day, with a receipt for each and automatic refunds when a place can't take it. Hotels and flights book through their providers. Card details never pass through Backline.
 7. **Hands it over**: calendar, PDF, Word, PowerPoint or slides to present.
 
 Artist teams also get missions built on Qloo's audience data: fan profiles, brand matches with pitches, tour routing, growth and content ideas.
@@ -47,4 +47,4 @@ Taste is the difference. Qloo connects what someone loves in one domain (music, 
 | Qloo has thin data for a city or a taste | The plan still works on distance, ratings and budget, and says so |
 | The model invents places or prices | Only ids from searches can be picked; contacts and prices must appear in their source |
 | A service is slow or down | Fixed time budgets, fallbacks for every provider, an autopilot when the model stalls |
-| Booking on the user's behalf goes wrong | Payment only at the approved price and within budget; a higher price stops for approval; one paid booking per mission |
+| Booking on the user's behalf goes wrong | One sealed approval for the exact plan shown; prepayments held and captured in the database; refunds when a booking can't go ahead; calls fail closed to the person's own phone in the demo |

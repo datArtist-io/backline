@@ -53,6 +53,12 @@ Live Missions run against production (`backline-beta-one.vercel.app`), what was 
 | V38 | Wallet, NGN | Balance on the card | ₦27,198,238 | **Cut off**, currency pill clipped | Fits at any width (container-sized), narrow symbol |
 | V39 | NYC, auto | Bookings | All reservations | **One booked**, rows needing a phone not actionable | Checkout approves all; each prepaid; phone + "Pay & call me" on the row |
 | V40 | Checkout | Wallet short | — | — | Approve disabled with a clear message; nothing paid |
+| V41 | Code review | Call that can't be placed after prepaying | — | **Payment kept, no booking** | Prepayment refunded when the call fails to start; test |
+| V42 | Code review | Checkout total with a non-USD price | — | **Left out of the total** | Every amount converted at the day's rate |
+| V43 | Code review | Receipt in naira | — | **Division by a rounded zero** (1 NGN rounds to 0 US cents) | Converted with the rate itself |
+| V44 | Code review | Refund endpoint | — | **Could refund any payment** | Call prepayments from the last 24 h only; rate limited |
+| V45 | Live site, signed out | Console | — | **401 errors** from search history and wallet polling | Signed-out history returns empty; wallet stops polling without a session |
+| V46 | Build | `next build` with every route | — | Compiles, no type errors | — |
 
 ## Automated tests
 
@@ -63,6 +69,7 @@ Live Missions run against production (`backline-beta-one.vercel.app`), what was 
 - `packages/engine/test/booking.test.ts` (calls fail closed): no business is dialled without the live switch; the demo line replaces the business.
 - `apps/web/test/run-seal.test.ts`: a sealed plan round-trips exactly; tampered, foreign and expired seals are rejected.
 - `packages/engine/test/booking.test.ts` (prepaid from the wallet): a reservation is held, captured with a BL reference and returned with its receipt before the call; a short wallet stops the call with a clear message.
+- `packages/engine/test/booking.test.ts` (refund on failed call): a prepayment is refunded when the call can't be placed.
 - `apps/web/test/place-in.test.ts`: destination read from the request ("…TO LONDON FOR ME…" → London).
 
-Run all: `npm test` (engine 282, web 25 at time of writing).
+Run all: `npm test` (engine 283, web 25 at time of writing).
