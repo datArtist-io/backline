@@ -1,4 +1,4 @@
--- Backline Wallet (test funds): a ledger per person. Payments the agent makes for an approved booking
+-- Backline Wallet (demo balance): a ledger per person. Payments the agent makes for an approved booking
 -- are held against the balance, then captured when the booking is confirmed or released if it fails.
 -- People can read their own ledger; every change goes through the functions below, which check the
 -- caller, cap top-ups, and check the balance under a per-person lock so nothing is spent twice.
@@ -33,7 +33,7 @@ language sql stable security definer set search_path = public as $$
   from public.wallet_entries where user_id = auth.uid();
 $$;
 
--- Test funds only: at most $1,000 at a time and $2,000 a day.
+-- Demo top-ups: at most $1,000 at a time and $2,000 a day.
 create or replace function public.wallet_topup(amount_minor bigint) returns bigint
 language plpgsql security definer set search_path = public as $$
 declare today_total bigint;
@@ -45,7 +45,7 @@ begin
     where e.user_id = auth.uid() and e.kind = 'topup' and e.created_at > now() - interval '1 day';
   if today_total + amount_minor > 200000 then raise exception 'daily top-up limit reached'; end if;
   insert into public.wallet_entries (user_id, kind, status, amount_minor, label)
-    values (auth.uid(), 'topup', 'credited', amount_minor, 'Test funds added');
+    values (auth.uid(), 'topup', 'credited', amount_minor, 'Funds added');
   return public.wallet_balance();
 end $$;
 
