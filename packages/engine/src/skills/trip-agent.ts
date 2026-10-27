@@ -426,7 +426,7 @@ function placeLine(s: TripAgentState, p: Place): string {
     p.match != null ? (p.match >= 0.9 ? "top taste match" : p.match >= 0.75 ? "strong taste match" : "some taste match") : null,
     p.priceLevel ? `price level ${p.priceLevel}/4` : null,
     p.priceNote,
-    p.offer ? `live rate ${Math.round(p.offer.total).toLocaleString("en")} ${p.offer.currency} total${p.offer.refundable ? ", refundable" : ""}` : null,
+    p.offer ? (p.offer.test ? "bookable in test mode (sandbox, not a real price)" : `live rate ${Math.round(p.offer.total).toLocaleString("en")} ${p.offer.currency} total${p.offer.refundable ? ", refundable" : ""}`) : null,
     contact,
     p.tags.slice(0, 2).join(", ") || null,
   ].filter(Boolean);
@@ -648,9 +648,9 @@ export function tripTools(ctx: SkillContext, s: TripAgentState): AnyTool<TripAge
       // much better hotel a short ride further often beats the nearest one.
       const wideStay = a.kind === "stay" && radius < 10;
       // Live, bookable rates for the trip's dates, when a booking provider is connected. A sandbox key returns
-      // simulated rates, so those are never shown as prices.
+      // simulated rates: they're kept for test-mode bookings and always labelled as such, never as prices.
       const live =
-        a.kind === "stay" && ctx.hotels && !ctx.hotels.sandbox && t().startDate && t().endDate
+        a.kind === "stay" && ctx.hotels && t().startDate && t().endDate
           ? ctx.hotels
               .search({ lat: anchor.lat, lon: anchor.lon, radiusKm: Math.max(radius, 10), checkin: t().startDate!, checkout: t().endDate!, adults: t().adults, rooms: t().rooms, currency: t().budget.currency, guestNationality: s.city?.countryCode ?? undefined, limit: 25, signal: ctx.signal })
               .catch((err) => {
@@ -663,7 +663,7 @@ export function tripTools(ctx: SkillContext, s: TripAgentState): AnyTool<TripAge
       let res = first;
       const good = (wide?.places ?? []).filter((p) => !res.places.some((q) => q.id === p.id) && ((p.rating ?? 0) >= 4.2 || (p.priceLevel ?? 0) >= 3));
       if (good.length) res = { ...res, places: [...res.places, ...good.slice(0, 8)] };
-      const bookable = offers.length && ctx.hotels ? attachOffers(res.places, offers, ctx.hotels.name).map((p) => (p.distanceKm != null || p.lat == null || p.lon == null ? p : { ...p, distanceKm: round1(distanceKm(anchor, { lat: p.lat, lon: p.lon })) })) : null;
+      const bookable = offers.length && ctx.hotels ? attachOffers(res.places, offers, ctx.hotels.name, ctx.hotels.sandbox).map((p) => (p.distanceKm != null || p.lat == null || p.lon == null ? p : { ...p, distanceKm: round1(distanceKm(anchor, { lat: p.lat, lon: p.lon })) })) : null;
       if (bookable) res = { ...res, places: bookable.map((p) => rescore(s, p)) };
       let widened = false;
       // Widen once if little turned up, unless the sources were slow (a second pass would be too).
@@ -1001,7 +1001,7 @@ function generatedSummary(s: TripAgentState, picks: Record<PlaceKind, string[]>)
       continue;
     }
     const where = p.distanceKm != null && focus ? `, ${p.distanceKm} km from ${focus.name}` : "";
-    const price = p.offer ? ` (${Math.round(p.offer.total).toLocaleString("en")} ${p.offer.currency} for your dates)` : p.priceNote ? ` (${p.priceNote})` : "";
+    const price = p.offer && !p.offer.test ? ` (${Math.round(p.offer.total).toLocaleString("en")} ${p.offer.currency} for your dates)` : p.priceNote ? ` (${p.priceNote})` : "";
     parts.push(`Best ${KINDS[k].label}: ${p.name}${where}${price}.`);
   }
   return parts.join(" ");

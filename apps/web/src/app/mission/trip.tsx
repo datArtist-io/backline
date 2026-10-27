@@ -383,7 +383,8 @@ export function PlacesSection({ title, places, chosenId, anchor, notes, evidence
               {p.distanceKm != null && <span>{p.distanceKm < 1 ? `${Math.round(p.distanceKm * 1000)} m` : `${p.distanceKm} km`}{anchor ? ` from ${anchor}` : ""}</span>}
               {p.rating != null && <span>★ {p.rating.toFixed(1)}</span>}
               {p.priceLevel != null && <span>{"$".repeat(Math.max(1, Math.min(4, Math.round(p.priceLevel))))}</span>}
-              {p.offer && <span>{money(p.offer.total, p.offer.currency)} for your dates</span>}
+              {p.offer && !p.offer.test && <span>{money(p.offer.total, p.offer.currency)} for your dates</span>}
+              {p.offer?.test && <span>Bookable in test mode (sandbox: no real price, no money moves)</span>}
               {!p.offer && p.rate && (
                 <a href={p.rate.url} target="_blank" rel="noopener noreferrer nofollow">
                   {money(p.rate.perNight, p.rate.currency)} a night on {p.rate.site}
@@ -597,7 +598,7 @@ function ResultRow({ a, r, title, plan, places }: { a: TripAction; r: ActionResu
 type CallState = { status: string; ended: boolean; summary: string | null; transcript: string | null; endedReason: string | null };
 
 /** Follows a live AI call until it ends, then shows what was agreed. */
-function CallTracker({ id }: { id: string }) {
+export function CallTracker({ id }: { id: string }) {
   const [s, setS] = useState<CallState | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [open, setOpen] = useState(false);

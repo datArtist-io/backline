@@ -553,3 +553,52 @@ button:hover .ki-stop .ki-plane, .eq-card:hover .ki-stop .ki-plane { animation: 
 .eq[data-theme="dark"] .eq-chapters .is-succeeded i { background: var(--violet); box-shadow: none; }
 .eq[data-theme="dark"] .eq-chapters .is-running i { background: var(--brand); box-shadow: 0 0 0 5px rgba(123, 92, 255, 0.3); }
 .eq[data-theme="dark"] .eq-chapters .is-succeeded::before, .eq[data-theme="dark"] .eq-chapters .is-running::before { background: linear-gradient(90deg, #7b5cff, #ff4fa3); }
+
+/* ---------- bookings, live: calls ringing, payments going through, confirmations landing ---------- */
+.eq-sheet.live { padding: 26px 26px 34px; color: var(--ink); background: var(--glass-strong); -webkit-backdrop-filter: var(--blur); backdrop-filter: var(--blur); box-shadow: var(--rim), 0 40px 100px -30px rgba(16, 19, 43, 0.55); }
+.eq-live-door { position: relative; color: #fff !important; background: var(--brand) !important; background-size: 160% 100% !important; box-shadow: 0 12px 26px -12px rgba(123, 92, 255, 0.8) !important; }
+.eq-live-door .eq-dot { background: #fff; }
+.bk-head { display: flex; align-items: center; gap: 16px; padding-right: 44px; margin-bottom: 18px; }
+.bk-head h2 { margin: 0; font-family: var(--font-display, inherit); font-weight: 400; font-size: 28px; letter-spacing: -0.045em; }
+.bk-head p { margin: 4px 0 0; font-size: 13.5px; color: var(--ink-soft); }
+.bk-ring { --p: 0%; position: relative; flex: none; display: grid; place-items: center; width: 58px; height: 58px; border-radius: 50%; background: conic-gradient(#7b5cff, #ff4fa3 var(--p), rgba(16, 19, 43, 0.08) var(--p)); transition: background 0.8s var(--ease); }
+.bk-ring::before { content: ""; position: absolute; inset: 5px; border-radius: 50%; background: var(--glass-strong); }
+.bk-ring span { position: relative; font-family: var(--font-display, inherit); font-size: 20px; letter-spacing: -0.04em; }
+.bk-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.bk-row { display: grid; grid-template-columns: 44px 1fr; gap: 14px; padding: 14px 16px; border-radius: 22px; background: rgba(255, 255, 255, 0.55); box-shadow: inset 0 0 0 1px rgba(16, 19, 43, 0.06); animation: eqrise 0.6s var(--ease) both; animation-delay: calc(var(--i, 0) * 90ms); transition: box-shadow 0.4s, background 0.4s; }
+.bk-badge { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 15px; color: var(--violet); background: rgba(123, 92, 255, 0.1); }
+.bk-body { min-width: 0; }
+.bk-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.bk-top b { font-size: 14.5px; line-height: 1.35; }
+.bk-body p { margin: 5px 0 0; font-size: 13.5px; line-height: 1.5; color: var(--ink-soft); }
+.bk-chip { flex: none; padding: 3px 10px; border-radius: 999px; font-style: normal; font-size: 11.5px; font-weight: 700; color: var(--ink-soft); background: rgba(16, 19, 43, 0.06); }
+.bk-chip.s-booked, .bk-chip.s-sent { color: #0d7a4f; background: rgba(23, 178, 106, 0.14); }
+.bk-chip.s-calling { color: #6b3df5; background: rgba(123, 92, 255, 0.14); }
+.bk-chip.s-held { color: #9a5a00; background: rgba(255, 181, 71, 0.2); }
+.bk-chip.s-failed { color: #b42318; background: rgba(240, 68, 56, 0.12); }
+.bk-row.is-booked { background: linear-gradient(135deg, rgba(23, 178, 106, 0.1), rgba(255, 255, 255, 0.6)); box-shadow: inset 0 0 0 1px rgba(23, 178, 106, 0.25); }
+.bk-row.is-booked .bk-badge { color: #fff; background: linear-gradient(135deg, #17b26a, #0e9f6e); box-shadow: 0 8px 20px -8px rgba(23, 178, 106, 0.8); }
+.bk-row.is-calling .bk-badge { color: #fff; background: var(--brand); box-shadow: 0 0 0 0 rgba(123, 92, 255, 0.5); animation: bk-pulse 1.6s ease-out infinite; }
+.bk-row.is-calling .bk-phone { animation: bk-ring 1.2s ease-in-out infinite; transform-origin: 50% 60%; }
+.bk-check path { stroke-dasharray: 24; stroke-dashoffset: 24; animation: bk-draw 0.6s 0.2s var(--ease) forwards; }
+.bk-row.is-booked .bk-badge { animation: bk-stamp 0.6s var(--spring) both; }
+.bk-receipt { position: relative; display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px 22px; margin-top: 12px; padding: 14px 16px; border-radius: 18px; background: #fff; box-shadow: 0 10px 26px -14px rgba(16, 19, 43, 0.35); overflow: hidden; }
+.bk-receipt::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: linear-gradient(#17b26a, #7b5cff); }
+.bk-receipt small { display: block; font-size: 11px; font-weight: 600; color: var(--ink-faint); }
+.bk-receipt code { font-family: var(--font-display, inherit); font-size: 18px; letter-spacing: 0.02em; color: #10132b; }
+.bk-receipt strong { font-family: var(--font-display, inherit); font-weight: 500; font-size: 18px; letter-spacing: -0.03em; color: #10132b; }
+.bk-test { margin-left: auto; padding: 4px 10px; border-radius: 999px; font-size: 11px; font-weight: 700; color: #9a5a00; background: rgba(255, 181, 71, 0.2); }
+.bk-call { margin-top: 10px; padding: 12px 14px; border-radius: 16px; background: rgba(123, 92, 255, 0.06); }
+.bk-call .call-status { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 13px; font-weight: 700; }
+.bk-call .call-summary { margin: 8px 0 0; font-size: 13.5px; line-height: 1.5; }
+.bk-call .transcript { max-height: 220px; overflow: auto; white-space: pre-wrap; font-size: 12.5px; }
+.bk-body .eq-btn { margin-top: 10px; }
+.bk-row.is-pending { opacity: 0.85; }
+.bk-shimmer { display: block; height: 10px; margin-top: 8px; border-radius: 6px; background: linear-gradient(90deg, rgba(16, 19, 43, 0.05), rgba(123, 92, 255, 0.18), rgba(16, 19, 43, 0.05)); background-size: 200% 100%; animation: advshim 1.3s infinite; }
+.eq[data-theme="dark"] .bk-row { background: rgba(255, 255, 255, 0.05); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.07); }
+.eq[data-theme="dark"] .bk-ring::before { background: #15162c; }
+.eq[data-theme="dark"] .bk-chip { color: var(--ink-soft); background: rgba(255, 255, 255, 0.08); }
+@keyframes bk-pulse { 0% { box-shadow: 0 0 0 0 rgba(123, 92, 255, 0.55); } 100% { box-shadow: 0 0 0 14px rgba(123, 92, 255, 0); } }
+@keyframes bk-ring { 0%, 100% { transform: rotate(0); } 10%, 30% { transform: rotate(-14deg); } 20%, 40% { transform: rotate(14deg); } 50% { transform: rotate(0); } }
+@keyframes bk-draw { to { stroke-dashoffset: 0; } }
+@keyframes bk-stamp { 0% { transform: scale(0.4) rotate(-12deg); opacity: 0; } 100% { transform: none; opacity: 1; } }

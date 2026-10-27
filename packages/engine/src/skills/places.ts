@@ -47,7 +47,7 @@ export const placeSchema = z.object({
   rate: z.object({ perNight: z.number(), currency: z.string(), total: z.number().nullable(), url: z.string(), site: z.string(), note: z.string().nullable() }).nullable().optional(),
   /** A live, bookable rate for the user's dates, when a booking provider is connected. */
   offer: z
-    .object({ offerId: z.string(), total: z.number(), currency: z.string(), perNight: z.number().nullable(), roomName: z.string().nullable(), board: z.string().nullable(), refundable: z.boolean().nullable(), cancellation: z.string().nullable(), provider: z.string() })
+    .object({ offerId: z.string(), total: z.number(), currency: z.string(), perNight: z.number().nullable(), roomName: z.string().nullable(), board: z.string().nullable(), refundable: z.boolean().nullable(), cancellation: z.string().nullable(), provider: z.string(), /** A test-mode (sandbox) rate: bookable for a demo, never a real price. */ test: z.boolean().optional() })
     .nullable()
     .optional(),
 });
@@ -343,7 +343,7 @@ export async function searchNear(ctx: SkillContext, s: NearSearch): Promise<Near
 }
 
 /** A live, bookable hotel offer as a place. Pure. */
-export function fromOffer(o: HotelOffer, provider: string): Place {
+export function fromOffer(o: HotelOffer, provider: string, test = false): Place {
   return {
     id: `hotels:${o.hotelId}`,
     name: o.name,
@@ -365,7 +365,7 @@ export function fromOffer(o: HotelOffer, provider: string): Place {
     sources: [],
     kind: "stay",
     source: "hotels",
-    offer: { offerId: o.offerId, total: o.total, currency: o.currency, perNight: o.perNight, roomName: o.roomName, board: o.board, refundable: o.refundable, cancellation: o.cancellation, provider },
+    offer: { offerId: o.offerId, total: o.total, currency: o.currency, perNight: o.perNight, roomName: o.roomName, board: o.board, refundable: o.refundable, cancellation: o.cancellation, provider, ...(test ? { test: true } : {}) },
   };
 }
 
@@ -373,15 +373,15 @@ export function fromOffer(o: HotelOffer, provider: string): Place {
  * Join live offers onto the hotels already found: the same hotel (by name, within 300 m) gets the
  * bookable rate; hotels only the booking provider knows are added. Pure.
  */
-export function attachOffers(places: Place[], offers: HotelOffer[], provider: string): Place[] {
+export function attachOffers(places: Place[], offers: HotelOffer[], provider: string, test = false): Place[] {
   const out = places.map((p) => ({ ...p }));
   for (const o of offers) {
     const match = out.find((p) => sameName(p.name, o.name) && (p.lat == null || p.lon == null || o.lat == null || o.lon == null || distanceKm({ lat: p.lat, lon: p.lon }, { lat: o.lat, lon: o.lon }) <= 0.3));
-    const offer = fromOffer(o, provider).offer;
+    const offer = fromOffer(o, provider, test).offer;
     if (match) {
       match.offer = offer;
       match.image = match.image ?? o.image;
-    } else out.push(fromOffer(o, provider));
+    } else out.push(fromOffer(o, provider, test));
   }
   return out;
 }

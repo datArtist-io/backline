@@ -70,6 +70,8 @@ export default function AdventureView({
   fullscreen = false,
   overlay = null,
   book = null,
+  live = null,
+  liveBusy = false,
   bookLabel = "Trip book",
   toolbar = null,
   homeHref = "/",
@@ -89,6 +91,9 @@ export default function AdventureView({
   overlay?: ReactNode;
   /** The detailed itinerary, bookings and every place found. */
   book?: ReactNode;
+  /** The bookings happening live: calls, payments, confirmations. Opens by itself when they start. */
+  live?: ReactNode;
+  liveBusy?: boolean;
   bookLabel?: string;
   toolbar?: ReactNode;
   homeHref?: string;
@@ -146,7 +151,11 @@ export default function AdventureView({
   const [hoverId, setHoverId] = useState<string | null>(null);
   const [activeDay, setActiveDay] = useState<number | "all">("all");
   const [play, setPlay] = useState(false);
-  const [sheet, setSheet] = useState<"guide" | "book" | null>(null);
+  const [sheet, setSheet] = useState<"guide" | "book" | "live" | null>(null);
+  const hasLive = Boolean(live);
+  useEffect(() => {
+    if (hasLive) setSheet("live");
+  }, [hasLive]);
   const [showTaste, setShowTaste] = useState(true);
   const [introKey, setIntroKey] = useState(0);
   const [homeKey, setHomeKey] = useState(0);
@@ -465,6 +474,11 @@ export default function AdventureView({
             <button type="button" className={sheet === "guide" ? "on" : ""} onClick={() => setSheet((s) => (s === "guide" ? null : "guide"))}>
               Field guide{intelPending ? <span className="eq-dot" aria-label="still gathering" /> : null}
             </button>
+            {live && (
+              <button type="button" className={`eq-live-door${sheet === "live" ? " on" : ""}`} onClick={() => setSheet((s) => (s === "live" ? null : "live"))}>
+                Bookings{liveBusy ? <span className="eq-dot" aria-label="in progress" /> : null}
+              </button>
+            )}
             {book && (
               <button type="button" className={sheet === "book" ? "on" : ""} onClick={() => setSheet((s) => (s === "book" ? null : "book"))}>
                 {bookLabel}
@@ -624,6 +638,12 @@ export default function AdventureView({
           <div className="eq-sheet dark" role="dialog" aria-label="Field guide">
             <button type="button" className="eq-x" onClick={() => setSheet(null)} aria-label="Close field guide">×</button>
             <Codex intel={model?.intel ?? null} travel={model?.travel ?? null} pending={intelPending} />
+          </div>
+        )}
+        {sheet === "live" && live && (
+          <div className="eq-sheet live" role="dialog" aria-label="Your bookings">
+            <button type="button" className="eq-x" onClick={() => setSheet(null)} aria-label="Close bookings">×</button>
+            {live}
           </div>
         )}
         {sheet === "book" && book && (

@@ -78,7 +78,7 @@ export function scoreHotels(stays: Place[], currency: string, nights: number): H
     let price: PriceEstimate | null = null;
     const n = Math.max(1, nights);
     const pr = parsePrice(p.priceNote, currency);
-    if (p.offer && p.offer.currency === currency) {
+    if (p.offer && !p.offer.test && p.offer.currency === currency) {
       const per = p.offer.perNight ?? p.offer.total / n;
       price = { perNight: Math.round(per), total: Math.round(p.offer.total), currency, basis: "live", url: null, site: p.offer.provider };
     } else if (p.rate && p.rate.currency === currency) {

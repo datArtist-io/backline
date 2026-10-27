@@ -102,7 +102,7 @@ const describePlaces = (label: string, ps: Place[], toRef: Map<string, string>, 
   ps
     .map(
       (p) =>
-        `${toRef.get(p.id)} [${label}${picked.includes(p.id) ? ", agent's pick" : ""}] ${p.name}${p.tags.length ? ` (${p.tags.slice(0, 3).join(", ")})` : ""}${p.address ? `, ${p.address}` : ""}${p.distanceKm != null ? `, ${p.distanceKm} km away` : ""}${p.priceLevel ? `, price level ${p.priceLevel}/4` : ""}${p.rating ? `, rated ${p.rating}` : ""}${p.match != null && p.match >= 0.75 ? ", taste match" : ""}${p.offer ? `, live rate ${Math.round(p.offer.total)} ${p.offer.currency} for the stay` : ""}${p.priceNote ? `, ${p.priceNote}` : ""}${p.extra ? `, ${p.extra}` : ""}${p.why.length ? ` (why: ${p.why.slice(0, 2).join("; ")})` : ""}`
+        `${toRef.get(p.id)} [${label}${picked.includes(p.id) ? ", agent's pick" : ""}] ${p.name}${p.tags.length ? ` (${p.tags.slice(0, 3).join(", ")})` : ""}${p.address ? `, ${p.address}` : ""}${p.distanceKm != null ? `, ${p.distanceKm} km away` : ""}${p.priceLevel ? `, price level ${p.priceLevel}/4` : ""}${p.rating ? `, rated ${p.rating}` : ""}${p.match != null && p.match >= 0.75 ? ", taste match" : ""}${p.offer ? (p.offer.test ? ", bookable in test mode (sandbox rate, not a real price: don't budget with it)" : `, live rate ${Math.round(p.offer.total)} ${p.offer.currency} for the stay`) : ""}${p.priceNote ? `, ${p.priceNote}` : ""}${p.extra ? `, ${p.extra}` : ""}${p.why.length ? ` (why: ${p.why.slice(0, 2).join("; ")})` : ""}`
     )
     .join("\n");
 
@@ -409,7 +409,7 @@ export function buildActions(
       add({
         kind: "book_stay",
         channel: "reserve",
-        title: `Book and pay for ${stay.offer.roomName ?? "a room"} at ${stay.name}`,
+        title: `Book and pay for ${stay.offer.roomName ?? "a room"} at ${stay.name}${stay.offer.test ? " (test mode: no real money moves)" : ""}`,
         placeId: stay.id,
         placeName: stay.name,
         offerId: stay.offer.offerId,
@@ -769,8 +769,14 @@ export const tripExecute: Skill<BriefInput, TripExecuteOutput> = {
         }
         if (a.channel === "call" && ctx.calls && a.to && a.callOpening && a.callBrief) {
           if (++calls > ACTION_LIMITS.call) return { actionId: a.id, status: "skipped", ref: null, message: "Call limit for one mission reached." };
-          const started = await ctx.calls.start({ to: a.to, businessName: a.placeName ?? "the business", firstMessage: a.callOpening, instructions: callInstructions(a, profile.name ?? "my client") }, ctx.signal);
-          return { actionId: a.id, status: "calling", ref: started.id, message: `Calling ${a.placeName}…` };
+          const demo = ctx.callDemoTo ?? null;
+          const started = await ctx.calls.start({ to: demo ?? a.to, businessName: a.placeName ?? "the business", firstMessage: a.callOpening, instructions: callInstructions(a, profile.name ?? "my client") }, ctx.signal);
+          return {
+            actionId: a.id,
+            status: "calling",
+            ref: started.id,
+            message: demo ? `Calling ${a.placeName} on the demo line (${demo.slice(0, 4)}…${demo.slice(-3)} plays the business)…` : `Calling ${a.placeName}…`,
+          };
         }
         return { actionId: a.id, status: "ready", ref: null, message: "Ready for you." };
       } catch (err) {

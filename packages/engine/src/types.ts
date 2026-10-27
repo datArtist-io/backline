@@ -90,6 +90,8 @@ export type SkillContext = {
    * off then: the plan and the links still work, but nothing is done on a stranger's behalf.
    */
   signedOut?: boolean;
+  /** When set, booking calls ring this demo number (someone playing the business) instead of the real business. */
+  callDemoTo?: string | null;
   /** Looks up a hotel's listed nightly price for the trip, with its source page (Claude web search). */
   rates?: { hotelRate(q: { name: string; city: string; checkin: string | null; checkout: string | null; adults: number; currency: string }, signal?: AbortSignal): Promise<{ perNight: number; currency: string; total: number | null; url: string; site: string; note: string | null } | null> } | null;
   /** Streams what a running skill is doing. Set by the orchestrator for each skill. */
