@@ -380,6 +380,7 @@ export default function MissionView(props: { goal?: string; artist?: string; mis
           toolbar={
             <>
               <button type="button" onClick={() => setPrefsOpen(true)}>Preferences</button>
+              {me && <Link href="/account">Account</Link>}
               {done && meReady && signInOn && !me && <Link href={`/signin?next=${encodeURIComponent(`/mission?${new URLSearchParams({ ...(props.goal ? { goal: props.goal } : {}), mode: "check" })}`)}`}>Sign in to book</Link>}
               <Link href="/">New trip</Link>
             </>

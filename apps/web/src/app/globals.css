@@ -1433,3 +1433,7 @@ a { color: inherit; text-decoration: none; }
 @media (max-width: 640px) { .recent { overflow-x: auto; } .recent-pop { position: fixed; left: 16px; right: 16px; top: auto; bottom: 24px; transform: none; width: auto; } }
 .mode-hint { display: table; padding: 6px 14px; border-radius: 999px; color: var(--ink); background: rgba(255, 255, 255, 0.62); box-shadow: 0 4px 14px -8px rgba(16, 19, 43, 0.3); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
 .recent-label { padding: 6px 10px; border-radius: 999px; color: var(--ink); background: rgba(255, 255, 255, 0.5); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+/* the mode line: quiet text that appears after a tap and fades by itself */
+.mode-hint { display: table; padding: 0; background: none; box-shadow: none; backdrop-filter: none; -webkit-backdrop-filter: none; color: #fff; font-weight: 600; text-shadow: 0 1px 2px rgba(16, 19, 43, 0.45), 0 0 14px rgba(16, 19, 43, 0.25); animation: modehint 4.5s var(--ease-out) both; }
+@keyframes modehint { 0% { opacity: 0; transform: translateY(-4px); } 8%, 78% { opacity: 1; transform: none; } 100% { opacity: 0; transform: translateY(-2px); } }
+@media (prefers-reduced-motion: reduce) { .mode-hint { animation: none; } }

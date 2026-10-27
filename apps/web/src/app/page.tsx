@@ -22,6 +22,7 @@ export default function Landing() {
   const { me, ready: meReady, configured: signInOn } = useMe();
   const [mode, setMode] = useState<Autonomy>("auto");
   const [launching, setLaunching] = useState(false);
+  const [hint, setHint] = useState(0);
 
   useEffect(() => {
     router.prefetch("/mission");
@@ -63,10 +64,20 @@ export default function Landing() {
             <span className="hero-line hero-accent">We do the rest.</span>
           </h1>
           <PromptBar onSubmit={go} placeholder="Where are you going, and when?" shortPlaceholder="Where to, and when?" />
-          <ModeSwitch value={mode} onChange={setMode} className="hero-switch" />
-          <p className="mode-hint" key={mode} aria-live="polite">
-            {mode === "check" ? "I plan it, you review and adjust, and nothing is booked until you approve." : "I plan, call, pay and book it end to end, and show you each step live."}
-          </p>
+          <ModeSwitch
+            value={mode}
+            onChange={(m) => {
+              setMode(m);
+              setHint(Date.now());
+            }}
+            className="hero-switch"
+          />
+          {/* What the chosen mode does: shown for a moment after a tap, then it fades away. */}
+          {hint > 0 && (
+            <p className="mode-hint" key={hint} aria-live="polite">
+              {mode === "check" ? "I plan it, you review and adjust, and nothing is booked until you approve." : "I plan, call, pay and book it end to end, and show you each step live."}
+            </p>
+          )}
           <TryPrompts onPick={(q) => go(q, [])} extra={<RecentSearches onPick={(q) => go(q, [])} />} />
         </section>
 
