@@ -203,6 +203,7 @@ export const tripPlan: Skill<BriefInput, TripPlanOutput> = {
             trip.travelMode
               ? `Arriving and leaving by ${trip.travelMode}. Include the journey in and out as the first and last items (times approximate).${a.stops.some(isArrivalStop) ? "" : " No station or airport was pinned, so don't name one: just say how they arrive."}`
               : "",
+            !trip.needs.includes("stay") ? "No hotel: they live here or have somewhere to stay. Don't plan a check-in or hotel time." : "",
             trip.selfArranged.length ? `They're handling these themselves, so don't book or price them, just plan around them: ${trip.selfArranged.join(", ")}.` : "",
             trip.event ? `Hosting: ${trip.event.type}${trip.event.guests ? ` for ${trip.event.guests} guests` : ""}${trip.event.date ? ` on ${trip.event.date}` : ""}` : "",
             profile.dietary?.length ? `Dietary: ${profile.dietary.join(", ")}` : "",
@@ -755,7 +756,16 @@ export const tripExecute: Skill<BriefInput, TripExecuteOutput> = {
           const traveller = passport
             ? { givenName: passport.givenNames, familyName: passport.familyName, email: profile.email ?? "", phone: toE164(profile.phone ?? null) ?? profile.phone ?? "", bornOn: passport.birthDate, gender: passport.gender, passport: { number: passport.number, issuingCountry: passport.issuingCountry, expiresOn: passport.expiresOn } }
             : { givenName: name.firstName, familyName: name.lastName, email: profile.email ?? "", phone: toE164(profile.phone ?? null) ?? profile.phone ?? "", bornOn: profile.birthDate ?? "", gender: profile.gender ?? "m" };
-          const booked = await ctx.flights.book(flight, [traveller], ctx.signal);
+          const fw = ctx.wallet ? await ctx.wallet.hold(flight.total, flight.currency, `Flight ${flight.outbound?.from ?? ""} to ${flight.outbound?.to ?? ""}`.trim()) : null;
+          if (fw && !fw.ok) return { actionId: a.id, status: "needs_info", ref: null, message: fw.reason };
+          let booked: Awaited<ReturnType<NonNullable<typeof ctx.flights>["book"]>>;
+          try {
+            booked = await ctx.flights.book(flight, [traveller], ctx.signal);
+          } catch (err) {
+            if (fw?.ok) await ctx.wallet!.release(fw.id).catch(() => undefined);
+            throw err;
+          }
+          if (fw?.ok) await ctx.wallet!.capture(fw.id, booked.reference ?? booked.orderId).catch(() => undefined);
           const test = ctx.flights.sandbox ? " Test booking on Duffel's test airline: no real money moved." : "";
           return {
             actionId: a.id,
@@ -797,9 +807,19 @@ export const tripExecute: Skill<BriefInput, TripExecuteOutput> = {
           // The approved price holds for a swapped hotel too, with some room since it's a different hotel.
           const approved = a.price ? held.total <= a.price.total * (swapped ? 1.25 : 1.02) : true;
           if (ctx.hotels.pay && approved && (cap == null || held.total <= cap)) {
-            const booking = await ctx.hotels.pay(held.holdId, guest, ctx.signal);
+            // Paid from the Backline Wallet: held first, captured only once the hotel confirms.
+            const w = ctx.wallet ? await ctx.wallet.hold(held.total, held.currency, `${bookedName}, ${stayNights} night${stayNights === 1 ? "" : "s"}`) : null;
+            if (w && !w.ok) return { actionId: a.id, status: "needs_info", ref: held.holdId, message: w.reason };
+            let booking: Awaited<ReturnType<NonNullable<typeof ctx.hotels.pay>>>;
+            try {
+              booking = await ctx.hotels.pay(held.holdId, guest, ctx.signal);
+            } catch (err) {
+              if (w?.ok) await ctx.wallet!.release(w.id).catch(() => undefined);
+              throw err;
+            }
+            if (w?.ok) await (booking.status === "failed" ? ctx.wallet!.release(w.id) : ctx.wallet!.capture(w.id, booking.reference ?? booking.bookingId)).catch(() => undefined);
             if (booking.status !== "failed") {
-              const test = ctx.hotels.sandbox ? " Test booking: no real money moved." : "";
+              const test = `${ctx.hotels.sandbox ? " Test booking: no real money moved." : ""}${w?.ok ? ` Paid from your Backline Wallet ($${(w.usd / 100).toFixed(2)}).` : ""}`;
               return {
                 actionId: a.id,
                 status: "booked",

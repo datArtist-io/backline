@@ -66,6 +66,7 @@ import { rememberArtist, rememberedArtist } from "@/lib/memory";
 import { useRouter } from "next/navigation";
 import FollowUp from "./FollowUp";
 import BookingsLive, { type Reach } from "./BookingsLive";
+import WalletPanel from "./Wallet";
 import ModeSwitch from "../ModeSwitch";
 import { ArtistHeader, DemographicsSection, DnaSection, HeaderSkeleton, Placeholder, ProfileSection } from "./sections";
 import {
@@ -339,6 +340,7 @@ export default function MissionView(props: { goal?: string; artist?: string; mis
     return (
       <>
         <TripGame
+          signedIn={Boolean(me)}
           r={r}
           steps={steps}
           running={running}
@@ -839,6 +841,7 @@ function TripGame({
   where,
   overlay,
   review,
+  signedIn,
   onClassic,
   toolbar,
   book,
@@ -851,6 +854,7 @@ function TripGame({
   where: TripAgentOutput["where"] | null;
   overlay: React.ReactNode;
   review: ReviewApi | null;
+  signedIn: boolean;
   onClassic: () => void;
   toolbar: React.ReactNode;
   book: React.ReactNode;
@@ -899,6 +903,7 @@ function TripGame({
       subtitle={subtitle}
       overlay={overlay}
       review={review}
+      wallet={signedIn ? <WalletPanel /> : null}
       live={live}
       liveBusy={executing}
       book={book}

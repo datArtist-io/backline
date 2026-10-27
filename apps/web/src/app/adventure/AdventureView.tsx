@@ -93,6 +93,7 @@ export default function AdventureView({
   toolbar = null,
   homeHref = "/",
   review = null,
+  wallet = null,
 }: {
   model: AdventureModel | null;
   steps: MissionStep[];
@@ -117,6 +118,8 @@ export default function AdventureView({
   homeHref?: string;
   /** Before booking: the person vets the trip and adjusts it. */
   review?: ReviewApi | null;
+  /** The person's Backline Wallet (test funds). */
+  wallet?: ReactNode;
 }) {
   const [ok, setOk] = useState<boolean | null>(null);
   const [reduced, setReduced] = useState(false);
@@ -171,7 +174,7 @@ export default function AdventureView({
   const [hoverId, setHoverId] = useState<string | null>(null);
   const [activeDay, setActiveDay] = useState<number | "all">("all");
   const [play, setPlay] = useState(false);
-  const [sheet, setSheet] = useState<"guide" | "book" | "live" | null>(null);
+  const [sheet, setSheet] = useState<"guide" | "book" | "live" | "wallet" | null>(null);
   const hasLive = Boolean(live);
   useEffect(() => {
     if (hasLive) setSheet("live");
@@ -511,6 +514,11 @@ export default function AdventureView({
                 Bookings{liveBusy ? <span className="eq-dot" aria-label="in progress" /> : null}
               </button>
             )}
+            {wallet && (
+              <button type="button" className={sheet === "wallet" ? "on" : ""} onClick={() => setSheet((s) => (s === "wallet" ? null : "wallet"))}>
+                Wallet
+              </button>
+            )}
             {book && (
               <button type="button" className={sheet === "book" ? "on" : ""} onClick={() => setSheet((s) => (s === "book" ? null : "book"))}>
                 {bookLabel}
@@ -697,6 +705,12 @@ export default function AdventureView({
           <div className="eq-sheet dark" role="dialog" aria-label="Field guide">
             <button type="button" className="eq-x" onClick={() => setSheet(null)} aria-label="Close field guide">×</button>
             <Codex intel={model?.intel ?? null} travel={model?.travel ?? null} pending={intelPending} />
+          </div>
+        )}
+        {sheet === "wallet" && wallet && (
+          <div className="eq-sheet live eq-sheet-wallet" role="dialog" aria-label="Backline Wallet">
+            <button type="button" className="eq-x" onClick={() => setSheet(null)} aria-label="Close wallet">×</button>
+            {wallet}
           </div>
         )}
         {sheet === "live" && live && (

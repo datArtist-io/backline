@@ -90,6 +90,12 @@ export type SkillContext = {
    * off then: the plan and the links still work, but nothing is done on a stranger's behalf.
    */
   signedOut?: boolean;
+  /** The person's Backline Wallet (test funds): payments are held, then captured or released. */
+  wallet?: {
+    hold(amount: number, currency: string, label: string): Promise<{ ok: true; id: string; usd: number } | { ok: false; reason: string }>;
+    capture(id: string, ref: string | null): Promise<void>;
+    release(id: string): Promise<void>;
+  } | null;
   /** The signed-in person (their account id), so calls placed for them can only be followed or retried by them. */
   userId?: string | null;
   /** When set, booking calls ring this demo number (someone playing the business) instead of the real business. */

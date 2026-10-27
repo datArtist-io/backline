@@ -892,3 +892,37 @@ button:hover .ki-stop .ki-plane, .eq-card:hover .ki-stop .ki-plane { animation: 
 .eq[data-theme="dark"] .bk-resv code { background: rgba(255, 255, 255, 0.1); }
 .bk-resv small { font-size: 13px; color: var(--ink-soft); }
 @keyframes bkstamp { 0% { opacity: 0; transform: scale(0.92) translateY(6px); } 60% { opacity: 1; transform: scale(1.02); } 100% { transform: none; } }
+
+/* ---- Backline Wallet ---- */
+.wl { display: grid; gap: 18px; padding-top: 6px; }
+.wl-card { position: relative; overflow: hidden; aspect-ratio: 1.586; max-width: 420px; padding: 22px 24px; border-radius: 26px; color: #fff; background: radial-gradient(120% 90% at 0% 0%, #7b5cff 0%, transparent 55%), radial-gradient(120% 90% at 100% 100%, #ff4fa3 0%, transparent 55%), linear-gradient(135deg, #2b1f6b, #10132b 70%); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), 0 30px 60px -24px rgba(90, 62, 230, 0.75); display: grid; grid-template-rows: auto 1fr; animation: wlrise 0.7s var(--spring) both; }
+.wl-card::after { content: ""; position: absolute; inset: -40%; background: linear-gradient(115deg, transparent 40%, rgba(255, 255, 255, 0.22) 50%, transparent 60%); transform: translateX(-60%); animation: wlsheen 4.5s 0.6s ease-in-out infinite; pointer-events: none; }
+.wl-card.is-loading { background: linear-gradient(135deg, #2b1f6b, #10132b); }
+.wl-card-top { display: flex; justify-content: space-between; align-items: center; }
+.wl-brand { font: 600 15px/1 var(--font-display, inherit); letter-spacing: -0.01em; }
+.wl-test { padding: 5px 10px; border-radius: 999px; font-size: 11.5px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; background: rgba(255, 255, 255, 0.18); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.3); }
+.wl-bal { align-self: end; display: grid; gap: 2px; }
+.wl-bal small { font-size: 12.5px; opacity: 0.8; font-weight: 600; }
+.wl-bal b { font: 500 clamp(34px, 5vw, 44px)/1.05 var(--font-display, inherit); letter-spacing: -0.04em; animation: wlcount 0.6s var(--spring) both; }
+.wl-bal span { font-size: 13px; opacity: 0.85; }
+.wl-chip { position: absolute; right: 24px; top: 50%; width: 42px; height: 32px; border-radius: 8px; background: linear-gradient(135deg, #f2d27b, #c99a3b); box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.15); opacity: 0.9; }
+.wl-add { display: grid; gap: 10px; }
+.wl-add > span { font-size: 13px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink-soft); }
+.wl-add div { display: flex; gap: 8px; flex-wrap: wrap; }
+.wl-add button { height: 44px; padding: 0 18px; border: 0; border-radius: 999px; font: 700 15px/1 var(--font-body, inherit); color: var(--ink); background: var(--lg-fill-hi, rgba(255, 255, 255, 0.8)); box-shadow: var(--lg-spec), var(--lg-drop); cursor: pointer; transition: transform 0.35s var(--spring); }
+.wl-add button:hover:not(:disabled) { transform: translateY(-2px) scale(1.03); }
+.wl-add button:disabled { opacity: 0.55; cursor: progress; }
+.wl-add p { margin: 0; font-size: 14px; color: var(--ink-soft); }
+.wl-how, .wl-note { margin: 0; font-size: 14px; line-height: 1.55; color: var(--ink-soft); }
+.wl-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.wl-list li { display: grid; grid-template-columns: 36px 1fr auto; gap: 12px; align-items: center; padding: 10px 12px; border-radius: 16px; background: rgba(127, 127, 160, 0.08); animation: eqrise 0.4s calc(var(--i, 0) * 40ms) var(--ease) both; }
+.wl-list b { display: block; font-size: 14.5px; font-weight: 650; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wl-list small { font-size: 12.5px; color: var(--ink-soft); }
+.wl-list em { font-style: normal; font-weight: 700; font-variant-numeric: tabular-nums; }
+.wl-list li.is-credited em { color: #1d9a57; }
+.eq[data-theme="dark"] .wl-list li.is-credited em { color: #6fe0a3; }
+.wl-list li.is-void { opacity: 0.55; } .wl-list li.is-void em { text-decoration: line-through; }
+.wl-ico { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; font-weight: 800; color: #fff; background: linear-gradient(135deg, #5a3ee6, #d1306f); }
+@keyframes wlrise { from { opacity: 0; transform: translateY(18px) rotateX(18deg); } to { opacity: 1; transform: none; } }
+@keyframes wlsheen { 0%, 60% { transform: translateX(-60%); } 100% { transform: translateX(60%); } }
+@keyframes wlcount { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }

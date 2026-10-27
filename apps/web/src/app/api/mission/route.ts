@@ -26,6 +26,7 @@ import {
 import { getRun, isRunId, saveRun } from "@/lib/run-store";
 import { openRun, sealRun } from "@/lib/run-seal";
 import { DIAL, underDailyCap } from "@/lib/demo-calls";
+import { loadWallet, walletFor } from "@/lib/wallet";
 import { clientIp, rateLimiter } from "@/lib/rate-limit";
 import { getSession } from "@/lib/session";
 import { supabaseConfig } from "@/lib/supabase";
@@ -115,6 +116,8 @@ export async function POST(req: Request) {
   // Their passport, decrypted for this mission's booking calls only (never sent to the model or the browser).
   if (session) ctx.traveller = { passport: await passportForBooking(session).catch(() => null) };
   if (session) ctx.userId = session.user.id;
+  // Payments come from their Backline Wallet once it's set up (migration 0006).
+  if (session && (await loadWallet(session).catch(() => ({ ready: false }))).ready) ctx.wallet = walletFor(session);
   // With sign-in switched on, only a signed-in person can have things bought, sent or called for them.
   // Anyone else still gets the full plan, with the booking links to use themselves.
   if (!session && supabaseConfig()) {
