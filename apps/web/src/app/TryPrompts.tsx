@@ -15,9 +15,9 @@ const PROMPTS: { label: string; prompt: string }[] = [
 ];
 
 export default function TryPrompts({ onPick }: { onPick: (query: string) => void }) {
-  const [shown, setShown] = useState(PROMPTS.slice(0, 4));
+  const [shown, setShown] = useState(PROMPTS.slice(0, 3));
   // A different mix each visit (after load, so the server and browser agree on the first paint).
-  useEffect(() => setShown([...PROMPTS].sort(() => Math.random() - 0.5).slice(0, 4)), []);
+  useEffect(() => setShown([...PROMPTS].sort(() => Math.random() - 0.5).slice(0, 3)), []);
   return (
     <nav className="recent try" aria-label="Try one of these">
       <span className="recent-label">Try</span>

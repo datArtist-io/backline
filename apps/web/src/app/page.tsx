@@ -64,8 +64,7 @@ export default function Landing() {
           </h1>
           <PromptBar onSubmit={go} placeholder="Where are you going, and when?" shortPlaceholder="Where to, and when?" />
           <ModeSwitch value={mode} onChange={setMode} className="hero-switch" />
-          <RecentSearches onPick={(q) => go(q, [])} />
-          <TryPrompts onPick={(q) => go(q, [])} />
+          <RecentSearches onPick={(q) => go(q, [])} fallback={<TryPrompts onPick={(q) => go(q, [])} />} />
         </section>
 
         <Capabilities />

@@ -4,8 +4,9 @@ import { useEffect, useState } from "react";
 
 type Search = { id: string; query: string };
 
-export default function RecentSearches({ onPick }: { onPick: (query: string) => void }) {
+export default function RecentSearches({ onPick, fallback = null }: { onPick: (query: string) => void; fallback?: React.ReactNode }) {
   const [items, setItems] = useState<Search[]>([]);
+  const [loaded, setLoaded] = useState(false);
   useEffect(() => {
     let live = true;
     fetch("/api/account/searches?limit=8", { cache: "no-store" })
@@ -13,14 +14,16 @@ export default function RecentSearches({ onPick }: { onPick: (query: string) => 
       .then((j: { searches?: Search[] }) => {
         if (!live) return;
         const seen = new Set<string>();
-        setItems((j.searches ?? []).filter((s) => !seen.has(s.query.toLowerCase()) && seen.add(s.query.toLowerCase())).slice(0, 4));
+        setItems((j.searches ?? []).filter((s) => !seen.has(s.query.toLowerCase()) && seen.add(s.query.toLowerCase())).slice(0, 3));
       })
-      .catch(() => undefined);
+      .catch(() => undefined)
+      .finally(() => live && setLoaded(true));
     return () => {
       live = false;
     };
   }, []);
-  if (!items.length) return null;
+  // First visit (or nothing yet): show example requests instead, in the same single row.
+  if (!items.length) return loaded ? <>{fallback}</> : null;
   return (
     <nav className="recent" aria-label="Your recent searches">
       <span className="recent-label">Recent</span>
