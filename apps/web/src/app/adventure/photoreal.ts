@@ -33,7 +33,7 @@ export class PhotorealLayer implements CustomLayerInterface {
   private enu = new THREE.Matrix4();
   private ray = new THREE.Raycaster();
 
-  constructor(private key: string, private onCredit: (text: string) => void) {
+  constructor(private key: string, private onCredit: (text: string) => void, private onFail?: () => void) {
     this.holder.matrixAutoUpdate = false;
     this.scene.add(this.holder);
   }
@@ -53,6 +53,11 @@ export class PhotorealLayer implements CustomLayerInterface {
     tiles.registerPlugin(new TilesFadePlugin());
     tiles.errorTarget = 16;
     const redraw = () => this.map.triggerRepaint();
+    // The root tileset failing means the key isn't usable (billing not active, API off, wrong site):
+    // hand back to the satellite map rather than leave an empty city.
+    tiles.addEventListener("load-error", (e: { tile: unknown }) => {
+      if (!e.tile) this.onFail?.();
+    });
     tiles.addEventListener("load-model", redraw);
     tiles.addEventListener("tiles-load-end", () => {
       redraw();

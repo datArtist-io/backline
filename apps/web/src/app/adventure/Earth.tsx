@@ -43,6 +43,8 @@ export type EarthProps = {
   pad: { top: number; right: number; bottom: number; left: number };
   onUserMove: () => void;
   onReady: () => void;
+  /** Google's photoreal tiles were refused (key not active yet): the look falls back to satellite. */
+  onPhotoFail?: () => void;
 };
 
 // Keyless defaults. Imagery and vector tiles can be swapped for a keyed provider with these env vars.
@@ -561,7 +563,17 @@ export default function Earth(props: EarthProps) {
         import("./photoreal")
           .then(({ PhotorealLayer }) => {
             if (!mapRef.current) return;
-            const pr = new PhotorealLayer(GOOGLE_KEY, (t) => setCredit(t));
+            const pr = new PhotorealLayer(GOOGLE_KEY, (t) => setCredit(t), () => {
+              if (photoRef.current !== pr) return;
+              photoRef.current = null;
+              try {
+                if (map.getLayer(pr.id)) map.removeLayer(pr.id);
+              } catch {
+                /* already gone with the map */
+              }
+              applyLook();
+              live.current.onPhotoFail?.();
+            });
             photoRef.current = pr;
             map.addLayer(pr, "heat");
             applyLook();

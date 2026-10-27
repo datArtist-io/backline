@@ -144,7 +144,7 @@ export default function AdventureView({
   }, [fullscreen]);
 
   const [mode, setMode] = useState<"earth" | "taste">("earth");
-  const [look, setLook] = useState<"photoreal" | "real" | "painted">(GOOGLE_KEY ? "photoreal" : "real");
+  const [look, setLook] = useState<"photoreal" | "real" | "painted">(photoOk ? "photoreal" : "real");
   /** The hour on the trip's clock: follows the stops as you fly, so the light does too. */
   const [clock, setClock] = useState<number | null>(null);
   /** The time someone dragged to on the day's clock (Immersive View style), or null to follow the plan. */
@@ -421,6 +421,10 @@ export default function AdventureView({
               pad={pad}
               onUserMove={onUserMove}
               onReady={() => setReady(true)}
+              onPhotoFail={() => {
+                photoOk = false;
+                setLook((l) => (l === "photoreal" ? "real" : l));
+              }}
             />
           )}
           {ok && mode === "taste" && (
@@ -697,7 +701,7 @@ export default function AdventureView({
                   <div className="eq-menu" role="menu" onClick={() => setViewOpen(false)}>
                     <button type="button" role="menuitem" onClick={home}>Whole trip</button>
                     <button type="button" role="menuitem" onClick={() => setIntroKey((k) => k + 1)}>Fly in again</button>
-                    {mode === "earth" && LOOKS.map((l) => (
+                    {mode === "earth" && looks().map((l) => (
                       <button key={l} type="button" role="menuitemradio" aria-checked={look === l} className={look === l ? "on" : ""} onClick={() => setLook(l)}>{LOOK_LABEL[l]}</button>
                     ))}
                     <button type="button" role="menuitemradio" aria-checked={mode === "taste"} className={mode === "taste" ? "on" : ""} onClick={() => setMode((m) => (m === "earth" ? "taste" : "earth"))}>Taste map</button>
@@ -766,8 +770,10 @@ function useCountUp(target: number | null, run: boolean): number | null {
 }
 
 type Look = "photoreal" | "real" | "painted";
-const LOOKS: Look[] = GOOGLE_KEY ? ["photoreal", "real", "painted"] : ["real", "painted"];
-const nextLook = (l: Look): Look => LOOKS[(LOOKS.indexOf(l) + 1) % LOOKS.length];
+/** Photoreal is offered only while Google's tiles actually load (the key can exist before billing is live). */
+let photoOk = Boolean(GOOGLE_KEY);
+const looks = (): Look[] => (photoOk ? ["photoreal", "real", "painted"] : ["real", "painted"]);
+const nextLook = (l: Look): Look => looks()[(looks().indexOf(l) + 1) % looks().length];
 const LOOK_LABEL: Record<Look, string> = { photoreal: "Photoreal 3D", real: "Satellite", painted: "Painted map" };
 
 /** A temperature for the hour from the day's low (around dawn) and high (mid-afternoon). Pure. */
