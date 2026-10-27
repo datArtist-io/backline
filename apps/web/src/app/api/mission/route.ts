@@ -25,6 +25,7 @@ import {
 } from "@backline/engine";
 import { getRun, isRunId, saveRun } from "@/lib/run-store";
 import { openRun, sealRun } from "@/lib/run-seal";
+import { localCurrency } from "@/lib/wallet";
 import { DIAL, underDailyCap } from "@/lib/demo-calls";
 import { loadWallet, walletFor } from "@/lib/wallet";
 import { kycConfigured, kycFor } from "@/lib/kyc";
@@ -168,7 +169,9 @@ export async function POST(req: Request) {
         const local = cleanProfile(body.profile);
         const merged = account ? mergeProfile(account.profile, local, account.memories) : local;
         // Signed in with Google or email: their name and email are enough to book in their name.
-        const profile = session ? { ...merged, name: merged.name || session.user.name || undefined, email: merged.email || session.user.email || undefined } : merged;
+        // Prices are in the traveller's own currency: their choice, else where they're connecting from.
+        const ownCurrency = merged.currency || localCurrency(null, req.headers.get("x-vercel-ip-country"));
+        const profile = session ? { ...merged, currency: ownCurrency, name: merged.name || session.user.name || undefined, email: merged.email || session.user.email || undefined } : { ...merged, currency: ownCurrency };
         // Demo calling rings the signed-in person's own phone (they play the business). Without sign-in
         // configured (local development), the CALL_DEMO_TO line is used instead.
         if (ctx.calls && !ctx.callsLive) {
