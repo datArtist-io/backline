@@ -3,6 +3,7 @@
 // balance, one-tap top-ups, and every payment held, paid or released.
 import { useCallback, useEffect, useState } from "react";
 import Verify from "./Verify";
+import "../adventure/adventure.css";
 
 type Entry = { id: string; kind: "topup" | "payment"; status: "credited" | "held" | "paid" | "void"; amount_minor: number; original_amount: number | null; original_currency: string | null; label: string; ref: string | null; created_at: string };
 type W = { ready: boolean; balance: number; entries: Entry[] };

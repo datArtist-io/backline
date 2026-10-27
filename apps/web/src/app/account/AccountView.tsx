@@ -33,6 +33,8 @@ export default function AccountView() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [open, setOpen] = useState<string | null>(null);
+  const [tab, setTab] = useState<(typeof TABS)[number]["id"]>("trips");
+  const [showAll, setShowAll] = useState(false);
 
   const load = useCallback(async () => {
     const res = await fetch("/api/account", { cache: "no-store" });
@@ -118,6 +120,12 @@ export default function AccountView() {
     </label>
   );
 
+  // Same request asked again, or the same trip saved again: show it once (newest first).
+  const searches = (acc.searches ?? []).filter((q, i, all) => all.findIndex((x) => x.query.trim().toLowerCase() === q.query.trim().toLowerCase()) === i);
+  const trips = acc.trips.filter((t, i, all) => all.findIndex((x) => x.title === t.title && x.start_date === t.start_date && x.end_date === t.end_date) === i);
+  const shownSearches = showAll ? searches : searches.slice(0, 5);
+  const shownTrips = showAll ? trips : trips.slice(0, 5);
+
   return (
     <div className="account-grid">
       <section className="lg account-card account-me">
@@ -143,7 +151,16 @@ export default function AccountView() {
         </button>
       </section>
 
-      <section className="lg account-card">
+      <nav className="account-tabs" role="tablist" aria-label="Your account">
+        {TABS.map((t) => (
+          <button key={t.id} type="button" role="tab" aria-selected={tab === t.id} className={tab === t.id ? "on" : ""} onClick={() => { setTab(t.id); setShowAll(false); }}>
+            {t.label}
+            {t.id === "trips" && trips.length > 0 && <em>{trips.length}</em>}
+          </button>
+        ))}
+      </nav>
+
+      {tab === "details" && <section className="lg account-card account-pane">
         <h2 className="account-h">Your details</h2>
         <p className="fine">Used to book flights and rooms in your name. Only you can see them.</p>
         <form className="pref-grid" onSubmit={save}>
@@ -173,13 +190,17 @@ export default function AccountView() {
             </button>
           </div>
         </form>
-      </section>
+      </section>}
 
-      <Verify />
-      <section className="lg account-wallet" aria-label="Wallet"><WalletPanel /></section>
-      <TravelDocuments />
+      {tab === "wallet" && (
+        <div className="account-pane account-stack">
+          <section className="lg account-card account-wallet" aria-label="Wallet"><WalletPanel /></section>
+          <Verify />
+          <TravelDocuments />
+        </div>
+      )}
 
-      <section className="lg account-card">
+      {tab === "prefs" && <section className="lg account-card account-pane">
         <h2 className="account-h">Your preferences</h2>
         <p className="fine">Things you&rsquo;ve asked for, used to plan better trips. Remove anything you don&rsquo;t want used.</p>
         {acc.memories.length === 0 ? (
@@ -197,9 +218,9 @@ export default function AccountView() {
             ))}
           </ul>
         )}
-      </section>
+      </section>}
 
-      <section className="lg account-card">
+      {tab === "history" && <section className="lg account-card account-pane">
         <div className="account-h-row">
           <h2 className="account-h">Search history</h2>
           {(acc.searches ?? []).length > 0 && (
@@ -209,11 +230,11 @@ export default function AccountView() {
           )}
         </div>
         <p className="fine">Everything you&rsquo;ve asked it, newest first. Tap one to run it again.</p>
-        {(acc.searches ?? []).length === 0 ? (
+        {searches.length === 0 ? (
           <p className="account-empty">Nothing yet. Your searches will show up here.</p>
         ) : (
           <ul className="search-list">
-            {acc.searches.map((q) => (
+            {shownSearches.map((q) => (
               <li key={q.id} className="search-row">
                 <button type="button" className="search-run" onClick={() => rerun(q)} title="Run this again">
                   <span className="search-q">{q.query}</span>
@@ -226,15 +247,16 @@ export default function AccountView() {
             ))}
           </ul>
         )}
-      </section>
+        {!showAll && searches.length > 5 && <button type="button" className="account-more" onClick={() => setShowAll(true)}>Show all {searches.length}</button>}
+      </section>}
 
-      <section className="lg account-card">
+      {tab === "trips" && <section className="lg account-card account-pane">
         <h2 className="account-h">Your trips</h2>
-        {acc.trips.length === 0 ? (
+        {trips.length === 0 ? (
           <p className="account-empty">No trips yet. Say where you&rsquo;re going and it books the rest.</p>
         ) : (
           <ul className="trip-list">
-            {acc.trips.map((t) => (
+            {shownTrips.map((t) => (
               <li key={t.id} className="saved-trip">
                 <button type="button" className="saved-trip-head" onClick={() => setOpen(open === t.id ? null : t.id)} aria-expanded={open === t.id}>
                   <span className="saved-trip-title">{t.title}</span>
@@ -273,7 +295,16 @@ export default function AccountView() {
             ))}
           </ul>
         )}
-      </section>
+        {!showAll && trips.length > 5 && <button type="button" className="account-more" onClick={() => setShowAll(true)}>Show all {trips.length}</button>}
+      </section>}
     </div>
   );
 }
+
+const TABS = [
+  { id: "trips", label: "Trips" },
+  { id: "wallet", label: "Wallet & ID" },
+  { id: "details", label: "Details" },
+  { id: "prefs", label: "Preferences" },
+  { id: "history", label: "History" },
+] as const;

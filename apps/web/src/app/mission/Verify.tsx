@@ -2,6 +2,7 @@
 // Verify your identity with Persona (government ID and a selfie). Runs Persona's own secure flow; the
 // result is read from Persona by our server, never trusted from the browser.
 import { useCallback, useEffect, useState } from "react";
+import "../adventure/adventure.css";
 
 type K = { configured: boolean; status: "none" | "pending" | "verified" | "declined" | "review"; referenceId: string };
 

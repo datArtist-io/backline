@@ -1405,3 +1405,19 @@ a { color: inherit; text-decoration: none; }
 .recent-chip { flex: none; max-width: 190px; padding: 6px 12px; font-size: 12.5px; background: rgba(255, 255, 255, 0.6); border-color: rgba(255, 255, 255, 0.55); box-shadow: 0 4px 14px -8px rgba(16, 19, 43, 0.35); }
 .recent.try { margin-top: 12px; }
 @media (max-width: 640px) { .recent { justify-content: flex-start; } .recent-chip { max-width: 170px; } }
+
+/* ---- account: one section at a time ---- */
+.account-tabs { position: sticky; top: 76px; z-index: 5; display: flex; gap: 4px; padding: 5px; overflow-x: auto; scrollbar-width: none; border-radius: 999px; background: rgba(255, 255, 255, 0.7); box-shadow: inset 0 0 0 1px rgba(16, 19, 43, 0.08), 0 12px 30px -18px rgba(16, 19, 43, 0.35); backdrop-filter: blur(18px) saturate(180%); -webkit-backdrop-filter: blur(18px) saturate(180%); }
+.account-tabs::-webkit-scrollbar { display: none; }
+.account-tabs button { flex: none; display: inline-flex; align-items: center; gap: 8px; height: 42px; padding: 0 18px; border: 0; border-radius: 999px; font: inherit; font-size: 14.5px; font-weight: 650; color: var(--ink-soft); background: transparent; cursor: pointer; transition: color 0.25s, background 0.3s var(--ease-out), box-shadow 0.3s; }
+.account-tabs button:hover { color: var(--ink); }
+.account-tabs button.on { color: var(--ink); background: #fff; box-shadow: 0 1px 1px rgba(16, 19, 43, 0.06), 0 6px 16px -6px rgba(16, 19, 43, 0.3); }
+.account-tabs em { font-style: normal; font-size: 12px; min-width: 20px; height: 20px; display: grid; place-items: center; padding: 0 6px; border-radius: 999px; color: #fff; background: #5a3ee6; }
+.account-pane { animation: accin 0.45s var(--ease-out) both; }
+.account-stack { display: grid; gap: 18px; }
+.account-more { margin-top: 12px; height: 40px; padding: 0 16px; border: 0; border-radius: 999px; font: inherit; font-size: 14px; font-weight: 650; color: var(--ink); background: rgba(16, 19, 43, 0.06); cursor: pointer; }
+.account-more:hover { background: rgba(16, 19, 43, 0.1); }
+.account-wallet .wl { --ink-soft: #4a4f6e; }
+@keyframes accin { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.mode-hint { position: relative; z-index: 2; margin: 10px auto 0; max-width: min(460px, calc(100vw - 40px)); text-align: center; font-size: 13.5px; line-height: 1.45; color: var(--ink-soft); animation: accin 0.4s var(--ease-out) both; }
+.hero.is-launching .mode-hint { opacity: 0; transition: opacity 0.3s; }

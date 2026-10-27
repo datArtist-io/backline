@@ -64,6 +64,9 @@ export default function Landing() {
           </h1>
           <PromptBar onSubmit={go} placeholder="Where are you going, and when?" shortPlaceholder="Where to, and when?" />
           <ModeSwitch value={mode} onChange={setMode} className="hero-switch" />
+          <p className="mode-hint" key={mode} aria-live="polite">
+            {mode === "check" ? "I plan it, you review and adjust, and nothing is booked until you approve." : "I plan, call, pay and book it end to end, and show you each step live."}
+          </p>
           <RecentSearches onPick={(q) => go(q, [])} fallback={<TryPrompts onPick={(q) => go(q, [])} />} />
         </section>
 
