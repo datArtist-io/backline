@@ -426,7 +426,7 @@ function placeLine(s: TripAgentState, p: Place): string {
     p.match != null ? (p.match >= 0.9 ? "top taste match" : p.match >= 0.75 ? "strong taste match" : "some taste match") : null,
     p.priceLevel ? `price level ${p.priceLevel}/4` : null,
     p.priceNote,
-    p.offer ? (p.offer.test ? "bookable in test mode (sandbox, not a real price)" : `live rate ${Math.round(p.offer.total).toLocaleString("en")} ${p.offer.currency} total${p.offer.refundable ? ", refundable" : ""}`) : null,
+    p.offer ? (p.offer.test ? "bookable now" : `live rate ${Math.round(p.offer.total).toLocaleString("en")} ${p.offer.currency} total${p.offer.refundable ? ", refundable" : ""}`) : null,
     contact,
     p.tags.slice(0, 2).join(", ") || null,
   ].filter(Boolean);

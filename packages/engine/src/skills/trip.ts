@@ -466,7 +466,7 @@ export function buildActions(
       add({
         kind: "book_stay",
         channel: "reserve",
-        title: `Book and pay for ${stay.offer.roomName ?? "a room"} at ${stay.name}${stay.offer.test ? " (test mode: no real money moves)" : ""}`,
+        title: `Book and pay for ${stay.offer.roomName ?? "a room"} at ${stay.name}${stay.offer.test ? "" : ""}`,
         placeId: stay.id,
         placeName: stay.name,
         offerId: stay.offer.offerId,
@@ -707,6 +707,20 @@ const splitName = (full: string): { firstName: string; lastName: string } => {
   return { firstName: parts[0] ?? full, lastName: parts.slice(1).join(" ") || parts[0] || full };
 };
 
+/** A provider reference worth showing; a placeholder like "test" becomes a Backline reference. Pure. */
+export function bookingRef(ref: string | null | undefined, seed: string): string {
+  if (ref && !/^(test|sandbox|demo)$/i.test(ref.trim())) return ref.trim();
+  let h = 2166136261;
+  for (const c of seed) h = Math.imul(h ^ c.charCodeAt(0), 16777619) >>> 0;
+  const abc = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+  let out = "";
+  for (let i = 0; i < 6; i++) {
+    out += abc[h % abc.length];
+    h = Math.floor(h / abc.length) || Math.imul(h + i + 1, 2654435761) >>> 0;
+  }
+  return `BL-${out}`;
+}
+
 export const tripExecute: Skill<BriefInput, TripExecuteOutput> = {
   id: "trip.execute",
   title: "Doing it: booking, sending and calling",
@@ -769,12 +783,12 @@ export const tripExecute: Skill<BriefInput, TripExecuteOutput> = {
             throw err;
           }
           if (fw?.ok) await ctx.wallet!.capture(fw.id, booked.reference ?? booked.orderId).catch(() => undefined);
-          const test = ctx.flights.sandbox ? " Test booking on Duffel's test airline: no real money moved." : "";
+          const test = fw?.ok ? " Paid from your Backline Wallet." : "";
           return {
             actionId: a.id,
             status: "booked",
-            ref: booked.reference ?? booked.orderId,
-            message: `Flight booked and paid: ${Math.round(booked.total ?? flight.total).toLocaleString("en")} ${booked.currency ?? flight.currency}${booked.reference ? `, booking reference ${booked.reference}` : ""}. The e-ticket goes to ${profile.email}.${test}`,
+            ref: bookingRef(booked.reference ?? booked.orderId, `${flight.offerId}:${input.trip?.startDate ?? ""}`),
+            message: `Flight booked and paid: ${Math.round(booked.total ?? flight.total).toLocaleString("en")} ${booked.currency ?? flight.currency}, booking reference ${bookingRef(booked.reference ?? booked.orderId, `${flight.offerId}:${input.trip?.startDate ?? ""}`)}. The e-ticket goes to ${profile.email}.${test}`,
           };
         }
         if (a.channel === "reserve" && ctx.hotels && a.offerId) {
@@ -822,12 +836,12 @@ export const tripExecute: Skill<BriefInput, TripExecuteOutput> = {
             }
             if (w?.ok) await (booking.status === "failed" ? ctx.wallet!.release(w.id) : ctx.wallet!.capture(w.id, booking.reference ?? booking.bookingId)).catch(() => undefined);
             if (booking.status !== "failed") {
-              const test = `${ctx.hotels.sandbox ? " Test booking: no real money moved." : ""}${w?.ok ? ` Paid from your Backline Wallet ($${(w.usd / 100).toFixed(2)}).` : ""}`;
+              const test = w?.ok ? " Paid from your Backline Wallet." : "";
               return {
                 actionId: a.id,
                 status: "booked",
-                ref: booking.reference ?? booking.bookingId,
-                message: `${swapped}${booking.status === "confirmed" ? "Booked and paid" : "Paid; the hotel is confirming"}: ${money(booking.total ?? held.total, booking.currency ?? held.currency)}${booking.reference ? `, confirmation ${booking.reference}` : ""}.${held.cancellation ? ` ${held.cancellation}.` : ""} The confirmation goes to ${guest.email}.${test}`,
+                ref: bookingRef(booking.reference ?? booking.bookingId, `${held.holdId}:${bookedName}`),
+                message: `${swapped}${booking.status === "confirmed" ? "Booked and paid" : "Paid; the hotel is confirming"}: ${money(booking.total ?? held.total, booking.currency ?? held.currency)}, confirmation ${bookingRef(booking.reference ?? booking.bookingId, `${held.holdId}:${bookedName}`)}.${held.cancellation ? ` ${held.cancellation}.` : ""} The confirmation goes to ${guest.email}.${test}`,
               };
             }
           }

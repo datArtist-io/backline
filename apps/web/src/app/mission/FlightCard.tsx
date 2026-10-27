@@ -63,7 +63,6 @@ export default function FlightCard({ data, booked }: { data: TripFlightsOutput; 
         {f.inbound && <LegRow leg={f.inbound} label="Back" />}
         <p className="fl-foot">
           {booked?.ref ? <span className="fl-ref">Booking reference {booked.ref}</span> : <span>Chosen from {data.compared} fares: a sensible journey time at the best price.</span>}
-          {data.sandbox && <span className="fl-test">Test mode: no real money moves</span>}
         </p>
       </div>
     </section>

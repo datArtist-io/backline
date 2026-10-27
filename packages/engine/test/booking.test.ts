@@ -90,7 +90,7 @@ describe("booking and paying", () => {
     const hotels = provider(180000);
     const r = await run(hotels, 500000);
     expect(r.data.results[0]).toMatchObject({ status: "booked", ref: "HC9" });
-    expect(r.data.results[0].message).toMatch(/Booked and paid: 180,000 NGN.*Test booking/);
+    expect(r.data.results[0].message).toMatch(/Booked and paid: 180,000 NGN, confirmation HC9/);
   });
 
   it("doesn't pay when the price went up or is over budget", async () => {
@@ -221,5 +221,15 @@ describe("booking read from a call", () => {
     expect(callBooking({ confirmed: true, date: "Friday 30 October", time: "8pm", partySize: 2, name: "Josiah", reference: "" })).toEqual({ confirmed: true, date: "Friday 30 October", time: "8pm", partySize: 2, name: "Josiah", reference: null, notes: null });
     expect(callBooking({ date: "x" })).toBeNull();
     expect(callBooking(undefined)).toBeNull();
+  });
+});
+
+import { bookingRef } from "../src/skills/trip";
+describe("booking references", () => {
+  it("keeps real references and replaces placeholders with a stable Backline one", () => {
+    expect(bookingRef("HC9", "x")).toBe("HC9");
+    expect(bookingRef("test", "hold-1")).toMatch(/^BL-[A-Z2-9]{6}$/);
+    expect(bookingRef("test", "hold-1")).toBe(bookingRef("TEST", "hold-1"));
+    expect(bookingRef(null, "a")).not.toBe(bookingRef(null, "b"));
   });
 });

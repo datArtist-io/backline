@@ -58,7 +58,7 @@ describe("booking a flight", () => {
     const action = { ...flightAction(f, profile), id: "a1" };
     const r = await tripExecute.run({ ...ctxWith(), flights }, { artist: "", trip, profile }, { "trip.actions": { data: { actions: [action] }, evidence: [] }, "trip.flights": { data: { flight: f, compared: 1, from: "Lagos", to: "Abuja", sandbox: true }, evidence: [] } });
     expect(r.data.results[0]).toMatchObject({ status: "booked", ref: "RZPNX8" });
-    expect(r.data.results[0].message).toMatch(/Flight booked and paid: 150,000 NGN.*test airline/);
+    expect(r.data.results[0].message).toMatch(/Flight booked and paid: 150,000 NGN, booking reference /);
     const body = JSON.parse((fetch.mock.calls[0] as unknown as [string, { body: string }])[1].body).data;
     expect(body.payments).toEqual([{ type: "balance", currency: "NGN", amount: "150000.00" }]);
     expect(body.passengers[0]).toMatchObject({ id: "pas_1", given_name: "Ada", family_name: "Obi", born_on: "1995-04-02", gender: "f", title: "ms" });

@@ -91,3 +91,18 @@ drop policy if exists "own kyc" on public.kyc_inquiries;
 create policy "own kyc" on public.kyc_inquiries for all to authenticated using (user_id = auth.uid()) with check (user_id = auth.uid());
 grant select, insert, update on public.kyc_inquiries to authenticated;
 revoke all on public.kyc_inquiries from anon;
+
+-- Everyone starts with a $20,000 demo balance, granted once on first open.
+create or replace function public.wallet_welcome() returns bigint
+language plpgsql security definer set search_path = public as $$
+begin
+  if auth.uid() is null then raise exception 'not signed in'; end if;
+  perform pg_advisory_xact_lock(hashtext(auth.uid()::text));
+  if not exists (select 1 from public.wallet_entries where user_id = auth.uid() and kind = 'topup' and label = 'Welcome balance') then
+    insert into public.wallet_entries (user_id, kind, status, amount_minor, label)
+      values (auth.uid(), 'topup', 'credited', 2000000, 'Welcome balance');
+  end if;
+  return public.wallet_balance();
+end $$;
+revoke all on function public.wallet_welcome() from public, anon;
+grant execute on function public.wallet_welcome() to authenticated;

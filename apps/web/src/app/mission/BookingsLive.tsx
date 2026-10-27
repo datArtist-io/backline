@@ -271,7 +271,6 @@ export default function BookingsLive({
   const done = results.filter((r) => (r.status === "calling" || r.status === "queued" ? calls[r.actionId] === true : DONE.has(r.status))).length;
   const total = Math.max(1, results.length);
   const failedCalls = Object.values(calls).filter((x) => x === false).length;
-  const test = results.some((r) => /test (booking|mode)|no real money/i.test(r.message));
   return (
     <section className="bk" aria-live="polite">
       <header className="bk-head">
@@ -280,7 +279,7 @@ export default function BookingsLive({
         </div>
         <div>
           <h2>{!execute ? "Booking your trip" : done === results.length ? "Your trip is booked" : "Booking your trip"}</h2>
-          <p>{!execute ? (running ? "Calling, paying and confirming now…" : "Waiting for your go-ahead") : `${done} of ${results.length} done${failedCalls ? ` · ${failedCalls} need${failedCalls === 1 ? "s" : ""} another way` : ""}${test ? " · payments in test mode, no real money moves" : ""}`}</p>
+          <p>{!execute ? (running ? "Calling, paying and confirming now…" : "Waiting for your go-ahead") : `${done} of ${results.length} done${failedCalls ? ` · ${failedCalls} need${failedCalls === 1 ? "s" : ""} another way` : ""}`}</p>
         </div>
       </header>
       {!execute && running && (
@@ -301,7 +300,6 @@ export default function BookingsLive({
           {results.map((r, i) => {
             const a = byId.get(r.actionId);
             if (!a) return null;
-            const testPay = /test (booking|mode)|no real money/i.test(r.message);
             return (
               <li key={r.actionId} className={`bk-row is-${r.status}`} style={{ ["--i" as string]: i }}>
                 <span className="bk-badge"><ChannelIcon channel={a.channel} status={r.status} /></span>
@@ -321,11 +319,10 @@ export default function BookingsLive({
                       </div>
                       {a.price && (
                         <div>
-                          <small>{testPay ? "Test payment" : "Paid"}</small>
+                          <small>{/Backline Wallet/.test(r.message) ? "Paid from your wallet" : "Paid"}</small>
                           <strong>{Math.round(a.price.total).toLocaleString("en")} {a.price.currency}</strong>
                         </div>
                       )}
-                      {testPay && <span className="bk-test">Test mode · no money moved</span>}
                     </div>
                   )}
                   {(r.status === "calling" || r.status === "queued") && (

@@ -182,7 +182,9 @@ The checks run against live Missions, their findings and the resulting fixes are
 
 17.2 A paid booking holds the amount (converted to US dollars at the day's rate), pays the provider, then captures the hold on confirmation or releases it on failure. Insufficient funds stop the booking with a message to top up; nothing is paid.
 
-17.3 All funds are test funds. No real money moves.
+17.3 Everyone starts with a $20,000 demo balance (granted once, in the database), shown in their own currency: the one in their details, else the one where they're connecting from, at the day's rate. The wallet card carries one quiet "Demo balance" line; receipts say "Paid from your wallet". No real money moves.
+
+17.4 Provider placeholders such as "test" are never shown as a confirmation: a stable Backline reference (BL-XXXXXX) is shown instead (`bookingRef`, tested).
 
 ## 18. Identity checks (Persona)
 

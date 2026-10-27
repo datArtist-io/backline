@@ -384,7 +384,7 @@ export function PlacesSection({ title, places, chosenId, anchor, notes, evidence
               {p.rating != null && <span>★ {p.rating.toFixed(1)}</span>}
               {p.priceLevel != null && <span>{"$".repeat(Math.max(1, Math.min(4, Math.round(p.priceLevel))))}</span>}
               {p.offer && !p.offer.test && <span>{money(p.offer.total, p.offer.currency)} for your dates</span>}
-              {p.offer?.test && <span>Bookable in test mode (sandbox: no real price, no money moves)</span>}
+              {p.offer?.test && <span>Bookable now from your wallet</span>}
               {!p.offer && p.rate && (
                 <a href={p.rate.url} target="_blank" rel="noopener noreferrer nofollow">
                   {money(p.rate.perNight, p.rate.currency)} a night on {p.rate.site}

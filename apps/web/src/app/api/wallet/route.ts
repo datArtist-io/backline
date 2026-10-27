@@ -2,18 +2,26 @@
 import { z } from "zod";
 import { clientIp, rateLimiter } from "@/lib/rate-limit";
 import { getSession } from "@/lib/session";
-import { loadWallet, topUp } from "@/lib/wallet";
+import { loadWallet, localCurrency, topUp } from "@/lib/wallet";
+import { loadAccount } from "@/lib/account";
+import type { Session } from "@/lib/session";
+
+/** Their chosen currency, else the one where they're connecting from. */
+async function currencyFor(s: Session, req: Request): Promise<string> {
+  const chosen = await loadAccount(s).then((a) => a.profile.currency ?? null).catch(() => null);
+  return localCurrency(chosen, req.headers.get("x-vercel-ip-country"));
+}
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const rateLimited = rateLimiter(20);
 
-export async function GET() {
+export async function GET(req: Request) {
   const s = await getSession().catch(() => null);
   if (!s) return Response.json({ error: "Sign in to see your wallet." }, { status: 401 });
   try {
-    return Response.json(await loadWallet(s), { headers: { "Cache-Control": "no-store" } });
+    return Response.json(await loadWallet(s, await currencyFor(s, req)), { headers: { "Cache-Control": "no-store" } });
   } catch (err) {
     console.error("[wallet] load failed", err instanceof Error ? err.message : err);
     return Response.json({ error: "Your wallet couldn't load. Try again." }, { status: 502 });
@@ -30,10 +38,10 @@ export async function POST(req: Request) {
   if (!parsed.success) return Response.json({ error: "Choose an amount from $1 to $1,000." }, { status: 400 });
   try {
     await topUp(s, parsed.data.dollars * 100);
-    return Response.json(await loadWallet(s), { headers: { "Cache-Control": "no-store" } });
+    return Response.json(await loadWallet(s, await currencyFor(s, req)), { headers: { "Cache-Control": "no-store" } });
   } catch (err) {
     const msg = String(err instanceof Error ? err.message : err);
     console.error("[wallet] top-up failed", msg);
-    return Response.json({ error: /daily/.test(msg) ? "That's today's test top-up limit ($2,000)." : "Couldn't add funds just now." }, { status: /daily/.test(msg) ? 429 : 502 });
+    return Response.json({ error: /daily/.test(msg) ? "That's today's top-up limit." : "Couldn't add funds just now." }, { status: /daily/.test(msg) ? 429 : 502 });
   }
 }

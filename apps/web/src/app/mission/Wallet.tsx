@@ -6,9 +6,11 @@ import Verify from "./Verify";
 import "../adventure/adventure.css";
 
 type Entry = { id: string; kind: "topup" | "payment"; status: "credited" | "held" | "paid" | "void"; amount_minor: number; original_amount: number | null; original_currency: string | null; label: string; ref: string | null; created_at: string };
-type W = { ready: boolean; balance: number; entries: Entry[] };
+type W = { ready: boolean; balance: number; entries: Entry[]; currency: string; perUsd: number };
 
-const usd = (cents: number) => `$${(cents / 100).toLocaleString("en", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+/** US cents shown in the person's own currency. */
+const moneyIn = (w: Pick<W, "currency" | "perUsd">) => (cents: number) =>
+  new Intl.NumberFormat("en", { style: "currency", currency: w.currency, maximumFractionDigits: w.perUsd > 50 ? 0 : 2 }).format((cents / 100) * w.perUsd);
 const STATUS: Record<Entry["status"], string> = { credited: "Added", held: "On hold", paid: "Paid", void: "Released" };
 
 export function useWallet() {
@@ -47,7 +49,7 @@ export default function WalletPanel() {
       const d = await r.json();
       if (!r.ok) throw new Error(d.error);
       setW(d);
-      setMsg(`${usd(dollars * 100)} in test funds added.`);
+      setMsg(`${moneyIn(d)(dollars * 100)} added.`);
     } catch (e) {
       setMsg(e instanceof Error ? e.message : "Couldn't add funds.");
     } finally {
@@ -56,14 +58,15 @@ export default function WalletPanel() {
   };
   if (err && !w) return <p className="wl-note">{err}</p>;
   if (!w) return <div className="wl-card is-loading" aria-busy="true" />;
-  if (!w.ready) return <p className="wl-note">Your wallet is being set up. Check back in a moment.</p>;
+  if (!w.ready) return <div className="wl-card is-loading"><div className="wl-card-top"><span className="wl-brand">Backline Wallet</span></div><div className="wl-bal"><small>Setting up your wallet…</small></div></div>;
+  const usd = moneyIn(w);
   const held = w.entries.filter((e) => e.status === "held").reduce((n, e) => n + e.amount_minor, 0);
   return (
     <section className="wl" aria-label="Backline Wallet">
       <div className="wl-card">
         <div className="wl-card-top">
           <span className="wl-brand">Backline Wallet</span>
-          <span className="wl-test">Test funds</span>
+          <span className="wl-test">{w.currency}</span>
         </div>
         <div className="wl-bal">
           <small>Available</small>
@@ -73,18 +76,19 @@ export default function WalletPanel() {
         <div className="wl-chip" aria-hidden="true" />
       </div>
       <div className="wl-add">
-        <span>Add test funds</span>
+        <span>Add funds</span>
         <div>
           {[100, 250, 500].map((d) => (
             <button key={d} type="button" onClick={() => add(d)} disabled={busy != null}>
-              {busy === d ? "Adding…" : `+ $${d}`}
+              {busy === d ? "Adding…" : `+ ${usd(d * 100)}`}
             </button>
           ))}
         </div>
         {msg && <p role="status">{msg}</p>}
       </div>
       <Verify />
-      <p className="wl-how">When you approve a booking that needs paying, I hold the amount here, pay, and confirm. If the booking fails, the hold is released. No real money moves.</p>
+      <p className="wl-how">When you approve a booking, I hold the amount here, pay, and confirm it. If a booking doesn&rsquo;t go through, the hold is released straight away.</p>
+      <p className="wl-demo">Demo balance for trying Backline.</p>
       {w.entries.length > 0 && (
         <ol className="wl-list">
           {w.entries.map((e, i) => (
