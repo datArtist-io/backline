@@ -10,6 +10,7 @@ import { saveDetails, signOut } from "@/lib/auth-client";
 import TravelDocuments from "./TravelDocuments";
 import Verify from "../mission/Verify";
 import WalletPanel from "../mission/Wallet";
+import { toYou } from "@backline/engine/you";
 
 type Account = { user: Me; profile: Profile; memories: Memory[]; trips: SavedTrip[]; searches: Search[] };
 
@@ -330,7 +331,7 @@ export default function AccountView() {
                 </button>
                 {open === t.id && (
                   <div className="saved-trip-body">
-                    {t.summary && <p>{t.summary}</p>}
+                    {t.summary && <p>{toYou(t.summary)}</p>}
                     {t.details.bookings.length > 0 && (
                       <ul className="saved-bookings">
                         {t.details.bookings.map((b, i) => (
@@ -352,9 +353,16 @@ export default function AccountView() {
                         ))}
                       </ol>
                     )}
-                    <button type="button" className="link-btn" onClick={() => removeTrip(t.id)}>
-                      Remove this trip
-                    </button>
+                    <div className="saved-trip-acts">
+                      {t.goal && (
+                        <button type="button" className="lg pill" onClick={() => router.push(`/mission?${new URLSearchParams({ goal: t.goal ?? "", mode: "check" })}`)} title="Plans it again and checks with you before anything is booked or paid">
+                          Plan it again
+                        </button>
+                      )}
+                      <button type="button" className="link-btn" onClick={() => removeTrip(t.id)}>
+                        Remove this trip
+                      </button>
+                    </div>
                   </div>
                 )}
               </li>
