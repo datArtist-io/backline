@@ -823,8 +823,8 @@ export default function Earth(props: EarthProps) {
     const path = greatCircle(p.origin, dest);
     const mid = path[Math.floor(path.length / 2)];
     const el = document.createElement("div");
-    el.className = "eq-journey";
-    el.innerHTML = `<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M2.5 13.5 21 6l-4 13-4.5-4.5L9 18v-5l9-6-11 5.5z" fill="currentColor"/></svg><span>${escapeHtml(p.journey)}</span>`;
+    el.className = "eq-journey-pin";
+    el.innerHTML = `<div class="eq-journey"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M2.5 13.5 21 6l-4 13-4.5-4.5L9 18v-5l9-6-11 5.5z" fill="currentColor"/></svg><span>${escapeHtml(p.journey)}</span></div>`;
     journeyRef.current = new maplibregl.Marker({ element: el, anchor: "bottom", pitchAlignment: "viewport" }).setLngLat(mid).addTo(map);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [props.journey, props.origin?.lat, props.origin?.lon, props.destination?.lat, props.destination?.lon]);
