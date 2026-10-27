@@ -799,3 +799,42 @@ button:hover .ki-stop .ki-plane, .eq-card:hover .ki-stop .ki-plane { animation: 
   .eq-review-txt { flex-basis: calc(100% - 24px); }
   .eq-review-adjust, .eq-review-book { flex: 1; justify-content: center; }
 }
+
+/* ---- mini browser: a floating window for website bookings ---- */
+.mb { position: absolute; z-index: 30; right: 18px; bottom: 18px; width: min(460px, calc(100% - 36px)); height: min(720px, calc(100% - 36px)); display: grid; grid-template-rows: auto 1fr; border-radius: 26px; overflow: hidden; color: #10132b; background: #fff; box-shadow: 0 0 0 1px rgba(16, 19, 43, 0.08), 0 40px 100px -24px rgba(0, 0, 0, 0.6); animation: eqcard 0.5s var(--ease) both; }
+.mb-chrome { display: flex; align-items: center; gap: 8px; padding: 10px 10px 10px 14px; background: linear-gradient(180deg, #f7f7fb, #eef0f6); border-bottom: 1px solid rgba(16, 19, 43, 0.08); }
+.mb-lock { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; color: #6b7090; background: #fff; box-shadow: inset 0 0 0 1px rgba(16, 19, 43, 0.1); }
+.mb-lock.ok { color: #1d7f4a; } .mb-lock.bad { color: #c2264b; }
+.mb-host { flex: 1; min-width: 0; padding: 7px 12px; border-radius: 999px; font: 600 13.5px/1.2 var(--font-body, inherit); color: #10132b; background: #fff; box-shadow: inset 0 0 0 1px rgba(16, 19, 43, 0.1); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mb-ext, .mb-close { display: grid; place-items: center; width: 34px; height: 34px; border: 0; border-radius: 50%; font-size: 20px; line-height: 1; color: #10132b; background: #fff; box-shadow: inset 0 0 0 1px rgba(16, 19, 43, 0.1); cursor: pointer; transition: transform 0.35s var(--spring); }
+.mb-ext:hover, .mb-close:hover { transform: scale(1.08); }
+.mb-body { position: relative; min-height: 0; background: #fff; }
+.mb-frame { width: 100%; height: 100%; border: 0; background: #fff; }
+.mb-state { height: 100%; display: grid; align-content: center; justify-items: center; gap: 10px; padding: 32px; text-align: center; }
+.mb-state b { font-size: 17px; line-height: 1.35; }
+.mb-state p { margin: 0; max-width: 34ch; font-size: 14.5px; line-height: 1.55; color: #3d4263; }
+.mb-state.bad b { color: #a3203f; }
+.mb-btn { margin-top: 6px; height: 46px; padding: 0 22px; border: 0; border-radius: 999px; font: 700 15px/1 var(--font-body, inherit); color: #fff; background: linear-gradient(135deg, #5a3ee6, #d1306f); box-shadow: 0 12px 26px -12px rgba(90, 62, 230, 0.9); cursor: pointer; transition: transform 0.35s var(--spring); }
+.mb-btn:hover { transform: translateY(-1px) scale(1.03); }
+.mb-btn.ghost { color: #10132b; background: #fff; box-shadow: inset 0 0 0 1px rgba(16, 19, 43, 0.18); }
+.mb-spin { width: 28px; height: 28px; border-radius: 50%; border: 3px solid rgba(90, 62, 230, 0.18); border-top-color: #5a3ee6; animation: mbspin 0.9s linear infinite; }
+@keyframes mbspin { to { transform: rotate(360deg); } }
+@media (max-width: 860px) { .mb { right: 8px; left: 8px; bottom: 8px; top: 8px; width: auto; height: auto; } }
+
+/* ---- calls inside Bookings ---- */
+.bk-callbox { margin-top: 10px; padding: 12px 14px; border-radius: 16px; background: rgba(123, 92, 255, 0.1); transition: background 0.3s; }
+.bk-callbox.is-ok { background: rgba(29, 127, 74, 0.12); }
+.bk-callbox.is-failed { background: rgba(194, 38, 75, 0.1); }
+.bk-callline { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 14.5px; }
+.bk-callline em { margin-left: auto; font-style: normal; font-size: 12.5px; color: var(--ink-soft); }
+.bk-calldot { width: 9px; height: 9px; border-radius: 50%; background: #7b5cff; animation: eqbreathe 1.2s ease-in-out infinite; }
+.bk-calldot.ok { background: #2fbf71; animation: none; } .bk-calldot.bad { background: #e0455f; animation: none; }
+.bk-callnote, .bk-callsum { margin: 6px 0 0; font-size: 14px; line-height: 1.5; color: var(--ink-soft); }
+.bk-transcript { margin-top: 8px; } .bk-transcript summary { cursor: pointer; font-size: 13.5px; font-weight: 700; }
+.bk-transcript pre { white-space: pre-wrap; font: 13px/1.5 var(--font-body, inherit); max-height: 220px; overflow: auto; }
+.bk-fallback { margin-top: 10px; }
+.bk-fallback p { margin: 0 0 8px; font-size: 14px; line-height: 1.5; }
+.bk-fallback-acts { display: flex; flex-wrap: wrap; gap: 8px; }
+.bk-fb { display: inline-flex; align-items: center; height: 40px; padding: 0 16px; border: 0; border-radius: 999px; font: 700 14px/1 var(--font-body, inherit); color: var(--ink); background: rgba(255, 255, 255, 0.1); box-shadow: inset 0 0 0 1px currentColor; text-decoration: none; cursor: pointer; transition: transform 0.35s var(--spring); }
+.bk-fb.primary { color: #fff; background: linear-gradient(135deg, #5a3ee6, #d1306f); box-shadow: 0 10px 22px -12px rgba(90, 62, 230, 0.9); }
+.bk-fb:hover { transform: translateY(-1px); }

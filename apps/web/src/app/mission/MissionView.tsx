@@ -64,7 +64,7 @@ import { downloadFile, slug } from "@/lib/actions";
 import { rememberArtist, rememberedArtist } from "@/lib/memory";
 import { useRouter } from "next/navigation";
 import FollowUp from "./FollowUp";
-import BookingsLive from "./BookingsLive";
+import BookingsLive, { type Reach } from "./BookingsLive";
 import ModeSwitch from "../ModeSwitch";
 import { ArtistHeader, DemographicsSection, DnaSection, HeaderSkeleton, Placeholder, ProfileSection } from "./sections";
 import {
@@ -864,7 +864,12 @@ function TripGame({
   const actionsOut = r<TripActionsOutput>("trip.actions")?.data;
   const execOut = r<TripExecuteOutput>("trip.execute")?.data ?? null;
   const executing = steps.find((s) => s.id === "trip.execute")?.status === "running";
-  const live = actionsOut && (execOut || executing) ? <BookingsLive actions={actionsOut} execute={execOut} running={executing} /> : null;
+  const reach = useMemo(() => {
+    const out: Record<string, Reach> = {};
+    for (const p of agent ? [...agent.stays, ...agent.dines, ...agent.venues, ...agent.activities] : []) out[p.id] = { name: p.name, website: p.website ?? null, email: (p as { email?: string | null }).email ?? null, phone: p.phone ?? null };
+    return out;
+  }, [agent]);
+  const live = actionsOut && (execOut || executing) ? <BookingsLive actions={actionsOut} execute={execOut} running={executing} places={reach} /> : null;
   // Fly the moment the page opens: the place named in the request, before the agent has even read it.
   const guess = usePlace(where?.city ? null : trip?.destination ?? placeIn(goal));
   const destination: Spot | null = where?.city ? { name: where.city.display ?? where.city.name, lat: where.city.lat, lon: where.city.lon } : travel?.to && travel.destination ? { name: travel.destination, ...travel.to } : guess;

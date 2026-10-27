@@ -1,8 +1,9 @@
 "use client";
 // The trip being booked, live, inside the expedition: every call ringing and talking, every payment
 // going through, every confirmation number arriving. Test-mode payments are labelled as such.
+import { useEffect, useState } from "react";
 import type { TripActionsOutput, TripExecuteOutput } from "@backline/engine";
-import { CallTracker } from "./trip";
+import MiniBrowser from "./MiniBrowser";
 
 type Action = TripActionsOutput["actions"][number];
 type Result = TripExecuteOutput["results"][number];
@@ -62,11 +63,118 @@ function ChannelIcon({ channel, status }: { channel: Action["channel"]; status: 
   );
 }
 
-export default function BookingsLive({ actions, execute, running }: { actions: TripActionsOutput; execute: TripExecuteOutput | null; running: boolean }) {
+/** Where else a place can be reached, for when one way fails. */
+export type Reach = { name: string; website: string | null; email: string | null; phone: string | null };
+type CallState = { id: string; status: string; ended: boolean; outcome: string; retryable: boolean; summary: string | null; transcript: string | null; endedReason: string | null };
+
+const OUTCOME_TEXT: Record<string, string> = {
+  live: "On the call now",
+  talked: "Call finished",
+  no_answer: "No one picked up",
+  busy: "The line was busy",
+  voicemail: "Went to voicemail; I asked them to call you back",
+  no_audio: "The call connected but no sound came through from their side",
+  failed: "The call couldn't go through",
+};
+
+/** Follows one AI call: live status, transcript, one automatic retry, then other ways to book. */
+function LiveCall({ id: first, reach, onWebsite, onDone }: { id: string; reach: Reach | null; onWebsite: (url: string) => void; onDone: (ok: boolean) => void }) {
+  const [id, setId] = useState(first);
+  const [s, setS] = useState<CallState | null>(null);
+  const [tries, setTries] = useState(1);
+  const [note, setNote] = useState<string | null>(null);
+  useEffect(() => {
+    let stop = false;
+    let n = 0;
+    const tick = async () => {
+      if (stop) return;
+      try {
+        const res = await fetch(`/api/calls/${encodeURIComponent(id)}`, { cache: "no-store" });
+        const d = (await res.json()) as CallState & { error?: string };
+        if (!res.ok) throw new Error(d.error);
+        if (stop) return;
+        setS(d);
+        if (d.ended) return;
+      } catch {
+        /* keep trying */
+      }
+      if (++n < 150) setTimeout(tick, 3000);
+    };
+    tick();
+    return () => {
+      stop = true;
+    };
+  }, [id]);
+  const ended = Boolean(s?.ended);
+  const ok = ended && (s?.outcome === "talked" || s?.outcome === "voicemail");
+  const failed = ended && !ok;
+  useEffect(() => {
+    if (!ended) return;
+    if (failed && s?.retryable && tries < 2) {
+      // One more try straight away: a dropped line is often a one-off.
+      setNote("Trying the call once more…");
+      fetch(`/api/calls/${encodeURIComponent(id)}`, { method: "POST" })
+        .then((r) => r.json())
+        .then((d: { id?: string; error?: string }) => {
+          if (d.id) {
+            setTries((t) => t + 1);
+            setS(null);
+            setId(d.id);
+            setNote(null);
+          } else {
+            setTries(2);
+            setNote(d.error ?? "Couldn't place it again.");
+            onDone(false);
+          }
+        })
+        .catch(() => {
+          setTries(2);
+          onDone(false);
+        });
+      return;
+    }
+    onDone(ok);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ended, id]);
+  const label = !s ? "Connecting…" : s.ended ? (OUTCOME_TEXT[s.outcome] ?? "Call finished") : s.status === "in-progress" ? "On the call now" : s.status === "ringing" ? "Ringing" : "Placing the call";
+  return (
+    <div className={`bk-callbox${failed ? " is-failed" : ok ? " is-ok" : ""}`}>
+      <p className="bk-callline">
+        <span className={`bk-calldot${ended ? (ok ? " ok" : " bad") : ""}`} aria-hidden="true" />
+        <b>{label}</b>
+        {tries > 1 && <em>try {tries} of 2</em>}
+      </p>
+      {note && <p className="bk-callnote">{note}</p>}
+      {s?.summary && <p className="bk-callsum">{s.summary}</p>}
+      {s?.transcript && (
+        <details className="bk-transcript">
+          <summary>Transcript</summary>
+          <pre>{s.transcript}</pre>
+        </details>
+      )}
+      {failed && tries >= 2 && (
+        <div className="bk-fallback">
+          <p>The call didn&rsquo;t work, so here are other ways to book{reach ? ` ${reach.name}` : ""}. Everything else carries on.</p>
+          <div className="bk-fallback-acts">
+            {reach?.website && <button type="button" className="bk-fb primary" onClick={() => onWebsite(reach.website!)}>Book on their website</button>}
+            {reach?.email && <a className="bk-fb" href={`mailto:${reach.email}`}>Email them</a>}
+            {reach?.phone && <a className="bk-fb" href={`tel:${reach.phone}`}>Call them yourself</a>}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default function BookingsLive({ actions, execute, running, places = {} }: { actions: TripActionsOutput; execute: TripExecuteOutput | null; running: boolean; places?: Record<string, Reach> }) {
   const byId = new Map(actions.actions.map((a) => [a.id, a]));
   const results = execute?.results ?? [];
-  const done = results.filter((r) => DONE.has(r.status)).length;
+  const [browse, setBrowse] = useState<{ url: string; title: string } | null>(null);
+  const [calls, setCalls] = useState<Record<string, boolean>>({});
+  // A call only counts as done once it has actually connected and finished.
+  const done = results.filter((r) => (r.status === "calling" ? calls[r.actionId] === true : DONE.has(r.status))).length;
   const total = Math.max(1, results.length);
+  const failedCalls = Object.values(calls).filter((x) => x === false).length;
   const test = results.some((r) => /test (booking|mode)|no real money/i.test(r.message));
   return (
     <section className="bk" aria-live="polite">
@@ -76,7 +184,7 @@ export default function BookingsLive({ actions, execute, running }: { actions: T
         </div>
         <div>
           <h2>{!execute ? "Booking your trip" : done === results.length ? "Your trip is booked" : "Booking your trip"}</h2>
-          <p>{!execute ? (running ? "Calling, paying and confirming now…" : "Waiting for your go-ahead") : `${done} of ${results.length} done${test ? " · payments in test mode, no real money moves" : ""}`}</p>
+          <p>{!execute ? (running ? "Calling, paying and confirming now…" : "Waiting for your go-ahead") : `${done} of ${results.length} done${failedCalls ? ` · ${failedCalls} need${failedCalls === 1 ? "s" : ""} another way` : ""}${test ? " · payments in test mode, no real money moves" : ""}`}</p>
         </div>
       </header>
       {!execute && running && (
@@ -104,7 +212,9 @@ export default function BookingsLive({ actions, execute, running }: { actions: T
                 <div className="bk-body">
                   <div className="bk-top">
                     <b>{a.title}</b>
-                    <em className={`bk-chip s-${r.status}`}>{LABEL[r.status]}</em>
+                    <em className={`bk-chip s-${r.status === "calling" && calls[r.actionId] === false ? "failed" : r.status === "calling" && calls[r.actionId] ? "sent" : r.status}`}>
+                      {r.status === "calling" && calls[r.actionId] === false ? "Needs another way" : r.status === "calling" && calls[r.actionId] ? "Called" : LABEL[r.status]}
+                    </em>
                   </div>
                   <p>{r.message}</p>
                   {r.status === "booked" && r.ref && (
@@ -122,11 +232,30 @@ export default function BookingsLive({ actions, execute, running }: { actions: T
                       {testPay && <span className="bk-test">Test mode · no money moved</span>}
                     </div>
                   )}
-                  {r.status === "calling" && r.ref && <div className="bk-call"><CallTracker id={r.ref} /></div>}
+                  {r.status === "calling" && r.ref && (
+                    <LiveCall
+                      id={r.ref}
+                      reach={a.placeId ? (places[a.placeId] ?? null) : null}
+                      onWebsite={(url) => setBrowse({ url, title: a.placeName ?? "Their website" })}
+                      onDone={(ok) => setCalls((c) => ({ ...c, [r.actionId]: ok }))}
+                    />
+                  )}
+                  {r.status === "failed" && a.placeId && places[a.placeId] && (places[a.placeId].website || places[a.placeId].email) && (
+                    <div className="bk-fallback">
+                      <p>That didn&rsquo;t go through, so here&rsquo;s another way. Everything else carries on.</p>
+                      <div className="bk-fallback-acts">
+                        {places[a.placeId].website && <button type="button" className="bk-fb primary" onClick={() => setBrowse({ url: places[a.placeId!].website!, title: a.placeName ?? "Their website" })}>Book on their website</button>}
+                        {places[a.placeId].email && <a className="bk-fb" href={`mailto:${places[a.placeId].email}`}>Email them</a>}
+                      </div>
+                    </div>
+                  )}
                   {r.checkoutUrl && (
                     <a className="eq-btn gold" href={r.checkoutUrl} target="_blank" rel="noopener noreferrer"><span>Pay securely to confirm</span></a>
                   )}
-                  {r.status === "ready" && a.url && (
+                  {r.status === "ready" && a.url && a.channel === "link" && (
+                    <button type="button" className="bk-fb primary" onClick={() => setBrowse({ url: a.url!, title: a.placeName ?? a.title })}>Book in the mini browser</button>
+                  )}
+                  {r.status === "ready" && a.url && a.channel !== "link" && (
                     <a className="eq-btn" href={a.url} target="_blank" rel="noopener noreferrer"><span>Open</span></a>
                   )}
                 </div>
@@ -135,6 +264,7 @@ export default function BookingsLive({ actions, execute, running }: { actions: T
           })}
         </ol>
       )}
+      {browse && <MiniBrowser url={browse.url} title={browse.title} onClose={() => setBrowse(null)} />}
     </section>
   );
 }
