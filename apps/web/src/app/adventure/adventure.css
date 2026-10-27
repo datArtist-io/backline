@@ -536,3 +536,17 @@ button:hover .ki-stop .ki-plane, .eq-card:hover .ki-stop .ki-plane { animation: 
 .eq[data-theme="dark"] .maplibregl-ctrl-attrib { background: rgba(20, 22, 42, 0.7) !important; }
 .eq[data-theme="dark"] .eq-credit { color: var(--ink-soft); background: rgba(20, 22, 42, 0.7); }
 .eq[data-theme="dark"] .eq-note { color: var(--ink-soft); text-shadow: 0 1px 6px rgba(0, 0, 0, 0.8); }
+
+/* ---------- deep space behind the globe ---------- */
+.eq, .eq[data-theme="dark"] { background:
+    radial-gradient(60% 50% at 78% 18%, rgba(255, 79, 163, 0.16), transparent 70%),
+    radial-gradient(55% 45% at 18% 78%, rgba(123, 92, 255, 0.22), transparent 70%),
+    radial-gradient(40% 35% at 30% 22%, rgba(56, 211, 255, 0.08), transparent 70%),
+    radial-gradient(120% 90% at 50% 50%, #0d1030 0%, #060716 60%, #020208 100%); }
+.eq-space { position: absolute; inset: 0; z-index: 0; pointer-events: none; transition: opacity 1.6s var(--ease); }
+.eq-space canvas { width: 100%; height: 100%; display: block; }
+.eq-space.is-gone { opacity: 0; }
+/* Over space, the planning title and hints are light so they read. */
+.eq-head h1.is-waiting { color: #f1f3ff; filter: drop-shadow(0 4px 24px rgba(0, 0, 0, 0.6)); }
+.eq .eq-shade { background: linear-gradient(180deg, rgba(4, 5, 16, 0.35) 0%, transparent 18%, transparent 76%, rgba(4, 5, 16, 0.4) 100%); }
+.eq-blobs { display: none; }

@@ -13,7 +13,7 @@ import { GOOGLE_KEY } from "./Earth";
 import { skyKind, type Sky } from "./world";
 import { KIND_COLOR, KIND_LABEL, KIND_NOUN, hoursOf, type AdventureModel, type NodeKind, type QuestNode } from "./model";
 import Codex from "./Codex";
-import Background from "../Background";
+import Space from "./Space";
 import "./adventure.css";
 
 const Earth = dynamic(() => import("./Earth"), { ssr: false });
@@ -340,12 +340,8 @@ export default function AdventureView({
   return (
     <section data-theme={theme} style={gradeVars(sky, hour)} className={`eq${fullscreen ? " is-full" : ""}${ready ? " is-ready" : ""}${play ? " is-flying" : ""}`} aria-label={city ? `Your trip to ${city}` : "Your trip"}>
       <div className="eq-stage">
-        {/* The landing page's light sculpture carries on behind the globe until you arrive. */}
-        {blobs && (
-          <div className={`eq-blobs${arrived ? " is-gone" : ""}`} aria-hidden="true">
-            <Background />
-          </div>
-        )}
+        {/* Deep space around the globe until you arrive in the city. */}
+        {blobs && <Space active={!arrived} />}
         <Quiet fallback={<div className="eq-fallback"><p>The 3D map couldn&rsquo;t start here.</p>{onClassic && <button type="button" className="eq-btn" onClick={onClassic}><span>Open classic view</span></button>}</div>}>
           {ok && mode === "earth" && (
             <Earth
