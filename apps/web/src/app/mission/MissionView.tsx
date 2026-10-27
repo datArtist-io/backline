@@ -914,7 +914,7 @@ function TripGame({
     const map = new Map<string, Place>([...agent.stays, ...agent.dines, ...agent.venues, ...agent.activities].map((p) => [p.id, p]));
     downloadFile(`${slug(goal || "trip")}.ics`, buildIcs(goal || "Trip", plan, map), "text/calendar;charset=utf-8");
   };
-  const live = actionsOut && (execOut || executing) ? <BookingsLive runKey={runKey} actions={actionsOut} execute={execOut} running={executing} places={reach} onCalendar={calendar} /> : null;
+  const live = actionsOut && (execOut || executing) ? <BookingsLive runKey={runKey} actions={actionsOut} execute={execOut} running={executing} places={reach} onCalendar={calendar} where={trip?.destination ?? null} /> : null;
   const origin: Spot | null = travel?.from && travel.origin ? { name: travel.origin, ...travel.from } : null;
   const subtitle = trip?.destination ? tripChips(trip, where).slice(1).filter((c) => !/^By /.test(c)).concat(travel?.origin ? [`from ${travel.origin.split(",")[0]}`] : []).join(", ") : goal ? `“${goal}”` : null;
   const shown = useMemo(() => steps.map((s) => ({ id: s.id, title: s.title, status: s.status })), [steps]);
