@@ -9,7 +9,8 @@ import type { StepProgress } from "@backline/engine";
 import { Vector3 } from "three";
 import type { Shared } from "./World";
 import type { Spot } from "./Earth";
-import { KIND_COLOR, KIND_LABEL, KIND_NOUN, type AdventureModel, type NodeKind, type QuestNode } from "./model";
+import { skyKind, type Sky } from "./world";
+import { KIND_COLOR, KIND_LABEL, KIND_NOUN, hoursOf, type AdventureModel, type NodeKind, type QuestNode } from "./model";
 import Codex from "./Codex";
 import "./adventure.css";
 
@@ -113,6 +114,9 @@ export default function AdventureView({
   }, [fullscreen]);
 
   const [mode, setMode] = useState<"earth" | "taste">("earth");
+  const [look, setLook] = useState<"real" | "painted">("real");
+  /** The hour on the trip's clock: follows the stops as you fly, so the light does too. */
+  const [clock, setClock] = useState<number | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [hoverId, setHoverId] = useState<string | null>(null);
   const [activeDay, setActiveDay] = useState<number | "all">("all");
@@ -178,6 +182,7 @@ export default function AdventureView({
     shared.current.follow = true;
     setPlay(true);
     const r = routes.find((x) => x.day === first);
+    setClock(hoursOf(r?.quests[0]?.time) ?? 9);
     toast(`Day ${first + 1}`, r?.label);
   }, [routes, activeDay, toast]);
 
@@ -192,6 +197,8 @@ export default function AdventureView({
       if (!n) return;
       setVisited((v) => (v.has(`${d}:${nodeId}`) ? v : new Set(v).add(`${d}:${nodeId}`)));
       const q = routes.find((r) => r.day === d)?.quests.find((x) => x.nodeId === nodeId);
+      const h = hoursOf(q?.time);
+      if (h != null) setClock(h);
       toast(n.name, q?.time ? `${q.time} · ${KIND_NOUN[n.kind]}` : KIND_NOUN[n.kind], n.xp);
     },
     [model, routes, toast]
@@ -202,6 +209,7 @@ export default function AdventureView({
       if (next) {
         progress.current = { day: next.day, t: 0 };
         setActiveDay(next.day);
+        setClock(hoursOf(next.quests[0]?.time) ?? 9);
         toast(`Day ${next.day + 1}`, next.label);
       } else {
         setPlay(false);
@@ -246,13 +254,24 @@ export default function AdventureView({
     });
   }, [model]);
 
+  const weatherDay = useMemo(() => {
+    const days = model?.intel?.weather.days ?? [];
+    const idx = typeof activeDay === "number" ? activeDay : 0;
+    const date = routes.find((r) => r.day === idx)?.date ?? null;
+    return days.find((d) => d.date === date) ?? days[idx] ?? days[0] ?? null;
+  }, [model, activeDay, routes]);
+  const sky: Sky = skyKind(weatherDay?.code ?? null, weatherDay?.label ?? null);
+  const selectedHour = selected ? hoursOf((selected.visits.find((v) => v.day === activeDay) ?? selected.visits[0])?.time) : null;
+  const hour = selectedHour ?? clock ?? 13;
+  const weather = useMemo(() => ({ kind: sky, hour }), [sky, hour]);
+
   const chapters = useMemo(() => CHAPTERS.filter((c) => steps.some((s) => s.id === c.id)).map((c) => ({ ...c, status: steps.find((s) => s.id === c.id)?.status ?? "pending" })), [steps]);
   const current = chapters.find((c) => c.status === "running") ?? chapters.find((c) => c.status === "pending") ?? null;
   const dest = destination ?? model?.destination ?? null;
   const city = model?.city || dest?.name || null;
   const from = origin ?? model?.origin ?? null;
 
-  const pad = useMemo(() => (narrow ? { top: 150, right: 24, bottom: 220, left: 24 } : { top: 140, right: selected ? 420 : 60, bottom: 230, left: model?.taste ? 330 : 60 }), [narrow, selected, model?.taste]);
+  const pad = useMemo(() => (narrow ? { top: 250, right: 24, bottom: 230, left: 24 } : { top: 140, right: selected ? 420 : 60, bottom: 230, left: model?.taste ? 330 : 60 }), [narrow, selected, model?.taste]);
 
   if (ok === false) {
     return (
@@ -293,6 +312,8 @@ export default function AdventureView({
               introKey={introKey}
               homeKey={homeKey}
               showTaste={showTaste}
+              look={look}
+              weather={weather}
               pad={pad}
               onUserMove={onUserMove}
               onReady={() => setReady(true)}
@@ -338,11 +359,20 @@ export default function AdventureView({
               </svg>
               <div className="eq-score-txt">
                 <b>Qloo taste match</b>
+                {narrow && model.taste?.signals.length ? <span className="eq-because">Because you love {model.taste.signals.slice(0, 2).join(", ")}</span> : null}
                 <span>{model.stats.picked} places · {model.stats.days ? `${model.stats.days} days` : "plan coming"}{model.stats.km ? ` · ${Math.round(model.stats.km)} km` : ""}</span>
                 <span className="eq-xp" aria-label={`${xp} of ${model.stats.xp} points`}>
                   <i style={{ width: `${model.stats.xp ? Math.min(100, (xp / model.stats.xp) * 100) : 0}%` }} />
                 </span>
               </div>
+            </div>
+          )}
+          {weatherDay && (
+            <div className={`eq-wx sky-${sky}`} aria-label={`${weatherDay.label}, high ${Math.round(weatherDay.tmax ?? 0)} degrees`}>
+              <WxIcon kind={sky} night={hour < 6.5 || hour > 19} />
+              <b>{weatherDay.tmax != null ? `${Math.round(weatherDay.tmax)}°` : "–"}</b>
+              <span>{weatherDay.label}</span>
+              <em>{typeof activeDay === "number" ? `Day ${activeDay + 1}, ` : ""}{fmtHour(hour)}</em>
             </div>
           )}
           <nav className="eq-doors" aria-label="Trip">
@@ -454,7 +484,7 @@ export default function AdventureView({
                 </button>
               )}
               <div className="eq-days" role="tablist" aria-label="Days">
-                <button role="tab" aria-selected={activeDay === "all"} className={activeDay === "all" ? "on" : ""} onClick={() => { setActiveDay("all"); stop(); progress.current = { day: -1, t: 0 }; home(); }}>
+                <button role="tab" aria-selected={activeDay === "all"} className={activeDay === "all" ? "on" : ""} onClick={() => { setActiveDay("all"); stop(); setClock(null); progress.current = { day: -1, t: 0 }; home(); }}>
                   Overview
                 </button>
                 {routes.map((r) => (
@@ -473,6 +503,7 @@ export default function AdventureView({
               <div className="eq-tools">
                 <button type="button" onClick={home} title="See the whole trip">Whole trip</button>
                 <button type="button" onClick={() => setIntroKey((k) => k + 1)} title="Fly in from home again">Fly in again</button>
+                {mode === "earth" && <button type="button" onClick={() => setLook((l) => (l === "real" ? "painted" : "real"))} title="Switch between satellite imagery and the painted map">{look === "real" ? "Painted map" : "Satellite"}</button>}
                 <button type="button" onClick={() => setMode((m) => (m === "earth" ? "taste" : "earth"))} title="Switch between the real city and the taste map">{mode === "earth" ? "Taste map" : "Real world"}</button>
                 {onClassic && <button type="button" onClick={onClassic}>Classic view</button>}
               </div>
@@ -494,6 +525,22 @@ export default function AdventureView({
         )}
       </div>
     </section>
+  );
+}
+
+const fmtHour = (h: number) => `${String(Math.floor(h)).padStart(2, "0")}:${String(Math.round((h % 1) * 60)).padStart(2, "0")}`;
+
+function WxIcon({ kind, night }: { kind: Sky; night: boolean }) {
+  const sun = night ? <path d="M15 4a8 8 0 1 0 5 13 7 7 0 0 1-5-13z" fill="currentColor" /> : <><circle cx="12" cy="12" r="4.2" fill="currentColor" />{[0, 45, 90, 135, 180, 225, 270, 315].map((a) => <line key={a} x1="12" y1="3" x2="12" y2="5.4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" transform={`rotate(${a} 12 12)`} />)}</>;
+  const cloud = <path d="M7 18h10a4 4 0 0 0 .6-7.95A5.5 5.5 0 0 0 7.1 9.6 4.2 4.2 0 0 0 7 18z" fill="currentColor" />;
+  return (
+    <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+      {kind === "clear" && sun}
+      {kind === "partly" && <g><g transform="translate(-3 -3) scale(.8)" opacity=".9">{sun}</g><g transform="translate(2 2) scale(.85)">{cloud}</g></g>}
+      {(kind === "cloudy" || kind === "fog") && cloud}
+      {(kind === "rain" || kind === "storm") && <g>{cloud}<path d="M9 20l-1 2.5M13 20l-1 2.5M17 20l-1 2.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" /></g>}
+      {kind === "snow" && <g>{cloud}<circle cx="9" cy="21.5" r="1" fill="currentColor" /><circle cx="13" cy="21.5" r="1" fill="currentColor" /><circle cx="17" cy="21.5" r="1" fill="currentColor" /></g>}
+    </svg>
   );
 }
 

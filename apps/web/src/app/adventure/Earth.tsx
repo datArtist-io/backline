@@ -7,6 +7,8 @@ import maplibregl, { type CustomLayerInterface, type GeoJSONSource, type Map as 
 import "maplibre-gl/dist/maplibre-gl.css";
 import * as THREE from "three";
 import { useEffect, useRef, type MutableRefObject } from "react";
+import { GAME_LAYERS, LAND, REAL_LAYERS, dusk, lightFor, skyFor, type Sky } from "./world";
+import { Environment } from "./env";
 import { KIND_COLOR, pathIndex, pointAt, type AdventureModel, type DayRoute, type QuestNode } from "./model";
 
 export type Spot = { name: string; lat: number; lon: number };
@@ -31,6 +33,10 @@ export type EarthProps = {
   introKey: number;
   homeKey: number;
   showTaste: boolean;
+  /** Real satellite imagery, or the painted game map. */
+  look: "real" | "painted";
+  /** The sky to paint: the day's forecast and the hour on the clock. */
+  weather: { kind: Sky; hour: number };
   /** Room the HUD takes on each side, so the camera frames the trip inside it. */
   pad: { top: number; right: number; bottom: number; left: number };
   onUserMove: () => void;
@@ -45,48 +51,6 @@ const GLYPHS = process.env.NEXT_PUBLIC_MAP_GLYPHS || "https://tiles.openfreemap.
 const DEM = process.env.NEXT_PUBLIC_TERRAIN_TILES ?? "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png";
 
 const GOLD = "#f2cf7a";
-
-// Roads, 3D buildings and place names. Added after the globe loads, so the planet still shows if the
-// vector tile host is slow or down.
-const VECTOR_LAYERS: maplibregl.LayerSpecification[] = [
-      {
-    id: "roads",
-    type: "line",
-    source: "omt",
-    "source-layer": "transportation",
-    minzoom: 12,
-    filter: ["in", ["get", "class"], ["literal", ["motorway", "trunk", "primary", "secondary", "tertiary"]]],
-    paint: { "line-color": "#fff8ec", "line-opacity": ["interpolate", ["linear"], ["zoom"], 12, 0.08, 16, 0.22], "line-width": ["interpolate", ["exponential", 1.6], ["zoom"], 12, 0.5, 17, 5] },
-  },
-  {
-    id: "buildings",
-    type: "fill-extrusion",
-    source: "omt",
-    "source-layer": "building",
-    minzoom: 13.5,
-    paint: {
-      "fill-extrusion-color": ["interpolate", ["linear"], ["coalesce", ["get", "render_height"], 8], 0, "#d9d3c7", 60, "#efe9de", 200, "#fbf7f0"],
-      "fill-extrusion-height": ["coalesce", ["get", "render_height"], 8],
-      "fill-extrusion-base": ["coalesce", ["get", "render_min_height"], 0],
-      "fill-extrusion-opacity": ["interpolate", ["linear"], ["zoom"], 13.5, 0, 14.5, 0.82],
-    },
-  },
-  {
-    id: "places",
-    type: "symbol",
-    source: "omt",
-    "source-layer": "place",
-    filter: ["in", ["get", "class"], ["literal", ["country", "city", "town", "suburb", "neighbourhood", "quarter"]]],
-    layout: {
-      "text-field": ["coalesce", ["get", "name:en"], ["get", "name"]],
-      "text-font": ["Noto Sans Regular"],
-      "text-size": ["match", ["get", "class"], "country", 13, "city", 14, "town", 12, 11],
-      "text-letter-spacing": 0.04,
-      "text-max-width": 9,
-    },
-    paint: { "text-color": "rgba(255,255,255,0.82)", "text-halo-color": "rgba(4,10,28,0.7)", "text-halo-width": 1.4 },
-  },
-];
 
 function style(): StyleSpecification {
   const terrain = Boolean(DEM);
@@ -105,12 +69,21 @@ function style(): StyleSpecification {
     },
     sources: {
       sat: { type: "raster", tiles: [SAT], tileSize: 256, maxzoom: 19, attribution: SAT_CREDIT },
-      ...(terrain ? { dem: { type: "raster-dem", tiles: [DEM], tileSize: 256, maxzoom: 14, encoding: "terrarium" } } : {}),
+      ...(terrain
+        ? {
+            dem: { type: "raster-dem", tiles: [DEM], tileSize: 256, maxzoom: 14, encoding: "terrarium" },
+            relief: { type: "raster-dem", tiles: [DEM], tileSize: 256, maxzoom: 14, encoding: "terrarium" },
+          }
+        : {}),
     },
-    ...(terrain ? { terrain: { source: "dem", exaggeration: 1 } } : {}),
+    ...(terrain ? { terrain: { source: "dem", exaggeration: 1.15 } } : {}),
     layers: [
-      { id: "space", type: "background", paint: { "background-color": "#040a1c" } },
-      { id: "sat", type: "raster", source: "sat", paint: { "raster-saturation": -0.12, "raster-contrast": 0.06, "raster-brightness-max": 0.94, "raster-fade-duration": 260 } },
+      { id: "space", type: "background", paint: { "background-color": "#0b1a2e" } },
+      // Graded like a game: richer greens and blues, a touch more contrast.
+      { id: "sat", type: "raster", source: "sat", paint: { "raster-saturation": 0.22, "raster-contrast": 0.1, "raster-brightness-min": 0.03, "raster-brightness-max": 1, "raster-fade-duration": 260 } },
+      ...(terrain
+        ? [{ id: "relief", type: "hillshade" as const, source: "relief", paint: { "hillshade-exaggeration": 0.45, "hillshade-shadow-color": "rgba(20, 38, 20, 0.55)", "hillshade-highlight-color": "rgba(255, 250, 225, 0.25)", "hillshade-accent-color": "rgba(30, 50, 30, 0.2)" } }]
+        : []),
     ],
   };
 }
@@ -252,6 +225,8 @@ class Scene3D implements CustomLayerInterface {
   selRing: THREE.Mesh;
   glow = glowTexture();
   clock = new THREE.Clock();
+  env = new Environment();
+  lastT = 0;
   selectedId: string | null = null;
   hoverId: string | null = null;
   tasteOn = true;
@@ -273,6 +248,7 @@ class Scene3D implements CustomLayerInterface {
     this.selRing.rotation.x = Math.PI / 2;
     this.selRing.visible = false;
     this.scene.add(this.selRing);
+    this.scene.add(this.env.group);
   }
 
   onAdd(map: MlMap, gl: WebGLRenderingContext | WebGL2RenderingContext) {
@@ -373,6 +349,7 @@ class Scene3D implements CustomLayerInterface {
       this.taste.instanceMatrix.needsUpdate = true;
     }
     this.trail.geometry.setFromPoints(this.trailPts.map((t) => this.local(t.lat, t.lon, 30)));
+    this.env.place((lat, lon, up) => this.local(lat, lon, up));
     if (this.travellerAt) this.traveller.position.copy(this.local(this.travellerAt.lat, this.travellerAt.lon, 30));
   }
 
@@ -411,7 +388,9 @@ class Scene3D implements CustomLayerInterface {
       this.map.triggerRepaint();
       return;
     }
-    if (this.beacons.size || this.taste) this.reanchor();
+    this.reanchor();
+    this.env.tick(Math.min(0.05, t - this.lastT), zoom0, new THREE.Vector3(0, 0, 0));
+    this.lastT = t;
     const zoom = this.map.getZoom();
     // Beacons read at city scale, then slim down as you come in to street level.
     const s = Math.max(0.35, Math.min(1.6, Math.pow(2, (14 - zoom) * 0.45)));
@@ -527,7 +506,7 @@ export default function Earth(props: EarthProps) {
       map.addLayer(layer);
       try {
         map.addSource("omt", { type: "vector", url: VECTOR, attribution: "© OpenStreetMap contributors · OpenFreeMap" });
-        for (const l of VECTOR_LAYERS) map.addLayer(l, "heat");
+        for (const l of [...GAME_LAYERS, ...REAL_LAYERS]) map.addLayer(l, "heat");
       } catch {
         /* the satellite globe is enough on its own */
       }
@@ -555,7 +534,10 @@ export default function Earth(props: EarthProps) {
     let idleTimer = 0;
     map.on("idle", () => {
       window.clearTimeout(idleTimer);
-      idleTimer = window.setTimeout(() => layer.placeAll(true), 60);
+      idleTimer = window.setTimeout(() => {
+        layer.env.grow(map);
+        layer.placeAll(true);
+      }, 60);
     });
     const ro = new ResizeObserver(() => map.resize());
     ro.observe(box.current);
@@ -654,7 +636,33 @@ export default function Earth(props: EarthProps) {
     map.setPaintProperty("route", "line-opacity", op(0.9, 0.12));
     map.setPaintProperty("route-glow", "line-opacity", op(0.35, 0.04));
     map.setLayoutProperty("heat", "visibility", p.showTaste ? "visible" : "none");
+    applyLook();
     map.setLayoutProperty("zone", "visibility", p.showTaste ? "visible" : "none");
+  };
+
+  const applyLook = () => {
+    const map = mapRef.current;
+    const layer = layerRef.current;
+    const p = live.current;
+    if (!map || !layer || !state.current.loaded) return;
+    const real = p.look === "real";
+    for (const l of GAME_LAYERS) if (map.getLayer(l.id)) map.setLayoutProperty(l.id, "visibility", real ? "none" : "visible");
+    for (const l of REAL_LAYERS) if (map.getLayer(l.id)) map.setLayoutProperty(l.id, "visibility", real ? "visible" : "none");
+    map.setLayoutProperty("sat", "visibility", real ? "visible" : "none");
+    const lat = p.model?.center.lat ?? p.destination?.lat ?? 20;
+    const { kind, hour } = p.weather;
+    const night = dusk(kind, hour, lat);
+    map.setPaintProperty("space", "background-color", real ? "#0b1a2e" : LAND);
+    map.setPaintProperty("sat", "raster-brightness-max", 1 - night * 0.85);
+    map.setPaintProperty("sat", "raster-saturation", 0.22 - night * 0.4);
+    try {
+      map.setSky(skyFor(kind, hour, lat));
+      map.setLight(lightFor(kind, hour, lat));
+    } catch {
+      /* older styles without sky support */
+    }
+    layer.env.setWeather(kind, hour, lat);
+    box.current?.style.setProperty("--night", String(real ? 0 : night));
   };
 
   const padding = () => {
@@ -741,7 +749,7 @@ export default function Earth(props: EarthProps) {
   useEffect(() => {
     styleState();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [props.selectedId, props.hoverId, props.activeDay, props.showTaste]);
+  }, [props.selectedId, props.hoverId, props.activeDay, props.showTaste, props.look, props.weather.kind, props.weather.hour]);
 
   useEffect(() => {
     if (state.current.loaded) intro();
