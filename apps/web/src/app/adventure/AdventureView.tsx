@@ -352,7 +352,8 @@ export default function AdventureView({
         {/* where you're going */}
         <header className="eq-head">
           <a className="eq-home" href={homeHref} aria-label="Backline home">
-            <span aria-hidden="true">‹</span> Backline
+            <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M10 3 5 8l5 5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
+            Backline
           </a>
           <h1 className={city ? "" : "is-waiting"}>{city ? city.split(",")[0] : "Finding your destination"}</h1>
           <p>
@@ -363,9 +364,16 @@ export default function AdventureView({
 
         {/* the score and the doors to everything else */}
         <div className="eq-top">
-          {model && (
+          {model && model.stats.places > 0 && (
             <div className="eq-score">
               <svg viewBox="0 0 44 44" className="eq-dial" role="img" aria-label={matchPct != null ? `Average Qloo affinity of your picks: ${matchPct} out of 100` : "No Qloo scores yet"}>
+                <defs>
+                  <linearGradient id="eq-grad" x1="0" y1="0" x2="1" y2="1">
+                    <stop offset="0" stopColor="#ff4fa3" />
+                    <stop offset="0.55" stopColor="#7b5cff" />
+                    <stop offset="1" stopColor="#38d3ff" />
+                  </linearGradient>
+                </defs>
                 <circle cx="22" cy="22" r="19" className="track" />
                 <circle cx="22" cy="22" r="19" className="val" style={{ strokeDasharray: `${((matchPct ?? 0) / 100) * 119.4} 200` }} />
                 <text x="22" y="23.5" textAnchor="middle" dominantBaseline="middle">{shownMatch ?? "–"}</text>
@@ -491,7 +499,7 @@ export default function AdventureView({
             </ol>
           )}
 
-          {(routes.length > 0 || model) && (
+          {(routes.length > 0 || (model && model.nodes.length > 0)) && (
             <div className="eq-bar">
               {routes.length > 0 && (
                 <button type="button" className={`eq-play${play ? " on" : ""}`} onClick={play ? stop : start} aria-label={play ? "Pause" : "Fly the trip"}>

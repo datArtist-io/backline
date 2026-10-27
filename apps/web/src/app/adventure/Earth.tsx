@@ -258,7 +258,22 @@ class Scene3D implements CustomLayerInterface {
     this.renderer.setPixelRatio(1);
   }
 
+  /** Redraw at full rate only when something moves (flying, rain); otherwise a gentle 15 fps for the shimmer. */
+  private pending = 0;
+  tick() {
+    if (this.travelling || this.env.rain.visible || this.env.snow.visible) {
+      this.map.triggerRepaint();
+      return;
+    }
+    if (this.pending) return;
+    this.pending = window.setTimeout(() => {
+      this.pending = 0;
+      this.map?.triggerRepaint();
+    }, 66);
+  }
+
   onRemove() {
+    window.clearTimeout(this.pending);
     this.renderer?.dispose();
   }
 
@@ -384,10 +399,7 @@ class Scene3D implements CustomLayerInterface {
     const zoom0 = this.map.getZoom();
     // From space the city is a dot: the 3D layer only appears once you're over it.
     this.scene.visible = zoom0 > 8.2;
-    if (!this.scene.visible) {
-      this.map.triggerRepaint();
-      return;
-    }
+    if (!this.scene.visible) return;
     this.reanchor();
     this.env.tick(Math.min(0.05, t - this.lastT), zoom0, new THREE.Vector3(0, 0, 0));
     this.lastT = t;
@@ -424,7 +436,7 @@ class Scene3D implements CustomLayerInterface {
     this.renderer.resetState();
     this.renderer.setViewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
     this.renderer.render(this.scene, this.camera);
-    this.map.triggerRepaint();
+    this.tick();
   }
 }
 
@@ -452,6 +464,8 @@ export default function Earth(props: EarthProps) {
       attributionControl: { compact: true },
       canvasContextAttributes: { antialias: true },
       fadeDuration: 200,
+      // Retina at full resolution doubles the work for little visible gain on a moving 3D scene.
+      pixelRatio: Math.min(window.devicePixelRatio || 1, 1.5),
     });
     mapRef.current = map;
     const layer = new Scene3D();

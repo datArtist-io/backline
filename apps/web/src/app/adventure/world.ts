@@ -278,6 +278,8 @@ export const REAL_LAYERS: LayerSpecification[] = [
     type: "symbol",
     source: "omt",
     "source-layer": "place",
+    // From space the planet reads cleaner without names, as it does in Earth apps.
+    minzoom: 4.5,
     filter: ["in", ["get", "class"], ["literal", ["country", "city", "town", "suburb", "neighbourhood", "quarter"]]],
     layout: {
       "text-field": ["coalesce", ["get", "name:en"], ["get", "name"]],
