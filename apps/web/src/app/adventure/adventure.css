@@ -606,3 +606,44 @@ button:hover .ki-stop .ki-plane, .eq-card:hover .ki-stop .ki-plane { animation: 
 .eq-journey svg { color: #7b5cff; }
 .eq[data-theme="dark"] .eq-journey { color: #f1f3ff; background: rgba(20, 22, 42, 0.86); }
 .eq-earth[data-z="city"] .eq-journey, .eq-earth[data-z="street"] .eq-journey { opacity: 0; transition: opacity 0.5s; }
+
+/* ---- Trip book: always a light paper sheet with its own ink, in either theme ---- */
+.eq .eq-sheet.paper, .eq[data-theme="dark"] .eq-sheet.paper {
+  --ink: #10132b; --ink-soft: #4a4f6e; --ink-faint: #6b7090;
+  color-scheme: light; color: #10132b;
+  background: linear-gradient(180deg, #ffffff, #f7f7fb);
+  box-shadow: 0 0 0 1px rgba(16, 19, 43, 0.06), 0 40px 100px -30px rgba(0, 0, 0, 0.6);
+}
+.eq .eq-sheet.paper .section-title { color: #10132b; }
+.eq .eq-sheet.paper .cp-label { color: #10132b; }
+.eq .eq-sheet.paper .cp-detail, .eq .eq-sheet.paper p { color: #3d4263; }
+.eq .eq-sheet.paper .act { color: #10132b; background: #fff; box-shadow: inset 0 0 0 1px rgba(16, 19, 43, 0.16); }
+.eq .eq-sheet.paper .act:hover { background: #f1efff; }
+.eq .eq-sheet.paper .lg { background: #fff; box-shadow: 0 0 0 1px rgba(16, 19, 43, 0.07), 0 10px 30px -18px rgba(16, 19, 43, 0.25); }
+
+/* ---- Phone: one clean top row, nothing stacked on the title ---- */
+@media (max-width: 860px) {
+  .eq-head { top: 12px; left: 12px; right: 12px; max-width: none; }
+  .eq-head h1 { margin-top: 56px; font-size: clamp(36px, 11vw, 52px); }
+  .eq-head h1.is-waiting { font-size: clamp(32px, 9.5vw, 44px); }
+  .eq-head p { max-width: 100%; margin-top: 10px; padding: 6px 12px; font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: inline-block; }
+  .eq-home { padding: 8px 14px 8px 10px; font-size: 13px; }
+  /* Score, weather and every door share one scrollable row beside the Backline pill. */
+  .eq-top {
+    top: 12px; left: 112px; right: 0; display: flex; flex-direction: row; align-items: center; gap: 6px;
+    overflow-x: auto; overflow-y: visible; padding: 0 12px 0 0; scrollbar-width: none;
+    -webkit-mask-image: linear-gradient(90deg, #000 88%, transparent); mask-image: linear-gradient(90deg, #000 88%, transparent);
+  }
+  .eq-top::-webkit-scrollbar { display: none; }
+  .eq-top > * { flex: none; }
+  .eq-score { gap: 8px; padding: 4px 12px 4px 4px; border-radius: 999px; }
+  .eq-score .eq-dial { width: 32px; height: 32px; }
+  .eq-score-txt span, .eq-score .eq-because { display: none; }
+  .eq-score-txt b { font-size: 12px; }
+  .eq-wx { display: inline-flex; gap: 6px; padding: 7px 12px; }
+  .eq-wx span, .eq-wx em { display: none; }
+  .eq-doors { flex-wrap: nowrap; gap: 6px; }
+  .eq-doors button, .eq-doors a { padding: 8px 13px; font-size: 13px; }
+  .eq-time.is-open .eq-scrub { position: fixed; left: 12px; right: 12px; top: 60px; width: auto; }
+  .eq-qloo { top: auto; bottom: 150px; left: 12px; right: 12px; width: auto; max-height: 34svh; }
+}

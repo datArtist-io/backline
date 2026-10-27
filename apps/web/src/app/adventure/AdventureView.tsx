@@ -328,7 +328,7 @@ export default function AdventureView({
     const time = best?.duration ? ` · ${best.duration}` : "";
     return `${from.name.split(",")[0]} → ${dest.name.split(",")[0]}${fare}${time}`;
   }, [model?.travel, from, dest]);
-  const pad = useMemo(() => (narrow ? { top: 250, right: 24, bottom: 230, left: 24 } : { top: 140, right: selected ? 420 : 60, bottom: 230, left: model?.taste ? 330 : 60 }), [narrow, selected, model?.taste]);
+  const pad = useMemo(() => (narrow ? { top: 190, right: 24, bottom: 230, left: 24 } : { top: 140, right: selected ? 420 : 60, bottom: 230, left: model?.taste ? 330 : 60 }), [narrow, selected, model?.taste]);
 
   // The day selector's indicator glides to the active day.
   useEffect(() => {
