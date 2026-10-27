@@ -14,20 +14,21 @@ Built for the [Qloo Agentic Hackathon](https://qloo.devpost.com/). Live at **[ba
 | 2 | **Taste** | Qloo resolves what you love to entities and tags, and maps where that taste lives in the city (heatmap, taste zone) | Qloo's taste rises over the real city as glowing columns; "Because you love …" |
 | 3 | **Research** | A ReAct agent searches Qloo places, OpenStreetMap, live hotel rates, web sources; field guide from Open-Meteo, holidays, exchange rates, cited notes | Pins drop onto real streets; every pick shows its Qloo affinity and rank |
 | 4 | **Plan** | Hour-by-hour plan using only listed places; real road routes | Day routes drawn on the streets; "Fly the trip" plays each day |
-| 5 | **Approve** | One checkpoint, one button | "Here's what I'll do. Good to go?" |
-| 6 | **Execute** | Real Vapi voice calls; hotel and flight booking with payment (test mode in the demo); emails | A live Bookings panel: phones ringing, transcripts, receipts with confirmation numbers |
+| 5 | **Approve** | One checkout for the whole trip: every booking, the total in your currency, your wallet before and after | "Approve & pay" or "Take a look first" |
+| 6 | **Execute** | Each booking prepaid from the Backline Wallet, then confirmed by a real Vapi voice call, one at a time, day by day; hotel and flight booking; emails; automatic refunds | A live Bookings panel: you → agent → business, the call as a conversation, a receipt for every payment |
 
 The rules that keep it honest are written down as a specification: **[docs/SYSTEM.md](docs/SYSTEM.md)**. Every live check we ran, what was wrong and how it was fixed: **[docs/VERIFICATION.md](docs/VERIFICATION.md)**.
 
-## What is real, and what is test mode
+## What is real in the demo
 
 | Capability | In the live demo | Notes |
 |---|---|---|
 | Qloo taste, heatmap, places, affinity | **Real** | Qloo's own scores, shown to three decimals with rank |
-| Research, routes, weather, holidays, exchange rates | **Real**, cited | Nothing is estimated; gaps are listed |
-| AI phone calls (Vapi + Telnyx numbers) | **Real calls** | With `CALL_DEMO_TO` set, calls ring a demo line where a person plays the business |
-| Hotel booking and payment (LiteAPI) | **Real API, test mode** | Real booking reference; "Test mode · no money moved" |
-| Flight booking (Duffel) | **Real API, test airline** | Test fares are never shown as prices |
+| Research, routes, weather, holidays, exchange rates | **Real**, cited | Nothing is invented; gaps are listed |
+| AI phone calls (Vapi + Telnyx) | **Real calls** | Demo calls ring the signed-in person's own phone, where they play the business; real businesses only with `CALLS_LIVE=1` |
+| Backline Wallet | **Real ledger, demo balance** | $20,000 per person in their own currency; holds, captures, refunds and receipts in the database. No real money moves |
+| Hotel booking (LiteAPI), flights (Duffel) | **Real APIs, sandbox** | References shown as Backline references when the provider returns a placeholder |
+| Identity verification (Persona) | **Real flow** when keys are set | Paid bookings wait for a verified traveller |
 | Emails to businesses (Resend) | **Real** when signed in | Within per-mission limits |
 | 3D city | Satellite + terrain + 3D buildings; **Photoreal (Google 3D Tiles)** when a key is set | |
 
