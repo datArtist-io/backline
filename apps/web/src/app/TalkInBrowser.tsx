@@ -93,7 +93,7 @@ export default function TalkInBrowser() {
       {!live ? (
         <button type="button" className="talk-go" onClick={start}>
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M5 11a7 7 0 0 0 14 0M12 18v3" /></svg>
-          {state === "ended" ? "Talk again" : "Or talk to it here, in your browser"}
+          {state === "ended" ? "Talk again" : "Start talking"}
         </button>
       ) : (
         <div className="talk-live" role="status" aria-live="polite">
