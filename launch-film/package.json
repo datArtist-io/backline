@@ -1,0 +1,17 @@
+{
+  "name": "backline-launch-film",
+  "private": true,
+  "description": "The Backline launch film, built in code: every frame is seek(t).",
+  "scripts": {
+    "serve": "python3 -m http.server 8800",
+    "score": "python3 score.py",
+    "stills": "node still.mjs 0 5 10 15 20 25 30 35 40",
+    "render": "node render.mjs master_silent.mp4 60 4",
+    "finish": "bash finish.sh"
+  },
+  "devDependencies": {
+    "@fontsource/hanken-grotesk": "^5.3.0",
+    "@fontsource/instrument-serif": "^5.3.0",
+    "@fontsource/unbounded": "^5.3.0"
+  }
+}

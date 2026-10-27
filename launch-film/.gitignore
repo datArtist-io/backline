@@ -1,0 +1,6 @@
+*.mp4
+*.wav
+stills/
+pv/
+ln.json
+node_modules/
