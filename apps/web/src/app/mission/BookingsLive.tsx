@@ -343,6 +343,74 @@ function Rescue({ action, phone, onGo }: { action: Action; phone: string | null;
 
 type Paid = { entryId: string; total: number; currency: string; ref: string };
 
+/** Once the whole trip is booked, Backline's concierge calls the traveller with a spoken briefing. */
+function Briefing({ runKey, where, lines }: { runKey: string | null; where: string | null; lines: string[] }) {
+  const storeKey = runKey ? `brief:${runKey}` : null;
+  const [id, setId] = useState<string | null>(() => (storeKey ? keep<string>(storeKey) : null) ?? null);
+  const [state, setState] = useState<"idle" | "placing" | "ringing" | "talking" | "ended" | "error">(id ? "ringing" : "idle");
+  const [msg, setMsg] = useState<string | null>(null);
+  const [needsPhone, setNeedsPhone] = useState(false);
+  const start = async () => {
+    setState("placing");
+    setMsg(null);
+    try {
+      const r = await fetch("/api/briefing-call", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ where, lines }) });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        setNeedsPhone(Boolean(d.needsPhone));
+        throw new Error(d.error || "The briefing call couldn't be placed.");
+      }
+      setId(d.id);
+      if (storeKey) keep(storeKey, d.id);
+      setState("ringing");
+    } catch (e) {
+      setState("error");
+      setMsg(e instanceof Error ? e.message : "The briefing call couldn't be placed.");
+    }
+  };
+  // Rings once on its own when everything is booked; after that it's a button.
+  useEffect(() => {
+    if (!storeKey || keep<boolean>(`${storeKey}:auto`)) return;
+    keep(`${storeKey}:auto`, true);
+    const t = window.setTimeout(start, 2500);
+    return () => window.clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [storeKey]);
+  useEffect(() => {
+    if (!id) return;
+    let stop = false;
+    let n = 0;
+    const tick = async () => {
+      const d = await fetch(`/api/briefing-call?id=${id}`, { cache: "no-store" }).then((r) => r.json()).catch(() => null);
+      if (stop) return;
+      if (d?.state === "ringing" || d?.state === "talking" || d?.state === "ended") setState(d.state);
+      if (d?.state === "ended" && d.outcome && d.outcome !== "talked") setMsg(d.outcome === "no_answer" ? "No answer this time. Call again when you're free." : d.outcome === "voicemail" ? "It went to voicemail." : "The call didn't connect.");
+      if (d?.state !== "ended" && ++n < 90) window.setTimeout(tick, 2500);
+    };
+    tick();
+    return () => {
+      stop = true;
+    };
+  }, [id]);
+  const busy = state === "placing" || state === "ringing" || state === "talking";
+  const text = msg ?? { idle: "Your concierge can call you now and talk you through the whole trip.", placing: "Calling you now…", ringing: "Your phone should be ringing. It's your Backline concierge.", talking: "On the call: your concierge is walking you through the trip.", ended: "Briefing done. Everything is also saved here and in your trip book.", error: "" }[state];
+  return (
+    <div className={`bk-brief${busy ? " is-busy" : ""}`}>
+      <span className="bk-brief-ic" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2" /></svg>
+      </span>
+      <div className="bk-brief-body">
+        <b>Concierge briefing call</b>
+        <p role="status">{text}</p>
+        {needsPhone && <a className="bk-fb" href="/account?tab=details">Add your phone</a>}
+      </div>
+      {!busy && (
+        <button type="button" className="bk-fb primary" onClick={start}>{state === "idle" ? "Call me now" : "Call me again"}</button>
+      )}
+    </div>
+  );
+}
+
 export default function BookingsLive({
   runKey = null,
   actions,
@@ -350,6 +418,7 @@ export default function BookingsLive({
   running,
   places = {},
   onCalendar,
+  where = null,
 }: {
   /** The run this belongs to, so call progress, refunds and rescued rows survive leaving the trip. */
   runKey?: string | null;
@@ -358,6 +427,8 @@ export default function BookingsLive({
   running: boolean;
   places?: Record<string, Reach>;
   onCalendar?: () => void;
+  /** The destination, for the concierge's briefing call. */
+  where?: string | null;
 }) {
   const me = typeof window !== "undefined" ? loadProfile() : {};
   const used = new Set(actions.actions.map((a) => a.placeId).filter(Boolean));
@@ -549,6 +620,20 @@ export default function BookingsLive({
             );
           })}
         </ol>
+      )}
+      {execute && results.length > 0 && done === results.length && (
+        <Briefing
+          runKey={runKey}
+          where={where}
+          lines={results
+            .filter((r) => r.status !== "failed" && r.status !== "skipped" && r.status !== "needs_info" && byId.get(r.actionId)?.kind !== "calendar")
+            .map((r) => {
+              const a = byId.get(r.actionId)!;
+              const msg = r.message && r.message !== a.title ? `: ${r.message}` : "";
+              return `${a.title}${msg}${r.ref ? ` (ref ${r.ref})` : ""}`.slice(0, 200);
+            })
+            .slice(0, 16)}
+        />
       )}
       {browse && <MiniBrowser url={browse.url} title={browse.title} onClose={() => setBrowse(null)} />}
     </section>

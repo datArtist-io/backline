@@ -10,6 +10,7 @@ import Capabilities from "./Capabilities";
 import RecentSearches from "./RecentSearches";
 import TryPrompts from "./TryPrompts";
 import CallMeDemo from "./CallMeDemo";
+import CallBackline from "./CallBackline";
 import { useMe } from "@/lib/auth-client";
 import GlassFilter from "./GlassFilter";
 import { Logo } from "./Logo";
@@ -93,6 +94,7 @@ export default function Landing() {
           <TryPrompts onPick={(q) => go(q, [])} extra={<RecentSearches onPick={(q) => go(q, [])} />} />
         </section>
 
+        <CallBackline />
         <CallMeDemo />
         <Capabilities />
       </main>

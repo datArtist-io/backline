@@ -1132,3 +1132,15 @@ button:hover .ki-stop .ki-plane, .eq-card:hover .ki-stop .ki-plane { animation: 
   .ck-sum span { font-size: 13px; }
   .ck-sum b, .ck-sum span { white-space: nowrap; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
 }
+
+/* The concierge's briefing call, once the whole trip is booked. */
+.bk-brief { margin-top: 12px; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 14px; border-radius: 18px; background: linear-gradient(135deg, rgba(123, 92, 255, 0.22), rgba(255, 79, 163, 0.16)); border: 1px solid rgba(190, 170, 255, 0.35); }
+.bk-brief-ic { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; color: #fff; background: linear-gradient(135deg, #7b5cff, #ff4fa3); box-shadow: 0 0 0 0 rgba(255, 79, 163, 0.5); }
+.bk-brief.is-busy .bk-brief-ic { animation: bk-brief-ring 1.4s ease-out infinite; }
+.bk-brief-body { min-width: 0; display: grid; gap: 2px; }
+.bk-brief-body b { font-size: 14.5px; }
+.bk-brief-body p { margin: 0; font-size: 13px; line-height: 1.45; opacity: .85; }
+.bk-brief-body .bk-fb { justify-self: start; margin-top: 6px; }
+@keyframes bk-brief-ring { 0% { box-shadow: 0 0 0 0 rgba(255, 79, 163, 0.55); } 100% { box-shadow: 0 0 0 14px rgba(255, 79, 163, 0); } }
+@media (max-width: 420px) { .bk-brief { grid-template-columns: auto minmax(0, 1fr); } .bk-brief > .bk-fb { grid-column: 1 / -1; } }
+@media (prefers-reduced-motion: reduce) { .bk-brief.is-busy .bk-brief-ic { animation: none; } }
