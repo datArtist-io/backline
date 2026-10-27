@@ -1471,7 +1471,7 @@ a { color: inherit; text-decoration: none; }
 .back-trip svg { transition: transform .35s cubic-bezier(.2,.8,.2,1); }
 .back-trip:hover svg { transform: translateX(-3px); }
 .nav-acts { display: flex; align-items: center; gap: 10px; }
-@media (max-width: 520px) { .nav-acts .lg.pill { display: none; } }
+@media (max-width: 520px) { .nav-acts .lg.pill { height: 40px; padding: 0 16px; font-size: 14px; } }
 /* The mode tip takes the chips' place for a moment, then the chips come back */
 .hero .recent.try { transition: opacity .35s var(--ease-out), transform .35s var(--ease-out); }
 .hero.tip-on .recent.try { opacity: 0; transform: translateY(8px); pointer-events: none; }
@@ -1591,3 +1591,38 @@ a { color: inherit; text-decoration: none; }
 /* All three tabs take the same room, so switching never moves the page. */
 .voice-panel { min-height: 216px; }
 @media (max-width: 600px) { .recent.try .try-chip { flex: 0 0 min(250px, calc(100vw - 110px)); width: min(250px, calc(100vw - 110px)); } }
+
+/* ---- Voice card, centred: one column, everything on the centre line ---- */
+.voice-card { width: min(640px, 100%); grid-template-columns: minmax(0, 1fr) !important; justify-items: center; text-align: center; gap: 18px; padding: clamp(26px, 5vw, 40px) clamp(18px, 4vw, 40px); }
+.voice-copy { display: grid; justify-items: center; }
+.voice-copy p:last-child { max-width: 44ch; }
+.voice-side { width: 100%; max-width: 460px; justify-items: center; }
+.voice-tabs { width: 100%; }
+.voice-panel { width: 100%; min-height: 0; height: 196px; justify-items: center; align-content: center; }
+.voice-panel .callin-num { justify-self: center; }
+.voice-panel .callme-form { width: 100%; }
+.voice-panel .callme-consent { justify-content: center; text-align: left; }
+.voice-trips { width: 100%; text-align: left; }
+/* Talk here: a single glowing orb you tap */
+.voice-panel .talk { justify-items: center; width: 100%; }
+.voice-panel .talk-go { width: 112px; height: 112px; padding: 0; border-radius: 50%; flex-direction: column; justify-content: center; gap: 6px; font-size: 13.5px; font-weight: 700; letter-spacing: .01em; background: radial-gradient(circle at 34% 28%, #fff 0, #c9b8ff 18%, #7b5cff 52%, #ff4fa3 86%); box-shadow: 0 0 0 10px rgba(123, 92, 255, 0.12), 0 0 0 22px rgba(255, 79, 163, 0.06), 0 24px 50px -18px rgba(123, 92, 255, 0.9); animation: orbbreathe 3.2s ease-in-out infinite; }
+.voice-panel .talk-go:hover { transform: scale(1.04); background: radial-gradient(circle at 34% 28%, #fff 0, #c9b8ff 18%, #7b5cff 52%, #ff4fa3 86%); }
+.voice-panel .talk-go svg { width: 26px; height: 26px; }
+@keyframes orbbreathe { 0%, 100% { box-shadow: 0 0 0 10px rgba(123, 92, 255, 0.12), 0 0 0 22px rgba(255, 79, 163, 0.06), 0 24px 50px -18px rgba(123, 92, 255, 0.9); } 50% { box-shadow: 0 0 0 14px rgba(123, 92, 255, 0.16), 0 0 0 30px rgba(255, 79, 163, 0.08), 0 24px 50px -18px rgba(123, 92, 255, 0.9); } }
+.voice-panel .talk-live { text-align: left; }
+.voice-panel .talk-err { text-align: center; }
+@media (prefers-reduced-motion: reduce) { .voice-panel .talk-go { animation: none; } }
+@media (max-width: 600px) { .voice-panel { height: 214px; } .voice-tabs button { font-size: 13px; } }
+/* Phone hero: the promise on two clean lines */
+@media (max-width: 600px) { .hero-title { font-size: clamp(32px, 9.4vw, 44px); margin-bottom: clamp(120px, 24vh, 200px); } }
+/* Phone prompt: a slim pill, never a box, until you've actually typed a long request. */
+@media (max-width: 600px) {
+  .prompt:not(.is-multiline) { border-radius: 999px; padding: 6px 6px 6px 20px; min-height: 0; }
+  .prompt:not(.is-multiline) .prompt-input { padding: 10px 0; line-height: 1.3; }
+  .prompt .icon-btn.mic, .prompt .icon-btn.send { width: 48px; height: 48px; }
+  .prompt .icon-btn.attach { width: 36px; height: 36px; }
+}
+/* Consent ticks match the slip: round, soft, gradient when on. */
+.callme-consent input, .consent input, .check input { -webkit-appearance: none; appearance: none; width: 20px; height: 20px; margin-top: 1px; border-radius: 50%; background: #fff; box-shadow: inset 0 0 0 1.5px rgba(16, 19, 43, 0.2); cursor: pointer; transition: background .25s, box-shadow .25s; flex: none; }
+.callme-consent input:checked, .consent input:checked, .check input:checked { background: center / 11px 11px no-repeat url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.4 6.3l2.3 2.3 4.9-5' fill='none' stroke='%23fff' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"), linear-gradient(140deg, #7b5cff, #c04bd9 55%, #ff4fa3); box-shadow: 0 0 0 3px rgba(123, 92, 255, 0.14); }
+.callme-consent input:focus-visible, .consent input:focus-visible, .check input:focus-visible { outline: 2px solid #7b5cff; outline-offset: 2px; }

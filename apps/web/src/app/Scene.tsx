@@ -134,6 +134,13 @@ function Blob({
 }) {
   const mat = useRef<THREE.ShaderMaterial>(null);
   const mesh = useRef<THREE.Mesh>(null);
+  // On a tall phone screen the forms shrink and gather towards the middle, so the sculpture reads
+  // as a soft glowing shape instead of a wall of colour with hard edges.
+  const aspect = useThree((st) => st.size.width / Math.max(1, st.size.height));
+  const tall = aspect < 0.8;
+  const k = tall ? 0.6 : 1;
+  const px = tall ? position[0] * 0.22 : position[0];
+  const py = tall ? (scale > 1 ? -0.7 : position[1] * 0.8 + 0.5) : position[1];
   const smooth = useRef({ amp: 0 });
   // Float clock.
   const spring = useRef({ t: seed * 10 });
@@ -168,12 +175,12 @@ function Blob({
     // Gentle float: each form drifts on its own slow, out-of-phase path.
     const fx = still ? 0 : Math.sin(sp.t * 0.35 + seed * 2.1) * 0.12 + Math.sin(sp.t * 0.17 + seed) * 0.06;
     const fy = still ? 0 : Math.sin(sp.t * 0.5 + seed * 1.3) * 0.16 + Math.cos(sp.t * 0.23 + seed * 3) * 0.05;
-    mesh.current.position.x = position[0] + fx;
-    mesh.current.position.y = position[1] + fy;
+    mesh.current.position.x = px + fx;
+    mesh.current.position.y = py + fy;
   });
 
   return (
-    <mesh ref={mesh} position={position} scale={scale}>
+    <mesh ref={mesh} position={[px, py, position[2]]} scale={scale * k}>
       <icosahedronGeometry args={[1, detail]} />
       <shaderMaterial ref={mat} uniforms={uniforms} vertexShader={vertexShader} fragmentShader={fragmentShader} />
     </mesh>
