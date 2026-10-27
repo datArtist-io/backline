@@ -462,7 +462,9 @@ export function inspiredByIn(text: string): string | null {
  */
 export function withStatedLikes<T extends { likes?: string[] | null; inspiredBy?: string | null }>(trip: T | null, text: string): T | null {
   if (!trip) return trip;
-  const star = trip.inspiredBy?.trim().toLowerCase();
+  // The person to plan like, when the model leaves it out ("the way Pharrell Williams would").
+  const inspiredBy = trip.inspiredBy?.trim() || inspiredByIn(text) || null;
+  const star = inspiredBy?.toLowerCase();
   const seen = new Set<string>();
   const likes = [...(trip.likes ?? []), ...likesIn(text)].filter((l) => {
     const k = l.trim().toLowerCase();
@@ -470,7 +472,7 @@ export function withStatedLikes<T extends { likes?: string[] | null; inspiredBy?
     seen.add(k);
     return true;
   });
-  return { ...trip, likes };
+  return { ...trip, inspiredBy, likes };
 }
 
 /** Whether a phrase can be a taste: not numbers, money or trip details that follow in the same sentence. Pure. */
@@ -494,6 +496,12 @@ export function likesIn(text: string): string[] {
   for (const m of text.matchAll(/\b(?:i'?m|we'?re)\s+(?:really\s+|big\s+)?into\s+([^.!?;]+)/gi)) add(m[1]);
   for (const m of text.matchAll(/\b(?:big|huge|massive)\s+([\p{L}'.-]+(?:\s+[\p{L}'.-]+)?)\s+fans?\b/giu)) add(m[1]);
   for (const m of text.matchAll(/\bfans?\s+of\s+([^.!?;]+)/gi)) add(m[1]);
+  // "...the way Pharrell would, fashion and music": the tastes listed after the star.
+  for (const m of text.matchAll(/\b(?:would|does|did)\s*,\s*([^.!?;]+)/gi))
+    for (const part of m[1].replace(stop, "").split(/\s*(?:,|\band\b|&)\s*/i)) {
+      const v = part.replace(/[.!?]+$/, "").trim();
+      if (v.length > 1 && v.split(/\s+/).length <= 3 && isTaste(v)) found.push(v);
+    }
   return [...new Set(found)].slice(0, 5);
 }
 
