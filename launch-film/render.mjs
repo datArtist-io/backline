@@ -14,7 +14,7 @@ const t0 = t0S ? Number(t0S) : 0, t1 = t1S ? Number(t1S) : dur;
 const n = Math.round((t1 - t0) * fps);
 const args = ["-y", "-f", "image2pipe", "-framerate", String(fps * sub), "-c:v", "mjpeg", "-i", "-"];
 if (sub > 1) args.push("-vf", `tmix=frames=${sub}:weights='${Array(sub).fill(1).join(" ")}',select='not(mod(n\\,${sub}))',setpts=N/${fps}/TB`);
-args.push("-r", String(fps), "-c:v", "libx264", "-preset", "medium", "-crf", "17", "-pix_fmt", "yuv420p", out);
+args.push("-r", String(fps), "-c:v", "libx264", "-preset", "medium", "-crf", "15", "-pix_fmt", "yuv420p", out);
 const ff = spawn("ffmpeg", args, { stdio: ["pipe", "ignore", "inherit"] });
 const started = Date.now();
 for (let i = 0; i < n; i++) {
