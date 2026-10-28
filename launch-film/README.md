@@ -39,10 +39,10 @@ US dollars and the balance is the demo wallet.
 npm install                      # fonts used by the capture
 npm run serve                    # in one terminal (serves this folder on :8800)
 node still.mjs 10 20 30          # stills/s_T.png for checking
-npm run render                   # 60 fps, 4 motion-blur subframes per frame -> master_silent.mp4
+./segs.sh 0 & ./segs.sh 1      # 60 fps, 4 motion-blur subframes, six 7 s segments in two workers (resumable)
 npm run score                    # score.wav
 ffmpeg -i score.wav -af loudnorm=I=-14:TP=-1:LRA=11 score_norm.wav
-npm run finish                   # mux + square cut + contact sheet
+./assemble.sh                    # join segments, mux the score, square cut, contact sheet
 ```
 
 Playwright comes from `apps/web`. `node purity.mjs` checks that a sequential render and a direct

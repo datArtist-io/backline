@@ -2,7 +2,7 @@
 # Mux the master with the score, then make a 1:1 social cut and a contact sheet.
 set -e
 cd "$(dirname "$0")"
-ffmpeg -hide_banner -loglevel error -y -i master_silent.mp4 -i score_norm.wav -map 0:v -map 1:a \
+ffmpeg -hide_banner -loglevel error -y -i spliced.mp4 -i score_norm.wav -map 0:v -map 1:a \
   -c:v copy -c:a aac -b:a 256k -shortest -movflags +faststart Backline_launch_film_1080p60.mp4
 # Square: the 16:9 frame on a soft, blurred, zoomed copy of itself.
 ffmpeg -hide_banner -loglevel error -y -i Backline_launch_film_1080p60.mp4 -filter_complex \
