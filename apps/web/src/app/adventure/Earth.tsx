@@ -51,6 +51,9 @@ export type EarthProps = {
 const SAT = process.env.NEXT_PUBLIC_SATELLITE_TILES || "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}";
 const SAT_CREDIT = process.env.NEXT_PUBLIC_SATELLITE_ATTRIBUTION || "Imagery © Esri, Maxar, Earthstar Geographics";
 const VECTOR = process.env.NEXT_PUBLIC_VECTOR_TILES || "https://tiles.openfreemap.org/planet";
+/** Trips (by page) whose plane has already flown in: the journey in plays once, even if the map is rebuilt. */
+const FLOWN = new Set<string>();
+const pageKey = () => (typeof window === "undefined" ? "" : `${window.location.pathname}${window.location.search}`);
 const GLYPHS = process.env.NEXT_PUBLIC_MAP_GLYPHS || "https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf";
 /** Google Map Tiles API key: turns on Photoreal (Google Earth's 3D city models). */
 export const GOOGLE_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY || "";
@@ -794,7 +797,7 @@ export default function Earth(props: EarthProps) {
   };
 
   // The journey in: from home, across the globe, down into the city.
-  const intro = () => {
+  const intro = (replay = false) => {
     const map = mapRef.current;
     const p = live.current;
     const s = state.current;
@@ -832,8 +835,16 @@ export default function Earth(props: EarthProps) {
       return;
     }
     s.introDone = false;
+    // The plane flies in once per trip. Later (a corrected pin, a rebuilt map) the camera just glides there.
+    if (from && !replay && (s.flown || FLOWN.has(pageKey()))) {
+      arc.setData(fc([line(greatCircle(from, dest))]));
+      s.flown = true;
+      land();
+      return;
+    }
     if (from) {
       s.flown = true;
+      FLOWN.add(pageKey());
       const path = greatCircle(from, dest);
       const far = kmBetween(from, dest);
       // Turn the globe to home (no cut), then fly.
@@ -954,7 +965,7 @@ export default function Earth(props: EarthProps) {
   useEffect(() => {
     // Replaying the way in never waits for home: what's known now is what flies.
     if (props.introKey > 0) waitedRef.current = true;
-    if (state.current.loaded) intro();
+    if (state.current.loaded) intro(props.introKey > 0);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [props.introKey]);
 
