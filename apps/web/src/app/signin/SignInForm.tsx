@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { GoogleMark } from "../AuthMarks";
 import { sendEmailLink, signInAvailable, startOAuth, useMe, type Provider } from "@/lib/auth-client";
 import { EMAIL_RE } from "@backline/engine";
@@ -10,6 +10,11 @@ export default function SignInForm({ next }: { next: string }) {
   const [busy, setBusy] = useState<Provider | "email" | null>(null);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // A sign-in that came back with a problem (cancelled, expired) says so here.
+  useEffect(() => {
+    const e = new URLSearchParams(window.location.search).get("error");
+    if (e) setError(e.slice(0, 160));
+  }, []);
   const { providers } = useMe();
   const NAME = { google: "Google" } as const;
 

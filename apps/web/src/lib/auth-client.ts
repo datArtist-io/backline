@@ -21,6 +21,12 @@ export function startOAuth(provider: Provider, next?: string) {
   } catch {
     /* ignore */
   }
+  // Through our own server, so Google's screen names Backline's site, not the Supabase project's address.
+  // (The server falls back to Supabase's own Google sign-in when it has no Google client of its own.)
+  if (provider === "google") {
+    window.location.href = `/api/auth/google?${new URLSearchParams({ next: safeNext(next) })}`;
+    return;
+  }
   const params = new URLSearchParams({ provider, redirect_to: `${window.location.origin}/auth/callback` });
   window.location.href = `${SUPABASE_URL}/auth/v1/authorize?${params}`;
 }
@@ -44,6 +50,18 @@ export async function completeSignIn(): Promise<{ next: string } | { error: stri
   window.history.replaceState(null, "", window.location.pathname);
   const failure = hash.get("error_description") ?? query.get("error_description");
   if (failure) return { error: failure.replace(/\+/g, " ") };
+  // Signed in on the server already (Google through Backline): just finish up here.
+  if (query.get("signed") === "1") {
+    await carryOverLocalDetails();
+    let next = safeNext(query.get("next"));
+    try {
+      next = query.get("next") ? next : safeNext(sessionStorage.getItem(NEXT_KEY));
+      sessionStorage.removeItem(NEXT_KEY);
+    } catch {
+      /* ignore */
+    }
+    return { next };
+  }
   const accessToken = hash.get("access_token");
   const refreshToken = hash.get("refresh_token");
   if (!accessToken || !refreshToken) return { error: "That sign-in link has expired. Try again." };
