@@ -238,7 +238,8 @@ async function writePlan(ctx: Parameters<Skill<BriefInput, TripPlanOutput>["run"
             profile.notes ? `About the client: ${profile.notes.slice(0, 400)}` : "",
             a.summary ? `What the research agent concluded: ${a.summary}` : "",
             ...(() => {
-              const on = events.filter((e) => ds.length === 0 || (e.date <= ds[ds.length - 1] && (e.endDate ?? e.date) >= ds[0]));
+              // Only events that really suit them, at a known venue, go into the plan; the rest stay in What's on.
+              const on = events.filter((e) => e.fit >= 0.6 && e.venue && (ds.length === 0 || (e.date <= ds[ds.length - 1] && (e.endDate ?? e.date) >= ds[0])));
               return on.length
                 ? [
                     "",
