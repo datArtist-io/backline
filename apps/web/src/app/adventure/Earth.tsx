@@ -572,7 +572,7 @@ export default function Earth(props: EarthProps) {
         type: "line",
         source: "arc",
         layout: { "line-cap": "round" },
-        paint: { "line-width": 2.4, "line-gradient": ["interpolate", ["linear"], ["line-progress"], 0, "rgba(255,255,255,0.25)", 1, "#ffffff"] },
+        paint: { "line-width": 2.4, "line-gradient": ["interpolate", ["linear"], ["line-progress"], 0, "rgba(255,255,255,0.08)", 0.55, "rgba(255,255,255,0.5)", 1, "#ffffff"] },
       });
       map.addLayer(layer);
       try {
@@ -849,8 +849,8 @@ export default function Earth(props: EarthProps) {
       const far = kmBetween(from, dest);
       // Turn the globe to home (no cut), then fly.
       const lead = map.getZoom() < 5 ? 1300 : 0;
-      if (lead) map.easeTo({ center: [from.lon, from.lat], zoom: gz(far > 4000 ? 1.6 : 2.6), pitch: 0, bearing: 0, duration: lead, easing: (x) => 1 - Math.pow(1 - x, 3) });
-      else map.jumpTo({ center: [from.lon, from.lat], zoom: gz(far > 4000 ? 1.6 : 2.6), pitch: 0, bearing: 0 });
+      if (lead) map.easeTo({ center: [from.lon, from.lat], zoom: gz(far > 4000 ? 2.1 : 3.0), pitch: 0, bearing: 0, duration: lead, easing: (x) => 1 - Math.pow(1 - x, 3) });
+      else map.jumpTo({ center: [from.lon, from.lat], zoom: gz(far > 4000 ? 2.1 : 3.0), pitch: 0, bearing: 0 });
       window.setTimeout(() => takeOff(path, far), lead);
     } else {
       arc.setData(fc([]));
@@ -860,39 +860,71 @@ export default function Earth(props: EarthProps) {
 
     function takeOff(path: ReturnType<typeof greatCircle>, far: number) {
       if (!map || !dest) return;
+      // A flight, filmed: the camera rides with the plane, climbs out to see the curve of the Earth at
+      // cruise and comes back down on approach; the plane climbs (grows, its shadow drifts away) and
+      // descends, leaving a fading contrail; home and the destination pulse at take-off and touch-down.
       const t0 = performance.now();
-      const dur = 4200;
-      const mid = path[Math.floor(path.length / 2)];
-      map.easeTo({ center: mid, zoom: gz(far > 4000 ? 1.45 : 2.4), duration: dur * 0.5, easing: (x) => x });
-      window.setTimeout(() => map.easeTo({ center: [dest.lon, dest.lat], zoom: gz(far > 4000 ? 2.6 : 3.6), duration: dur * 0.5, easing: (x) => 1 - (1 - x) * (1 - x) }), dur * 0.5);
-      planeRef.current?.remove();
-      const pe = document.createElement("div");
-      pe.className = "eq-plane-pin";
-      pe.innerHTML = `<div class="eq-plane"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M12 1.6c.9 0 1.5 1.1 1.5 2.4v5.3l8 4.7v2.2l-8-2.4v4.8l2.6 2v1.7L12 21.2l-4.1 1.1v-1.7l2.6-2v-4.8l-8 2.4V14l8-4.7V4c0-1.3.6-2.4 1.5-2.4z" fill="currentColor"/></svg></div>`;
-      const plane = new maplibregl.Marker({ element: pe, anchor: "center", rotationAlignment: "map", pitchAlignment: "map" }).setLngLat(path[0] as [number, number]).addTo(map);
-      planeRef.current = plane;
+      const dur = Math.round(Math.min(6500, Math.max(4200, 3600 + far * 0.45)));
+      const zFrom = gz(far > 4000 ? 2.1 : 3.0);
+      const zTo = gz(far > 4000 ? 2.9 : 3.8);
+      const climb = far > 4000 ? 0.9 : far > 1500 ? 0.6 : 0.35;
+      const pts = path as [number, number][];
       const heading = (a: number[], b: number[]) => {
         const r = Math.PI / 180;
         const y = Math.sin((b[0] - a[0]) * r) * Math.cos(b[1] * r);
         const x = Math.cos(a[1] * r) * Math.sin(b[1] * r) - Math.sin(a[1] * r) * Math.cos(b[1] * r) * Math.cos((b[0] - a[0]) * r);
         return (Math.atan2(y, x) / r + 360) % 360;
       };
+      // Smooth position along the path (between its points), so the plane glides instead of stepping.
+      const at = (u: number): [number, number] => {
+        const x = Math.max(0, Math.min(1, u)) * (pts.length - 1);
+        const k = Math.min(pts.length - 2, Math.floor(x));
+        const t = x - k;
+        let lon0 = pts[k][0], lon1 = pts[k + 1][0];
+        if (Math.abs(lon1 - lon0) > 180) lon1 += lon1 < lon0 ? 360 : -360;
+        return [lon0 + (lon1 - lon0) * t, pts[k][1] + (pts[k + 1][1] - pts[k][1]) * t];
+      };
+      const pulse = (lon: number, lat: number, cls: string) => {
+        const el = document.createElement("div");
+        el.className = `eq-pulse ${cls}`;
+        const m = new maplibregl.Marker({ element: el, anchor: "center" }).setLngLat([lon, lat]).addTo(map);
+        window.setTimeout(() => m.remove(), 2600);
+      };
+      planeRef.current?.remove();
+      const pe = document.createElement("div");
+      pe.className = "eq-plane-pin";
+      pe.innerHTML = `<div class="eq-plane-shadow" aria-hidden="true"></div><div class="eq-plane"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M12 1.6c.9 0 1.5 1.1 1.5 2.4v5.3l8 4.7v2.2l-8-2.4v4.8l2.6 2v1.7L12 21.2l-4.1 1.1v-1.7l2.6-2v-4.8l-8 2.4V14l8-4.7V4c0-1.3.6-2.4 1.5-2.4z" fill="currentColor"/></svg></div>`;
+      const plane = new maplibregl.Marker({ element: pe, anchor: "center", rotationAlignment: "map", pitchAlignment: "map" }).setLngLat(pts[0]).addTo(map);
+      planeRef.current = plane;
+      pulse(pts[0][0], pts[0][1], "is-home");
+      const smooth = (f: number) => (f < 0.5 ? 4 * f * f * f : 1 - Math.pow(-2 * f + 2, 3) / 2);
+      let ended = false;
       const step = () => {
+        if (ended) return;
         const f = Math.min(1, (performance.now() - t0) / dur);
-        const ease = f < 0.5 ? 2 * f * f : 1 - Math.pow(-2 * f + 2, 2) / 2;
-        const n = Math.max(2, Math.round(ease * path.length));
-        arc.setData(fc([line(path.slice(0, n))]));
-        const head = path[Math.min(path.length - 1, n - 1)];
-        const prev = path[Math.max(0, Math.min(path.length - 1, n - 1) - 1)];
-        if (planeRef.current === plane) plane.setLngLat(head as [number, number]).setRotation(heading(prev, head));
+        const u = smooth(f);
+        const pos = at(u);
+        const ahead = at(Math.min(1, u + 0.01));
+        const behind = at(Math.max(0, u - 0.01));
+        // Contrail: the path flown so far, its tail fading (line-gradient on the layer).
+        const n = Math.max(1, Math.floor(u * (pts.length - 1)));
+        arc.setData(fc([line([...pts.slice(0, n + 1), pos])]));
+        const alt = Math.sin(Math.PI * u);
+        pe.style.setProperty("--alt", alt.toFixed(3));
+        if (planeRef.current === plane) plane.setLngLat(pos).setRotation(heading(behind, ahead));
+        // The camera rides a little ahead of the plane, pulling back at cruise.
+        const lead = at(Math.min(1, u + 0.06));
+        if (!s.user) map.jumpTo({ center: [pos[0] + (lead[0] - pos[0]) * 0.5, pos[1] + (lead[1] - pos[1]) * 0.5], zoom: zFrom + (zTo - zFrom) * u - climb * alt, pitch: 0, bearing: 0 });
         if (f < 1) requestAnimationFrame(step);
         else {
+          ended = true;
+          pulse(dest.lon, dest.lat, "is-dest");
           pe.classList.add("is-landed");
           window.setTimeout(() => {
             if (planeRef.current === plane) planeRef.current = null;
             plane.remove();
           }, 900);
-          window.setTimeout(land, 250);
+          window.setTimeout(land, 350);
         }
       };
       requestAnimationFrame(step);
@@ -905,7 +937,7 @@ export default function Earth(props: EarthProps) {
       const map = mapRef.current;
       const s = state.current;
       if (document.visibilityState !== "visible" || !map || !s.loaded || s.user || !s.introFor || s.waiting) return;
-      if (map.getZoom() < 7 && !map.isMoving() && performance.now() - s.introAt > 9000) {
+      if (map.getZoom() < 7 && !map.isMoving() && performance.now() - s.introAt > 12000) {
         s.introDone = true;
         const p = live.current;
         if (p.model && (p.model.nodes.length || p.model.heat.length)) overview(2600);
