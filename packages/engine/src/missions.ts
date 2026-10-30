@@ -370,6 +370,74 @@ export function guessDate(text: string, today = new Date().toISOString().slice(0
   return iso(year);
 }
 
+
+const NUMBER_WORDS: Record<string, number> = { one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10 };
+const MONTH_RE = "(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*";
+const CURRENCY_WORDS: [RegExp, string][] = [
+  [/£|\bgbp\b|\bpounds?\b|\bquid\b/i, "GBP"],
+  [/€|\beur\b|\beuros?\b/i, "EUR"],
+  [/₦|\bngn\b|\bnaira\b/i, "NGN"],
+  [/\busd\b|\bdollars?\b|\bbucks\b|\$/i, "USD"],
+];
+
+/** "from London", "flying from São Paulo": the city they start from, when they say it. Pure. */
+export function originIn(text: string): string | null {
+  const re = /\bfrom\s+([\p{L}][\p{L}\p{M} .'’-]{1,40}?)(?=[,.;!?]|\s+(?:to|on|for|in|at|by|with|and|then|this|next|the|until|till|between)\b|\s+\d|$)/giu;
+  for (const m of text.matchAll(re)) {
+    const cand = m[1].trim();
+    if (!cand || NOT_PLACE.test(cand) || new RegExp(`^${MONTH_RE}\\b`, "i").test(cand) || cand.split(/\s+/).length > 4) continue;
+    return cand;
+  }
+  return null;
+}
+
+/** "budget 1500 pounds", "£1,500", "under $2k", "1.5m naira": the amount they state. Pure. */
+export function budgetIn(text: string): { amount: number; currency: string | null; scope: "total" | "per_night" | null } | null {
+  const num = "(\\d[\\d,]*(?:\\.\\d+)?)\\s*(k|m|thousand|million)?";
+  const sym = text.match(new RegExp(`([£€$₦])\\s*${num}`, "i"));
+  const word = text.match(new RegExp(`\\b${num}\\s*(pounds?|gbp|quid|euros?|eur|dollars?|usd|bucks|naira|ngn)\\b`, "i"));
+  const said = text.match(new RegExp(`\\b(?:budget|spend|spending|under|below|up to|max(?:imum)?|around|about)\\s*(?:of|is|:)?\\s*${num}`, "i"));
+  const hit = sym ? { n: sym[2], u: sym[3] } : word ? { n: word[1], u: word[2] } : said ? { n: said[1], u: said[2] } : null;
+  if (!hit) return null;
+  let amount = Number(hit.n.replace(/,/g, ""));
+  const unit = (hit.u ?? "").toLowerCase();
+  if (unit === "k" || unit === "thousand") amount *= 1e3;
+  if (unit === "m" || unit === "million") amount *= 1e6;
+  if (!Number.isFinite(amount) || amount < 20) return null;
+  const currency = CURRENCY_WORDS.find(([re]) => re.test(text))?.[1] ?? null;
+  return { amount: Math.round(amount), currency, scope: /\b(per night|a night|each night|nightly)\b/i.test(text) ? "per_night" : "total" };
+}
+
+/** "for 2", "two of us", "we", "my partner": how many are travelling, when the request says. Pure. */
+export function adultsIn(text: string): number | null {
+  const m = text.match(/\b(\d{1,2}|one|two|three|four|five|six|seven|eight|nine|ten)\s+(?:of us|people|adults|guests|travell?ers|friends)\b/i) ?? text.match(/\bfor\s+(\d{1,2}|two|three|four|five|six)\b(?!\s*(?:nights?|days?|hours?))/i);
+  if (m) {
+    const n = /^\d/.test(m[1]) ? Number(m[1]) : NUMBER_WORDS[m[1].toLowerCase()];
+    if (n >= 1 && n <= 20) return n;
+  }
+  return /\b(we|us|our|couple|partner|wife|husband|girlfriend|boyfriend|fianc[eé]e?|bae|my friend)\b/i.test(text) ? 2 : null;
+}
+
+/** "Nov 14 to 16", "14-16 November": the check-in and check-out dates (the next such dates). Pure. */
+export function dateRangeIn(text: string, today = new Date().toISOString().slice(0, 10)): { startDate: string; endDate: string } | null {
+  const t = text.toLowerCase();
+  const a = t.match(new RegExp(`\\b(${MONTH_RE})\\s+(\\d{1,2})(?:st|nd|rd|th)?\\s*(?:to|until|till|through|-|–)\\s*(?:(${MONTH_RE})\\s+)?(\\d{1,2})(?:st|nd|rd|th)?\\b`));
+  const b = t.match(new RegExp(`\\b(\\d{1,2})(?:st|nd|rd|th)?\\s*(?:to|until|till|through|-|–)\\s*(\\d{1,2})(?:st|nd|rd|th)?\\s+(?:of\\s+)?(${MONTH_RE})`));
+  const c = t.match(new RegExp(`\\b(\\d{1,2})(?:st|nd|rd|th)?\\s+(?:of\\s+)?(${MONTH_RE})\\s*(?:to|until|till|through|-|–)\\s*(\\d{1,2})(?:st|nd|rd|th)?\\s+(?:of\\s+)?(${MONTH_RE})`));
+  let m1: number, d1: number, m2: number, d2: number;
+  if (c) [m1, d1, m2, d2] = [MONTHS.indexOf(c[2].slice(0, 3)) + 1, Number(c[1]), MONTHS.indexOf(c[4].slice(0, 3)) + 1, Number(c[3])];
+  else if (a) [m1, d1, m2, d2] = [MONTHS.indexOf(a[1].slice(0, 3)) + 1, Number(a[2]), a[3] ? MONTHS.indexOf(a[3].slice(0, 3)) + 1 : MONTHS.indexOf(a[1].slice(0, 3)) + 1, Number(a[4])];
+  else if (b) [m1, d1, m2, d2] = [MONTHS.indexOf(b[3].slice(0, 3)) + 1, Number(b[1]), MONTHS.indexOf(b[3].slice(0, 3)) + 1, Number(b[2])];
+  else return null;
+  if (!m1 || !m2 || d1 < 1 || d1 > 31 || d2 < 1 || d2 > 31) return null;
+  const iso = (y: number, m: number, d: number) => `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+  let year = Number(today.slice(0, 4));
+  if (iso(year, m1, d1) < today) year += 1;
+  const startDate = iso(year, m1, d1);
+  const endDate = iso(m2 < m1 ? year + 1 : year, m2, d2);
+  return endDate > startDate ? { startDate, endDate } : null;
+}
+
 /** "close to the National Theatre", "near Lekki Phase 1" → the landmark. Pure. */
 export function guessNear(text: string): string | null {
   const m = text.match(/\b(?:close to|near(?:by)?|next to|walking distance (?:to|from)|around)\s+(?:the\s+)?([\p{L}][\p{L}\p{M}\p{N} .'’-]{2,50}?)(?=[.?!,;]|$|\s+(?:so|and|for|on|in|i|i'm|via|because|but)\b)/iu);
@@ -425,7 +493,13 @@ export function keywordPlan(text: string): Plan {
         ? normalizeTrip(
             {
               destination: location,
-              startDate: guessDate(text),
+              ...(dateRangeIn(text) ?? { startDate: guessDate(text) }),
+              origin: originIn(text),
+              adults: adultsIn(text),
+              ...(() => {
+                const b = budgetIn(text);
+                return b ? { budgetAmount: b.amount, currency: b.currency, budgetScope: b.scope } : {};
+              })(),
               near: guessNear(text),
               purpose: /\b(for an event|attend(?:ing)? (?:an?|the) \w+)\b/i.test(text) ? "Attending an event" : null,
               travelMode: text.match(/\b(train|flight|fly|plane|car|bus|drive|driving)\b/i)?.[1]?.toLowerCase().replace(/^(fly|plane)$/, "flight").replace(/^(drive|driving)$/, "car") ?? null,
@@ -492,7 +566,7 @@ export function likesIn(text: string): string[] {
       if (v.length > 1 && v.split(/\s+/).length <= 4 && !/^(it|that|this|them|travel(?:ling)?|trips?|food|music|you)$/i.test(v)) found.push(v);
     }
   };
-  for (const m of text.matchAll(/\bi\s+(?:really\s+)?(?:love|adore|enjoy|like)\s+([^.!?;]+)/gi)) add(m[1]);
+  for (const m of text.matchAll(/\b(?:i|we)\s+(?:all\s+|both\s+|really\s+)?(?:love|adore|enjoy|like)\s+([^.!?;]+)/gi)) add(m[1]);
   for (const m of text.matchAll(/\b(?:i'?m|we'?re)\s+(?:really\s+|big\s+)?into\s+([^.!?;]+)/gi)) add(m[1]);
   for (const m of text.matchAll(/\b(?:big|huge|massive)\s+([\p{L}'.-]+(?:\s+[\p{L}'.-]+)?)\s+fans?\b/giu)) add(m[1]);
   for (const m of text.matchAll(/\bfans?\s+of\s+([^.!?;]+)/gi)) add(m[1]);

@@ -4,7 +4,7 @@
 import { toYou } from "../you";
 import { z } from "zod";
 import { toE164 } from "../clients/calls";
-import type { BriefInput, PlanEdits, Profile, Skill, SkillResult, TripRequest } from "../types";
+import type { BriefInput, PlanEdits, Profile, Skill, SkillContext, SkillResult, TripRequest } from "../types";
 import { languageRule } from "../grounding";
 import { EngineError } from "../errors";
 import { mapLimit } from "../util";
@@ -18,6 +18,9 @@ import { rideFare } from "./rides";
 
 export { placeSchema, scorePlace, toPlace };
 import type { TasteOutput } from "./taste";
+
+/** Signed out, prices and options are still looked up, but nothing is booked, paid, sent or called. */
+const withoutBooking = (c: SkillContext): SkillContext => (c.signedOut ? { ...c, hotels: null, flights: null, email: null, calls: null } : c);
 export { tripTaste, type TasteOutput } from "./taste";
 export type { Place };
 
@@ -857,7 +860,8 @@ export const tripActions: Skill<BriefInput, TripActionsOutput> = {
   optionalDeps: ["trip.flights", "trip.travel", "trip.routes"],
   timeoutMs: 5_000,
   output: actionsOutput,
-  async run(ctx, input, deps) {
+  async run(rawCtx, input, deps) {
+    const ctx = withoutBooking(rawCtx);
     const a = agentOf(deps);
     const flight = (deps["trip.flights"]?.data as TripFlightsOutput | undefined)?.flight ?? null;
     const built = buildActions(
@@ -969,7 +973,8 @@ export const tripExecute: Skill<BriefInput, TripExecuteOutput> = {
   optionalDeps: ["trip.flights", "trip.agent"],
   timeoutMs: 90_000,
   output: executeOutput,
-  async run(ctx, input, deps) {
+  async run(rawCtx, input, deps) {
+    const ctx = withoutBooking(rawCtx);
     const { actions } = deps["trip.actions"].data as TripActionsOutput;
     const flight = (deps["trip.flights"]?.data as TripFlightsOutput | undefined)?.flight ?? null;
     const agent = deps["trip.agent"]?.data as TripAgentOutput | undefined;

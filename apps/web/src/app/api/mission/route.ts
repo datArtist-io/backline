@@ -126,9 +126,8 @@ export async function POST(req: Request) {
   // With sign-in switched on, only a signed-in person can have things bought, sent or called for them.
   // Anyone else still gets the full plan, with the booking links to use themselves.
   if (!session && supabaseConfig()) {
+    // Searching and pricing still work; the trip skills refuse to book, pay, send or call (see withoutBooking).
     ctx.signedOut = true;
-    ctx.hotels = null;
-    ctx.flights = null;
     ctx.email = null;
     ctx.calls = null;
   }
@@ -215,6 +214,10 @@ export async function POST(req: Request) {
         }
 
         if (!prior && ctx.llm && plan.method === "keywords") console.warn(`[mission] the planning model didn't answer, so keywords were used (${plan.fallbackReason ?? "unknown reason"}). Run npm run check to test each model.`);
+        // Say so on screen when the model didn't answer, instead of quietly giving a thinner plan.
+        if (!prior && plan.method === "keywords" && plan.trip) {
+          plan.trip.assumptions = [...plan.trip.assumptions, "My AI model didn't answer just now, so I read your request with simple rules. Check the dates, people and budget below"];
+        }
         const planner = { method: plan.method, fallbackReason: plan.fallbackReason ?? null };
         // Diagnostics stay on the server unless debug mode asked for them.
         plan = { ...plan, fallbackReason: null };
