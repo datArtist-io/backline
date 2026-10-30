@@ -49,3 +49,11 @@ describe("research chain", () => {
     expect(await new ChainedWebSearch([paid, free]).search("q")).toEqual([]);
   });
 });
+
+import { readLike } from "../src/skills/taste";
+describe("tastes and place kinds", () => {
+  it("doesn't turn a generic like into an unrelated named place", () => {
+    const viet = { id: "V", name: "Truong Bon historical sites", type: "urn:entity:place", popularity: 0.5, tags: [], image: null } as never;
+    expect(readLike("historical sites", [viet], [])).toBeNull();
+  });
+});

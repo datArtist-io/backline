@@ -154,7 +154,10 @@ export function readLike(like: string, hits: QlooEntity[], tags: QlooTag[]): { e
   // A named thing only counts when the like appears in its name as whole words: "suya" must not
   // become "Suyash Restaurant", but "wizkid" is Wizkid and "the weeknd" is The Weeknd.
   const words = (x: string) => ` ${x.toLowerCase().normalize("NFKD").replace(/[^\p{L}\p{N}]+/gu, " ").trim()} `;
-  const hit = tasteHit(hits.filter((h) => words(h.name).includes(words(like)) || words(like).includes(words(h.name))));
+  // A generic like in lower case ("historical sites", "nature") must match a name exactly: it once became
+  // "Truong Bon historical sites" in Vietnam. A proper name ("Burna Boy", "Wizkid") may sit inside a longer one.
+  const generic = like === like.toLowerCase() && !/\d/.test(like);
+  const hit = tasteHit(hits.filter((h) => words(h.name) === words(like) || words(like).includes(words(h.name)) || (!generic && words(h.name).includes(words(like)))));
   if (hit) return { entity: hit };
   const tag = same ?? usable[0];
   return tag ? { tag } : null;
