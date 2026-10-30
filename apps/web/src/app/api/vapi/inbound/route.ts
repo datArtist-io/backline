@@ -57,6 +57,9 @@ async function emailLink(callId: string, trip: CallTrip, code: string, real: boo
 }
 
 export async function POST(req: Request) {
+  // With VAPI_WEBHOOK_SECRET set (and the same secret as the Server URL secret in Vapi), only Vapi can call this.
+  const secret = process.env.VAPI_WEBHOOK_SECRET;
+  if (secret && req.headers.get("x-vapi-secret") !== secret) return new Response("unauthorized", { status: 401 });
   const body = (await req.json().catch(() => null)) as { message?: Record<string, unknown> } | null;
   const m = body?.message;
   const type = m?.type;
