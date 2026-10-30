@@ -206,7 +206,8 @@ export const tripEvents: Skill<BriefInput, TripEventsOutput> = {
       const raw = await llm.json({
         tier: "default",
         schema: rawSchema,
-        maxTokens: 2200,
+        // Room for a reasoning model's thinking as well as the list; a cut-off answer is unreadable JSON.
+        maxTokens: 6000,
         temperature: 0.1,
         timeoutMs: 40_000,
         signal: ctx.signal,
@@ -219,7 +220,7 @@ export const tripEvents: Skill<BriefInput, TripEventsOutput> = {
           tastes.length || taste
             ? `Their taste, read through Qloo: ${[...tastes, ...(taste?.vibes ?? []), ...(taste?.scenes ?? [])].slice(0, 10).join(", ")}. fit is 0 to 1 for how much they'd enjoy it; why is one short line saying how it fits their taste.`
             : "fit is 0 to 1 for how good the event is for a visitor; why is one short line.",
-          "At most 20 events, best fit first.",
+          "At most 12 events, best fit first. Keep why under 12 words.",
           UNTRUSTED_WEB_RULE,
           languageRule(input),
           'Shape: {"events":[{"name":"…","kind":"concert","date":"2026-11-05","endDate":null,"time":"20:00","venue":"…","price":"from CA$45","why":"…","fit":0.9,"source":"w3"}]}',

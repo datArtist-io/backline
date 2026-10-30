@@ -1262,9 +1262,11 @@ export async function finalize(
   for (const k of needed) if (lists[k].length === 0) notes.push(`I couldn't find ${KINDS[k].plural}${focusOf(s) ? ` near ${focusOf(s)!.name}` : ` in ${t.destination}`} in the map and taste data.`);
   if (t.near && !s.landmark) notes.push(`I couldn't pin ${t.near} on the map, so distances are from the city centre.`);
   // "Kenya", "Japan": a whole country was asked for, so say which city the trip is based in.
+  // (Judged from what they typed: the agent may already have rewritten the destination to the city.)
+  const typed = s.input.request ?? "";
   const asked = foldText(t.destination.split(",")[0]);
-  if (s.city && asked && s.city.country && asked === foldText(s.city.country) && asked !== foldText(s.city.name))
-    notes.push(`${t.destination.split(",")[0].trim()} is a whole country, so I based the trip in ${s.city.name}. Name a city or region to plan somewhere else.`);
+  const countryOnly = s.city?.country && (typed ? saidIn(typed, s.city.country) && !saidIn(typed, s.city.name) : asked === foldText(s.city.country) && asked !== foldText(s.city.name));
+  if (s.city && countryOnly) notes.push(`${s.city.country} is a whole country, so I based the trip in ${s.city.name}. Name a city or region to plan somewhere else.`);
   const fallbackNote = run.usedFallback ? FALLBACK_NOTE[run.fallbackReason ?? "failures"] : null;
   if (fallbackNote) notes.push(fallbackNote);
   if (s.webDown) notes.push(`Web research wasn't available this time (${s.webDown.replace(/\.$/, "")}), so confirm prices when you book.`);
