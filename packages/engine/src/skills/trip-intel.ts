@@ -362,8 +362,68 @@ export function shapeResearch(raw: z.infer<typeof researchSchema>, sources: WebR
   return { sections, emergency, phrases, guides, evidence };
 }
 
+const EU_112 = ["AT", "BE", "BG", "HR", "CY", "CZ", "DK", "EE", "FI", "FR", "DE", "GR", "HU", "IE", "IT", "LV", "LT", "LU", "MT", "NL", "PL", "PT", "RO", "SK", "SI", "ES", "SE"];
+/** Long-established national emergency numbers, as a fallback; always shown as unverified. Pure. */
+export function knownEmergency(cc: string | null): TripIntelOutput["emergency"] {
+  const c = (cc ?? "").toUpperCase();
+  const n = (police: string | null, ambulance: string | null, fire: string | null, general: string | null) => ({ police, ambulance, fire, general, verified: false });
+  if (EU_112.includes(c)) return n(null, null, null, "112");
+  if (c === "GB") return n(null, null, null, "999 or 112");
+  if (c === "US" || c === "CA") return n(null, null, null, "911");
+  if (c === "AE") return n("999", "998", "997", null);
+  if (c === "NG") return n(null, null, null, "112");
+  if (c === "JP") return n("110", "119", "119", null);
+  if (c === "AU") return n(null, null, null, "000");
+  if (c === "IN") return n(null, null, null, "112");
+  if (c === "KE") return n(null, null, null, "999 or 112");
+  if (c === "ZA") return n("10111", "10177", null, "112 from a mobile");
+  return null;
+}
+
+/** The first one or two readable sentences of a page excerpt, for showing a source as-is. Pure. */
+export function excerpt(content: string, max = 220): string {
+  // Drop markdown headings, list markers and table bars before picking sentences.
+  const text = content
+    .split("\n")
+    .filter((l) => !/^\s*#/.test(l))
+    .join(" ")
+    .replace(/[*_|>`]+/g, " ")
+    .replace(/\s+/g, " ")
+    .replace(/^[-\s]+/, "")
+    .trim();
+  const sentences = text.match(/[^.!?]{25,}[.!?]/g) ?? [];
+  const pick = sentences.slice(0, 2).join(" ").trim() || text;
+  return clean(pick, max);
+}
+
+const GUIDE_NOISE = /\s*[-|–·:]\s*(?:tripadvisor|viator|getyourguide|klook|airbnb|expedia|the \d+ best.*|updated \d{4}).*$/i;
+
+/**
+ * Without a model to read the research, show it as found: a short excerpt from each source, linked,
+ * grouped by what it was searched for, and the tour pages as guides. Never empty when the web answered. Pure.
+ */
+export function researchFromSources(groups: { id: SectionId; results: WebResult[] }[], guides: WebResult[]): Research | null {
+  const sections = groups
+    .map(({ id, results }) => ({
+      id,
+      title: SECTION_TITLES[id],
+      items: results
+        .slice(0, 3)
+        .map((r) => ({ text: excerpt(r.content || r.title), url: r.url, site: hostOf(r.url), verified: true }))
+        .filter((i) => i.text.length > 20),
+    }))
+    .filter((sec) => sec.items.length);
+  const found = guides
+    .slice(0, 5)
+    .map((g) => ({ name: clean(g.title.replace(GUIDE_NOISE, ""), 90), kind: "tours and guides", why: excerpt(g.content || "", 200), url: g.url, site: hostOf(g.url) }))
+    .filter((g) => g.name);
+  if (!sections.length && !found.length) return null;
+  const used = [...groups.flatMap((g) => g.results.slice(0, 3)), ...guides.slice(0, 5)];
+  return { sections, emergency: null, phrases: [], guides: found, evidence: used.map((r) => webEvidence(r)) };
+}
+
 async function research(ctx: SkillContext, input: BriefInput, city: string, country: string | null, taste: TasteOutput | null | undefined, dates: string[]): Promise<Research | null> {
-  if (!ctx.llm) return null;
+  if (!ctx.web && !ctx.llm) return null;
   const place = [city, country].filter(Boolean).join(", ");
   const year = (dates[0] ?? new Date().toISOString()).slice(0, 4);
   const tasteWords = taste ? [...taste.signals.slice(0, 2).map((s) => s.name), ...taste.scenes.slice(0, 2)].join(" ") : "";
@@ -375,6 +435,9 @@ async function research(ctx: SkillContext, input: BriefInput, city: string, coun
   ]);
   const seen = new Set<string>();
   const sources = [...entry, ...safety, ...culture, ...guides].filter((r) => (seen.has(r.url) ? false : (seen.add(r.url), true))).slice(0, 18);
+  // What the research found, shown as-is, when no model can read it for us.
+  const asFound = () => researchFromSources([{ id: "entry", results: entry }, { id: "safety", results: safety }, { id: "culture", results: culture }], guides);
+  if (!ctx.llm) return asFound();
   try {
     const raw = await ctx.llm.json({
       tier: "default",
@@ -403,10 +466,12 @@ async function research(ctx: SkillContext, input: BriefInput, city: string, coun
         .join("\n"),
       user: [`Destination: ${place}`, dates.length ? `Dates: ${dates[0]} to ${dates[dates.length - 1]}` : "Dates: not fixed", "", sources.length ? quoteWeb(sources) : "(no sources)"].join("\n"),
     });
-    return shapeResearch(researchSchema.parse(raw), sources);
+    const shaped = shapeResearch(researchSchema.parse(raw), sources);
+    // The model answered but tied nothing to a source: the sources themselves are better than nothing.
+    return shaped.sections.length || shaped.guides.length ? shaped : (asFound() ?? shaped);
   } catch (err) {
     ctx.log.warn("Trip intel research failed", { error: String(err) });
-    return null;
+    return asFound();
   }
 }
 
@@ -441,7 +506,7 @@ export const tripIntel: Skill<BriefInput, TripIntelOutput> = {
       city ? loadWeather(ctx, city.lat, city.lon, dates, today) : Promise.resolve({ basis: "none" as const, days: [] as DayWeather[], zone: null, offset: null }),
       loadMoney(ctx, home, local),
       loadHolidays(ctx, cc, a.trip.startDate, a.trip.endDate),
-      withTimeout(research(ctx, input, cityName, city?.country ?? null, taste, dates), 50000, "intel research").catch(() => null),
+      withTimeout(research(ctx, input, cityName, city?.country ?? null, taste, dates), 75_000, "intel research").catch(() => null),
     ]);
     saw("weather", wx.days.length ? `Weather: ${wx.basis === "forecast" ? "forecast" : "what these dates are usually like"}` : "No weather for those dates", wx.days.length > 0);
     saw("money", money.rate ? `1 ${money.home} = ${money.rate} ${money.local}` : "Same currency or no rate found", true);
@@ -464,7 +529,8 @@ export const tripIntel: Skill<BriefInput, TripIntelOutput> = {
         money,
         holidays,
         sections: web?.sections ?? [],
-        emergency: web?.emergency ?? null,
+        // Well-known national numbers when the research didn't give them (marked unverified).
+        emergency: web?.emergency ?? knownEmergency(cc),
         phrases: web?.phrases ?? [],
         guides: web?.guides ?? [],
         tasteTips: tasteTips(taste),
