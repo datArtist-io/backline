@@ -52,6 +52,7 @@ const CHAPTERS: { id: string; label: string; doing: string }[] = [
   { id: "trip.agent", label: "Places", doing: "Scouting the places your taste points to" },
   { id: "trip.plan", label: "Plan", doing: "Shaping your days" },
   { id: "trip.routes", label: "Routes", doing: "Drawing the routes on real streets" },
+  { id: "trip.events", label: "What's on", doing: "Finding events on during your trip" },
   { id: "trip.intel", label: "Field guide", doing: "Gathering weather, money, rules and guides" },
   { id: "trip.actions", label: "Bookings", doing: "Lining up what I can book" },
   { id: "trip.execute", label: "Booking", doing: "Booking it" },
@@ -717,7 +718,7 @@ export default function AdventureView({
         {sheet === "guide" && (
           <div className="eq-sheet dark" role="dialog" aria-label="Field guide">
             <button type="button" className="eq-x" onClick={() => setSheet(null)} aria-label="Close field guide">×</button>
-            <Codex intel={model?.intel ?? null} travel={model?.travel ?? null} pending={intelPending} />
+            <Codex intel={model?.intel ?? null} travel={model?.travel ?? null} events={model?.events ?? null} pending={intelPending} />
           </div>
         )}
         {sheet === "wallet" && wallet && (

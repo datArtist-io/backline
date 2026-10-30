@@ -59,6 +59,8 @@ export type { Place, TasteOutput, TripPlanOutput, TripAction, TripActionsOutput,
 export type { TripAgentOutput, GeoPoint, Stop, Fact } from "./skills/trip-agent";
 export type { TripRoutesOutput } from "./skills/trip-routes";
 export type { TripIntelOutput, DayWeather, SectionId } from "./skills/trip-intel";
+export type { TripEventsOutput, TripEvent } from "./skills/trip-events";
+export { EVENT_KINDS } from "./skills/trip-events";
 export { SECTION_TITLES, SECTION_IDS } from "./skills/trip-intel";
 export type { PlaceKind } from "./skills/places";
 export { describeTrip, updateTrip, blankTrip } from "./trip-request";

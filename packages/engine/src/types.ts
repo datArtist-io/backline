@@ -139,6 +139,7 @@ export type SkillId =
   | "trip.taste"
   | "trip.flights"
   | "trip.agent"
+  | "trip.events"
   | "trip.plan"
   | "trip.routes"
   | "trip.actions"

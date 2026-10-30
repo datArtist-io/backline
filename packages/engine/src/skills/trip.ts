@@ -14,6 +14,7 @@ import { isArrivalStop, nameRefs, type Stop, type TripAgentOutput } from "./trip
 import type { TripFlightsOutput } from "./flights";
 import type { TripTravelOutput, TravelOption } from "./trip-travel";
 import type { TripRoutesOutput } from "./trip-routes";
+import type { TripEventsOutput } from "./trip-events";
 import { rideFare } from "./rides";
 
 export { placeSchema, scorePlace, toPlace };
@@ -155,7 +156,8 @@ export const tripPlan: Skill<BriefInput, TripPlanOutput> = {
   id: "trip.plan",
   title: "Writing the plan",
   dependsOn: ["trip.agent"],
-  optionalDeps: ["trip.taste", "trip.flights"],
+  // Events on during the trip go into the plan on their day, so it waits for them.
+  optionalDeps: ["trip.taste", "trip.flights", "trip.events"],
   // A 14-day plan is a long piece of writing: room for it, and for the fast model to retry.
   timeoutMs: 180_000,
   output: planOutput,
@@ -171,6 +173,7 @@ async function writePlan(ctx: Parameters<Skill<BriefInput, TripPlanOutput>["run"
     const a = agentOf(deps);
     const fl = (deps["trip.flights"]?.data as TripFlightsOutput | undefined)?.flight ?? null;
     const taste = deps["trip.taste"]?.data as TasteOutput | undefined;
+    const events = (deps["trip.events"]?.data as TripEventsOutput | undefined)?.events ?? [];
     const trip = a.trip;
     // Places the person removed while reviewing are gone from every list.
     const edits = input.edits ?? null;
@@ -234,6 +237,16 @@ async function writePlan(ctx: Parameters<Skill<BriefInput, TripPlanOutput>["run"
             profile.stayPrefs?.length ? `Stay preferences: ${profile.stayPrefs.join(", ")}` : "",
             profile.notes ? `About the client: ${profile.notes.slice(0, 400)}` : "",
             a.summary ? `What the research agent concluded: ${a.summary}` : "",
+            ...(() => {
+              const on = events.filter((e) => ds.length === 0 || (e.date <= ds[ds.length - 1] && (e.endDate ?? e.date) >= ds[0]));
+              return on.length
+                ? [
+                    "",
+                    "Events on during these days (from research, with how well each fits their taste). Put the ones that fit them best into the plan on their date and time: title with the event's name and venue, placeId null, and the note saying to get tickets (with the price if known). Don't double-book a slot, and don't add events that aren't listed here:",
+                    on.map((e) => `${e.id} ${e.date}${e.endDate && e.endDate !== e.date ? `–${e.endDate}` : ""}${e.time ? ` ${e.time}` : ""}: ${e.name}${e.venue ? ` at ${e.venue}` : ""} (${e.kind}, fit ${e.fit.toFixed(2)})${e.price ? `, ${e.price}` : ""}${e.why ? ` — ${e.why}` : ""}`).join("\n"),
+                  ]
+                : [];
+            })(),
             "",
             "Stops (not bookable):",
             a.stops.map((s) => `${s.id} ${s.name} (${s.kind === "landmark" ? "the landmark" : (s.kind ?? "place").replace(/_/g, " ")}: ${s.label})`).join("\n") || "(none)",
@@ -970,7 +983,7 @@ export const tripActions: Skill<BriefInput, TripActionsOutput> = {
   id: "trip.actions",
   title: "Preparing bookings and messages",
   dependsOn: ["trip.plan", "trip.agent"],
-  optionalDeps: ["trip.flights", "trip.travel", "trip.routes"],
+  optionalDeps: ["trip.flights", "trip.travel", "trip.routes", "trip.events"],
   timeoutMs: 5_000,
   output: actionsOutput,
   async run(rawCtx, input, deps) {
@@ -996,7 +1009,30 @@ export const tripActions: Skill<BriefInput, TripActionsOutput> = {
     const planned = plannedActions(planData, reserved, { pay });
     const calendarAt = built.findIndex((x) => x.kind === "calendar");
     const ordered = calendarAt >= 0 ? [...built.slice(0, calendarAt), ...planned, ...built.slice(calendarAt)] : [...built, ...planned];
-    const actions = [...first, ...ordered].map((x, i) => ({ ...x, id: `a${i + 1}` })) as TripAction[];
+    // Tickets for the events the plan includes (or the best fits for their taste): opened for them to buy,
+    // since ticket sites need their own checkout.
+    const evs = (deps["trip.events"]?.data as TripEventsOutput | undefined)?.events ?? [];
+    const planText = planData.days.flatMap((d) => d.items.map((it) => `${it.title} ${it.note ?? ""}`)).join(" \n ").toLowerCase();
+    const inPlan = evs.filter((e) => planText.includes(e.name.toLowerCase().slice(0, 24)));
+    const tickets: Omit<TripAction, "id">[] = (inPlan.length ? inPlan : evs.filter((e) => e.fit >= 0.7).slice(0, 4)).slice(0, 8).map((e) => ({
+      kind: "planned",
+      channel: "link",
+      title: `Get tickets: ${e.name}, ${fmtDate(e.date)}${e.time ? ` at ${e.time}` : ""}`,
+      placeId: null,
+      placeName: e.venue,
+      to: null,
+      url: e.url,
+      subject: [e.venue, e.price, e.why].filter(Boolean).join(" · ") || "Tickets on the event's site",
+      body: null,
+      callOpening: null,
+      callBrief: null,
+      mode: "you",
+      recommended: inPlan.includes(e),
+      missing: null,
+      offerId: null,
+      price: null,
+    }));
+    const actions = [...first, ...ordered, ...tickets].map((x, i) => ({ ...x, id: `a${i + 1}` })) as TripAction[];
     const notes: string[] = [];
     const check = (deps["trip.plan"].data as TripPlanOutput).stayCheck;
     if (check?.note) notes.push(check.note);

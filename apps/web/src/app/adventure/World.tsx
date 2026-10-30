@@ -886,7 +886,7 @@ function Scene(p: WorldProps) {
   );
 }
 
-const EMPTY: AdventureModel = { title: "", city: "", sample: false, nodes: [], routes: [], heat: [], zone: null, extent: 30, scale: 1, taste: null, intel: null, travel: null, center: { lat: 0, lon: 0 }, origin: null, destination: null, summary: null, stats: { places: 0, picked: 0, km: 0, match: null, xp: 0, days: 0 } };
+const EMPTY: AdventureModel = { title: "", city: "", sample: false, nodes: [], routes: [], heat: [], zone: null, extent: 30, scale: 1, taste: null, intel: null, travel: null, events: null, center: { lat: 0, lon: 0 }, origin: null, destination: null, summary: null, stats: { places: 0, picked: 0, km: 0, match: null, xp: 0, days: 0 } };
 
 function World(props: WorldProps) {
   return (

@@ -3,7 +3,7 @@
 // holidays, entry/safety/health/culture/connectivity notes, emergency numbers, phrases, local guides,
 // and what Qloo's taste means for the trip. Every line says where it came from, or that it's unverified.
 import { useState } from "react";
-import type { TripIntelOutput, TripTravelOutput } from "@backline/engine";
+import type { TripEventsOutput, TripIntelOutput, TripTravelOutput } from "@backline/engine";
 import { SECTION_TITLES } from "@backline/engine";
 
 const ICON: Record<string, string> = { entry: "🛂", safety: "🛡", health: "✚", culture: "❖", connect: "⌁", transport: "⇄", food: "◒" };
@@ -13,13 +13,16 @@ const day = (d: string) => new Date(`${d}T12:00:00Z`).toLocaleDateString("en", {
 
 const TABS = [
   { id: "go", label: "Getting there" },
+  { id: "events", label: "What's on" },
   { id: "now", label: "Weather & money" },
   { id: "rules", label: "Rules & safety" },
   { id: "people", label: "Guides & phrases" },
   { id: "taste", label: "Your taste" },
 ] as const;
 
-export default function Codex({ intel, travel = null, pending, className = "" }: { intel: TripIntelOutput | null; travel?: TripTravelOutput | null; pending: boolean; className?: string }) {
+const KIND_ICON: Record<string, string> = { concert: "♫", festival: "✺", sport: "⚽", theatre: "🎭", comedy: "☺", exhibition: "▣", market: "⌂", food: "◒", nightlife: "☾", tour: "⇢", other: "•" };
+
+export default function Codex({ intel, travel = null, events = null, pending, className = "" }: { intel: TripIntelOutput | null; travel?: TripTravelOutput | null; events?: TripEventsOutput | null; pending: boolean; className?: string }) {
   const [tab, setTab] = useState<(typeof TABS)[number]["id"]>(travel?.options.length ? "go" : "now");
   if (!intel) {
     return (
@@ -69,6 +72,43 @@ export default function Codex({ intel, travel = null, pending, className = "" }:
             </ul>
           ) : (
             <p className="codex-none">No reliable fares found for this route. Check an airline or rail site for today's price.</p>
+          )}
+        </div>
+      )}
+
+      {tab === "events" && (
+        <div className="codex-pane">
+          <h4>
+            What&rsquo;s on{events?.from && events.to ? ` · ${day(events.from)}${events.to !== events.from ? ` – ${day(events.to)}` : ""}` : ""}
+          </h4>
+          {events && events.events.length > 0 ? (
+            <ul className="plain codex-events">
+              {events.events.map((e) => (
+                <li key={e.id}>
+                  <span aria-hidden="true">{KIND_ICON[e.kind] ?? "•"} </span>
+                  <b>{day(e.date)}{e.endDate && e.endDate !== e.date ? ` – ${day(e.endDate)}` : ""}{e.time ? ` · ${e.time}` : ""}</b>{" "}
+                  <a href={e.url} target="_blank" rel="noreferrer noopener">{e.name}</a>
+                  {e.venue ? ` · ${e.venue}` : ""}
+                  {e.price ? ` · ${e.price}` : ""}
+                  {e.why ? <span className="muted"> — {e.why}</span> : null}
+                  {e.fit >= 0.75 ? <span className="codex-fit"> · great fit for your taste</span> : null}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="codex-none">{pending ? "Looking for events on during your trip…" : "No dated events found for your trip yet."}</p>
+          )}
+          {events && events.listings.length > 0 && (
+            <>
+              <h4>More listings for your dates</h4>
+              <ul className="plain">
+                {events.listings.map((l) => (
+                  <li key={l.url}>
+                    <a href={l.url} target="_blank" rel="noreferrer noopener">{l.title}</a> <span className="muted">· {l.site}</span>
+                  </li>
+                ))}
+              </ul>
+            </>
           )}
         </div>
       )}
