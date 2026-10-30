@@ -11,7 +11,7 @@ import type { GeoHit } from "../clients/osm";
 import type { QlooEntity } from "../clients/qloo";
 import type { HotelOffer } from "../clients/hotels";
 import type { TasteOutput } from "./taste";
-import { CURRENCY_COUNTRY, describeTrip, groundTrip, pinStatedDates, rawTripSchema, tripRequestSchema, updateTrip } from "../trip-request";
+import { CURRENCY_COUNTRY, describeTrip, groundTrip, pinStatedDates, rawTripSchema, saidIn, tripRequestSchema, updateTrip } from "../trip-request";
 import { documentsBlock, searchDocuments } from "../documents";
 import { webEvidence } from "../grounding";
 import { hotelScoreSchema, tierHotels, tierSchema } from "./hotel-tiers";
@@ -572,7 +572,10 @@ export function tripTools(ctx: SkillContext, s: TripAgentState): AnyTool<TripAge
         };
       }
       const km = center ? round1(distanceKm(center, best)) : null;
-      if (a.role === "landmark") {
+      // Only a place they named (or asked to be near) becomes the landmark every search centres on;
+      // one the model chose itself is just a stop, so it can't pull the whole trip to one corner.
+      const theirs = Boolean(t().near) || saidIn(s.input.request ?? "", a.query);
+      if (a.role === "landmark" && theirs) {
         s.landmark = toGeo(best);
         if (!t().near) s.trip = { ...t(), near: clip(a.query, 80) };
         const ref = addStop(s, best.name, best.lat, best.lon, t().purpose ? clip(t().purpose!, 80) : "Where you want to be", "landmark");
@@ -1128,7 +1131,9 @@ export async function finalize(
   await Promise.all(jobs);
 
   // 4. What the user sees: picks first, then the strongest alternatives.
-  const MAX: Record<PlaceKind, number> = { stay: 5, dine: 6, venue: 4, activity: 5 };
+  // Longer trips need more places to fill the days without repeating (two meals and one or two outings a day).
+  const tripDays = t.startDate && t.endDate ? Math.max(1, Math.round((Date.parse(`${t.endDate}T12:00:00Z`) - Date.parse(`${t.startDate}T12:00:00Z`)) / 86_400_000) + 1) : 1;
+  const MAX: Record<PlaceKind, number> = { stay: 5, dine: Math.max(6, Math.min(20, tripDays * 2)), venue: 4, activity: Math.max(5, Math.min(20, Math.ceil(tripDays * 1.5))) };
   const lists = {} as Record<PlaceKind, Place[]>;
   for (const k of PLACE_KINDS) {
     const chosen = picks[k].map((id) => s.places.get(id)).filter((p): p is Place => Boolean(p));

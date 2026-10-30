@@ -153,7 +153,7 @@ const HOSTED_KIND = /\b(birthday|dinner|lunch|brunch|party|wedding|reception|lau
 const NAME_FILLER = new Set(["the", "and", "for", "near", "hotel", "restaurant", "club", "bar"]);
 
 /** Whether any real word of a name appears in the text, ignoring case and accents. Pure. */
-function saidIn(text: string, name: string): boolean {
+export function saidIn(text: string, name: string): boolean {
   const fold = (x: string) => x.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
   const said = fold(text);
   return fold(name)
