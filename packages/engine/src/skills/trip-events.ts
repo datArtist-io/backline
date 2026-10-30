@@ -210,7 +210,7 @@ export const tripEvents: Skill<BriefInput, TripEventsOutput> = {
         purpose: "events",
         system: [
           `You list real events in ${city} on between ${from} and ${to} (inclusive): concerts, festivals, sport, theatre, comedy, exhibitions, markets, food and nightlife events, tours.`,
-          "Use only the numbered sources. Every event needs the source id it came from and a specific date (YYYY-MM-DD) stated or clearly implied by that source for these dates. Skip anything without a date, outside the dates, or in another city. Don't invent events, times, venues or prices.",
+          `Only events in ${place} itself (or its immediate metro area), not other cities a source also lists. `+"Use only the numbered sources. Every event needs the source id it came from and a specific date (YYYY-MM-DD) stated or clearly implied by that source for these dates. Skip anything without a date, outside the dates, or in another city. Don't invent events, times, venues or prices.",
           `Today the trip runs ${from} to ${to}; a multi-day event that's on during it counts (date = first day, endDate = last day).`,
           "kind: concert | festival | sport | theatre | comedy | exhibition | market | food | nightlife | tour | other. time as 24-hour HH:MM if given. price as written (e.g. \"from CA$45\"), else null.",
           tastes.length || taste
