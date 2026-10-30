@@ -801,9 +801,10 @@ export async function suggestDestinations(
         "You are a travel agent. The person asked for a trip without naming where. Suggest exactly 3 real destinations (City, Country) that fit what they asked.",
         `Today is ${today}. Judge weather and season for the dates they mean (this weekend, a named month, else the next few weeks): only suggest places that really are warm, dry or in season then.`,
         opts.origin ? `They travel from ${opts.origin}: prefer places reachable for their trip length (a weekend means a short trip from there).` : "Prefer places that suit the trip length they gave.",
-        "Vary them (not three beach towns in one country). why is one short line on why it fits (weather then, mood, what they asked for).",
-        "request is their own request rewritten with the destination named, keeping their length, dates, people, budget and tastes exactly, e.g. \"A relaxing weekend in Zanzibar, Tanzania, somewhere warm\". Under 140 characters.",
-        "message is one friendly sentence introducing the three, saying what you judged by (e.g. the weather that weekend). No question marks needed; they'll tap one.",
+        "Vary them (not three beach towns in one country). why is one short line on why it fits (the usual climate then, mood, what they asked for).",
+        "You have no live forecast: never quote a forecast or exact temperatures. Say what the climate is usually like then (\"usually hot and dry in November\"). If they asked for warm, every place must really be warm then (no mild highland cities).",
+        "request is their own request rewritten with the destination named, keeping their length, dates, people, budget and tastes exactly, and adding no length or dates they didn't give, e.g. \"A relaxing weekend in Zanzibar, Tanzania, somewhere warm\". Under 140 characters.",
+        "message is one short friendly sentence introducing the three, saying what you judged by (e.g. the usual weather then), without naming the places. No question marks needed; they'll tap one.",
         'Shape: {"message":"…","ideas":[{"place":"Zanzibar, Tanzania","why":"…","request":"…"}]}',
       ].join("\n"),
       user: goal.slice(0, 600),
@@ -814,7 +815,8 @@ export async function suggestDestinations(
       .slice(0, 3);
     if (ideas.length < 2) return null;
     const lines = ideas.map((i) => `${i.place}${i.why ? `: ${i.why}` : ""}`).join(". ");
-    const message = `${(out.message ?? "").trim() || "A few places that fit what you asked for:"} ${lines}. Tap one to plan it, or tell me where you have in mind.`.slice(0, 700);
+    const intro = (out.message ?? "").trim().replace(/[\s,;]+$/, "") || "A few places that fit what you asked for";
+    const message = `${/[.:!]$/.test(intro) ? intro : `${intro}:`} ${lines}. Tap one to plan it, or tell me where you have in mind.`.replace(/\.\./g, ".").slice(0, 700);
     return { message, suggestions: ideas.map((i) => i.request) };
   } catch {
     return null;

@@ -191,6 +191,27 @@ const normWords = (s: string) =>
     .split(" ")
     .filter((w) => w.length > 1 && !LANDMARK_NOISE.has(w));
 
+/** A geocoder hit that is a whole country rather than a city. Pure. */
+export function isCountryHit(h: { name: string; country?: string | null; kind?: string | null }): boolean {
+  return /\bcountry\b/i.test(h.kind ?? "") || (Boolean(h.country) && foldText(h.name) === foldText(h.country ?? ""));
+}
+
+/** Where visitors usually base a trip to a country (not always the capital). By ISO country code. */
+export const MAIN_CITY: Record<string, string> = {
+  NG: "Lagos", GH: "Accra", KE: "Nairobi", TZ: "Dar es Salaam", UG: "Kampala", RW: "Kigali", ET: "Addis Ababa", ZA: "Cape Town",
+  EG: "Cairo", MA: "Marrakech", TN: "Tunis", SN: "Dakar", CI: "Abidjan", CM: "Douala", AO: "Luanda", ZW: "Harare", ZM: "Lusaka",
+  NA: "Windhoek", BW: "Gaborone", MZ: "Maputo", MU: "Port Louis", SC: "Victoria", MG: "Antananarivo", BJ: "Cotonou", TG: "Lomé",
+  GB: "London", FR: "Paris", ES: "Barcelona", PT: "Lisbon", IT: "Rome", DE: "Berlin", NL: "Amsterdam", BE: "Brussels", CH: "Zurich",
+  AT: "Vienna", IE: "Dublin", GR: "Athens", TR: "Istanbul", CZ: "Prague", HU: "Budapest", PL: "Kraków", DK: "Copenhagen",
+  SE: "Stockholm", NO: "Oslo", FI: "Helsinki", IS: "Reykjavík", HR: "Dubrovnik", RU: "Moscow",
+  US: "New York", CA: "Toronto", MX: "Mexico City", BR: "Rio de Janeiro", AR: "Buenos Aires", CL: "Santiago", PE: "Lima",
+  CO: "Bogotá", CU: "Havana", JM: "Kingston", DO: "Santo Domingo", BS: "Nassau", BB: "Bridgetown", TT: "Port of Spain",
+  AE: "Dubai", SA: "Riyadh", QA: "Doha", OM: "Muscat", JO: "Amman", IL: "Tel Aviv", LB: "Beirut",
+  IN: "New Delhi", LK: "Colombo", MV: "Malé", NP: "Kathmandu", TH: "Bangkok", VN: "Hanoi", KH: "Siem Reap", MY: "Kuala Lumpur",
+  SG: "Singapore", ID: "Denpasar", PH: "Manila", JP: "Tokyo", KR: "Seoul", CN: "Beijing", HK: "Hong Kong", TW: "Taipei",
+  AU: "Sydney", NZ: "Auckland", FJ: "Nadi",
+};
+
 /** Pick the city the user means from same-named places, using country hints, then prominence. Pure. */
 export function chooseCity(hits: Candidate[], query: string, hints: string[]): Candidate | null {
   if (hits.length === 0) return null;
@@ -542,6 +563,22 @@ export function tripTools(ctx: SkillContext, s: TripAgentState): AnyTool<TripAge
           if (!best) {
             s.failedLocate.add(`city:${foldText(a.query)}`);
             return { observation: `Couldn't find "${a.query}" on the map. Try the official name, or add the country.`, summary: `Couldn't find ${a.query} on the map` };
+          }
+          // A whole country ("Kenya") pins its middle, which can be a game reserve hours from any city:
+          // plan from its main city instead (the one visitors base themselves in).
+          if (isCountryHit(best)) {
+            const main = best.countryCode ? MAIN_CITY[best.countryCode.toUpperCase()] : undefined;
+            if (main) {
+              const cityHits = await findOnMap(ctx, `${main}, ${best.country ?? a.query}`, null, null, "city");
+              const c = chooseCity(cityHits, main, [best.country ?? ""]);
+              if (c && !isCountryHit(c)) best = c;
+            } else if (!s.failedLocate.has(`country:${foldText(a.query)}`)) {
+              s.failedLocate.add(`country:${foldText(a.query)}`);
+              return {
+                observation: `${best.display} is a whole country, not a city. Locate the city to base the trip in (its main city for visitors, or the one that best fits what they asked), with the country added, and tell them which you chose.`,
+                summary: `${best.name} is a country: choosing a city`,
+              };
+            }
           }
           s.city = toGeo(best);
           s.cityOthers = hits.filter((h) => h !== best && distanceKm(h, best) > 50).slice(0, 3).map(toGeo);
