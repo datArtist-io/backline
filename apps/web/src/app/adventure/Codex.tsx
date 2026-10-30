@@ -143,15 +143,20 @@ export default function Codex({ intel, travel = null, events = null, pending, cl
               <h4>Money</h4>
               {m.rate && m.home ? (
                 <p className="codex-note">
-                  1 {m.home} ≈ {m.rate.toLocaleString("en", { maximumFractionDigits: 2 })} {m.local}
+                  {/* A strong local currency (1 NGN ≈ 0.0005 GBP) reads the other way round: 1 GBP ≈ 2,050 NGN. */}
+                  {m.rate < 0.1
+                    ? `1 ${m.local} ≈ ${(1 / m.rate).toLocaleString("en", { maximumFractionDigits: 0 })} ${m.home}`
+                    : `1 ${m.home} ≈ ${m.rate.toLocaleString("en", { maximumFractionDigits: 2 })} ${m.local}`}
                   {m.asOf ? ` · rate from ${m.asOf}` : " · illustrative rate"}
                 </p>
               ) : (
                 <p className="codex-note">Local currency: {m.local}</p>
               )}
-              {m.examples.length > 0 && m.home && (
-                <ul className="chips">{m.examples.map((e) => <li key={e.home}>{e.home} {m.home} = {Math.round(e.local).toLocaleString("en")} {m.local}</li>)}</ul>
-              )}
+              {m.home && m.rate && m.rate < 0.1 ? (
+                <ul className="chips">{[1, 10, 50, 100].map((l) => <li key={l}>{l} {m.local} = {Math.round(l / m.rate!).toLocaleString("en")} {m.home}</li>)}</ul>
+              ) : m.examples.length > 0 && m.home ? (
+                <ul className="chips">{m.examples.map((e) => <li key={e.home}>{e.home} {m.home} = {e.local.toLocaleString("en", { maximumFractionDigits: e.local < 10 ? 2 : 0 })} {m.local}</li>)}</ul>
+              ) : null}
             </>
           )}
           {intel.holidays.length > 0 && (
