@@ -4,6 +4,7 @@ export { QlooClient } from "./clients/qloo";
 export type { QlooEntity, QlooTag, InsightType, InsightParams, DemographicsRow, HeatPoint } from "./clients/qloo";
 export { LlmClient, extractJson } from "./clients/llm";
 export { FailoverLlm } from "./clients/llm-failover";
+export { checkServices, type ServiceCheck } from "./health";
 export type { ModelTier } from "./clients/llm";
 export { TavilyClient } from "./clients/tavily";
 export type { WebResult, WebSearch, ProviderCall } from "./clients/web";
