@@ -29,7 +29,7 @@ const flightsOutput = z.object({
 });
 export type TripFlightsOutput = z.infer<typeof flightsOutput>;
 
-const GROUND = /train|bus|car|drive|driving|road|ferry|boat/i;
+const GROUND = /\b(?:train|bus|car|drive|driving|road|ferry|boat)\b/i;
 
 /** Where the trip starts, if it needs a flight at all: not when they're going by road or arranging travel themselves. Pure. */
 export function flightOrigin(t: Pick<TripRequest, "origin" | "travelMode" | "selfArranged" | "destination" | "startDate">, homeCity?: string): string | null {

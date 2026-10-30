@@ -327,7 +327,16 @@ class Scene3D implements CustomLayerInterface {
   }
 
   setModel(model: AdventureModel | null) {
-    for (const b of this.beacons.values()) this.scene.remove(b.group);
+    for (const b of this.beacons.values()) {
+      this.scene.remove(b.group);
+      // Each beacon owns its geometry and materials (the glow texture is shared and kept), so free them.
+      b.group.traverse((o) => {
+        const m = o as THREE.Mesh;
+        m.geometry?.dispose();
+        const mat = m.material as THREE.Material | THREE.Material[] | undefined;
+        (Array.isArray(mat) ? mat : mat ? [mat] : []).forEach((x) => x.dispose());
+      });
+    }
     this.beacons.clear();
     if (this.taste) {
       this.scene.remove(this.taste);
@@ -876,6 +885,8 @@ export default function Earth(props: EarthProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const framedSig = useRef("");
+  const modelSig = props.model ? `${props.model.nodes.map((n) => `${n.id}${n.picked ? "+" : ""}`).join(",")}|${props.model.heat.length}` : "";
   useEffect(() => {
     sync();
     const s = state.current;
@@ -885,7 +896,9 @@ export default function Earth(props: EarthProps) {
     if (key && s.loaded && s.introFor !== key) intro();
     // Home became known after we'd landed: replay the journey in, unless they're exploring.
     else if (key && s.loaded && originKey && s.originFor !== originKey && !s.user && !props.selectedId && !props.play) intro();
-    else if (props.model && s.introDone && !s.user && !props.selectedId && !props.play) overview(2600);
+    // Only re-frame when the places themselves changed, not on every re-render of the same plan.
+    else if (props.model && s.introDone && !s.user && !props.selectedId && !props.play && framedSig.current !== modelSig) overview(2600);
+    framedSig.current = modelSig;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [props.model, props.destination?.lat, props.destination?.lon, props.origin?.lat]);
 

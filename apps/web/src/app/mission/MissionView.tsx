@@ -173,7 +173,16 @@ export default function MissionView(props: { goal?: string; artist?: string; mis
           setReply({ message, suggestions });
           setStatus("reply");
         },
-        onDone: (s) => setStatus(s === "waiting" ? "waiting" : "done"),
+        onDone: (s) => {
+          // A deliberate re-book only applies to the run it was asked for.
+          if (s !== "waiting") rebookRef.current = false;
+          if (s === "failed") {
+            setError("I couldn't finish this plan. Try again in a moment.");
+            setStatus("error");
+            return;
+          }
+          setStatus(s === "waiting" ? "waiting" : "done");
+        },
         onError: (msg) => {
           setError(msg);
           setStatus("error");
@@ -190,7 +199,7 @@ export default function MissionView(props: { goal?: string; artist?: string; mis
   useEffect(() => {
     docsRef.current = loadDocs(props.docs);
     const snap = readTrip<Snap>(here());
-    if (snap?.planned && (snap.status === "done" || snap.status === "waiting")) {
+    if (snap?.planned && (snap.status === "done" || snap.status === "waiting") && !snap.steps.some((s) => s.status === "failed")) {
       plannedRef.current = snap.planned;
       sealRef.current = snap.seal;
       askedFor.current = snap.planned.runId;
@@ -208,6 +217,8 @@ export default function MissionView(props: { goal?: string; artist?: string; mis
   // Keep the trip as it is whenever it settles, so stepping away never costs the person their trip.
   useEffect(() => {
     if (!planned || (status !== "done" && status !== "waiting")) return;
+    // Never keep a broken plan: coming back should plan it again, not replay the failure for hours.
+    if (steps.some((s) => s.status === "failed")) return;
     saveTrip<Snap>(here(), { planned, steps, results, checkpoints, status, seal: sealRef.current, adjusted });
   }, [planned, steps, results, checkpoints, status, adjusted]);
 
@@ -254,10 +265,11 @@ export default function MissionView(props: { goal?: string; artist?: string; mis
     );
   };
 
-  const rerun = (mode: Autonomy = autonomy) => {
+  /** Plan it again. Only "Run again" (bookAgain) skips the guard against paying twice; "Try again" after an error never does. */
+  const rerun = (mode: Autonomy = autonomy, bookAgain = false) => {
     const p = plannedRef.current?.plan;
-    rebookRef.current = true;
-    start({ goal: p?.goal ?? props.goal, artist: p?.artist ?? props.artist, mission: p?.mission ?? props.mission, location: p?.location ?? undefined, autonomy: mode, rebook: true });
+    rebookRef.current = bookAgain;
+    start({ goal: p?.goal ?? props.goal, artist: p?.artist ?? props.artist, mission: p?.mission ?? props.mission, location: p?.location ?? undefined, autonomy: mode, rebook: bookAgain || undefined });
   };
 
   const onOnePager = (brandId: string) => {
@@ -362,13 +374,18 @@ export default function MissionView(props: { goal?: string; artist?: string; mis
   useEffect(() => {
     const key = planned?.runId ?? null;
     if (!readyToBook || !key || askedFor.current === key) return;
-    askedFor.current = key;
-    const t = setTimeout(() => setBookOpen(true), autonomy === "auto" ? 1200 : 3500);
+    // Marked as asked only once it opens, so a re-render that clears the timer doesn't cancel it for good.
+    const t = setTimeout(() => {
+      askedFor.current = key;
+      setBookOpen(true);
+    }, autonomy === "auto" ? 1200 : 3500);
     return () => clearTimeout(t);
   }, [readyToBook, planned?.runId, autonomy]);
 
   // Trips open straight into the 3D expedition; music missions keep the page.
   const tripMission = mission === "plan" || (!mission && !props.artist && status !== "needs");
+  // The core trip steps that failed once the run settled: the 3D view would otherwise just sit empty.
+  const tripBroken = !running && status === "done" ? steps.filter((s) => ["trip.agent", "trip.plan", "trip.routes"].includes(s.id) && (s.status === "failed" || s.status === "skipped")).map((s) => s.title.toLowerCase()).join(", ") : "";
   if (tripMission && view === "game") {
     return (
       <>
@@ -382,7 +399,21 @@ export default function MissionView(props: { goal?: string; artist?: string; mis
           trip={shownTrip}
           where={agentOut?.where ?? null}
           overlay={
-            Boolean(error || needs || reply) ? <div className="eq-ask">{prompts}</div> : null
+            Boolean(error || needs || reply) ? (
+              <div className="eq-ask">{prompts}</div>
+            ) : tripBroken ? (
+              <div className="eq-ask">
+                <div className="lg notice" role="alert">
+                  <p>Part of this plan couldn&rsquo;t be finished ({tripBroken}). Try again, or see what I have as a list.</p>
+                  <button type="button" className="rerun" onClick={() => rerun()}>
+                    Try again
+                  </button>{" "}
+                  <button type="button" className="rerun" onClick={() => setView("classic")}>
+                    Show as a list
+                  </button>
+                </div>
+              </div>
+            ) : null
           }
           review={
             checkpoints.some((c) => c.id === "actions") || (adjusted && running)
@@ -498,7 +529,7 @@ export default function MissionView(props: { goal?: string; artist?: string; mis
             </ol>
             <ModeSwitch value={autonomy} onChange={setAutonomy} className="rail-switch" />
             {!running && (
-              <button type="button" className="rerun" onClick={() => rerun()}>
+              <button type="button" className="rerun" onClick={() => rerun(autonomy, true)}>
                 Run again
               </button>
             )}
@@ -638,7 +669,7 @@ export default function MissionView(props: { goal?: string; artist?: string; mis
               </>
             )}
 
-            {status === "done" && planned && resolved && <FollowUp runId={planned.runId} artist={artistName} autonomy={autonomy} />}
+            {status === "done" && planned && resolved && <FollowUp runId={planned.runId} seal={sealRef.current?.runId === planned.runId ? sealRef.current.seal : undefined} artist={artistName} autonomy={autonomy} />}
 
             {/* What the agent learned on the way. */}
             {planned && mission !== "plan" && resolveStep?.status !== "failed" && (
@@ -899,7 +930,17 @@ function TripGame({
   const executing = steps.find((s) => s.id === "trip.execute")?.status === "running";
   // Fly the moment the page opens: the place named in the request, before the agent has even read it.
   const guess = usePlace(where?.city ? null : trip?.destination ?? placeIn(goal));
-  const destination: Spot | null = where?.city ? { name: where.city.display ?? where.city.name, lat: where.city.lat, lon: where.city.lon } : travel?.to && travel.destination ? { name: travel.destination, ...travel.to } : guess;
+  // Memoised on its values: a fresh object every render rebuilt the whole 3D model and re-flew the camera on every event.
+  const cityName = where?.city ? (where.city.display ?? where.city.name) : null;
+  const cityLat = where?.city?.lat ?? null;
+  const cityLon = where?.city?.lon ?? null;
+  const toName = travel?.to && travel.destination ? travel.destination : null;
+  const toLat = travel?.to?.lat ?? null;
+  const toLon = travel?.to?.lon ?? null;
+  const destination: Spot | null = useMemo(
+    () => (cityName != null && cityLat != null && cityLon != null ? { name: cityName, lat: cityLat, lon: cityLon } : toName != null && toLat != null && toLon != null ? { name: toName, lat: toLat, lon: toLon } : guess),
+    [cityName, cityLat, cityLon, toName, toLat, toLon, guess]
+  );
   const model = useMemo(() => buildAdventure({ title: goal, agent, plan, routes, taste, intel, travel, destination }), [goal, agent, plan, routes, taste, intel, travel, destination]);
   const reach = useMemo(() => {
     const out: Record<string, Reach> = {};

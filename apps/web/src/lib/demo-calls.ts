@@ -13,3 +13,10 @@ export function underDailyCap(userId: string, cap = 12): boolean {
   demoCalls.set(userId, { day, n: n + 1 });
   return true;
 }
+
+/** Whether this person has demo calls left today, without using one up. */
+export function callsLeft(userId: string, cap = 12): boolean {
+  const day = new Date().toISOString().slice(0, 10);
+  const e = demoCalls.get(userId);
+  return (e && e.day === day ? e.n : 0) < cap;
+}

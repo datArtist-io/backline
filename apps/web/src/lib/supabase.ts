@@ -49,8 +49,8 @@ export async function userFor(cfg: SupabaseConfig, accessToken: string): Promise
   }
 }
 
-/** New tokens from a refresh token, or null when it's expired or revoked. */
-export async function refreshTokens(cfg: SupabaseConfig, refreshToken: string): Promise<Tokens | null> {
+/** New tokens from a refresh token; "invalid" when it's expired or revoked, "unavailable" when Supabase didn't answer. */
+export async function refreshTokens(cfg: SupabaseConfig, refreshToken: string): Promise<Tokens | "invalid" | "unavailable"> {
   try {
     const res = await fetch(`${cfg.url}/auth/v1/token?grant_type=refresh_token`, {
       method: "POST",
@@ -59,12 +59,14 @@ export async function refreshTokens(cfg: SupabaseConfig, refreshToken: string): 
       signal: AbortSignal.timeout(8000),
       cache: "no-store",
     });
-    if (!res.ok) return null;
+    // Only a definite refusal signs someone out; a timeout, rate limit or outage must not.
+    if (res.status === 400 || res.status === 401 || res.status === 403) return "invalid";
+    if (!res.ok) return "unavailable";
     const j = (await res.json()) as { access_token?: string; refresh_token?: string; expires_in?: number };
-    if (!j.access_token || !j.refresh_token) return null;
+    if (!j.access_token || !j.refresh_token) return "invalid";
     return { accessToken: j.access_token, refreshToken: j.refresh_token, expiresAt: Date.now() + (j.expires_in ?? 3600) * 1000 };
   } catch {
-    return null;
+    return "unavailable";
   }
 }
 

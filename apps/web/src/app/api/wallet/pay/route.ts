@@ -10,7 +10,8 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const body = z.object({
-  amount: z.number().positive().max(50000),
+  // In the person's own currency (₦, ¥…), so no small USD-style cap; the wallet checks the balance.
+  amount: z.number().positive().max(1e10),
   currency: z.string().regex(/^[A-Za-z]{3}$/),
   label: z.string().min(1).max(200),
   details: z.record(z.union([z.string().max(300), z.number(), z.null()])).optional(),
@@ -25,9 +26,22 @@ export async function POST(req: Request) {
   const p = body.safeParse(await req.json().catch(() => null));
   if (!p.success) return Response.json({ error: "That payment isn't complete." }, { status: 400 });
   const w = walletFor(s);
-  const h = await w.hold(p.data.amount, p.data.currency, p.data.label, p.data.details ?? {});
+  let h: Awaited<ReturnType<typeof w.hold>>;
+  try {
+    h = await w.hold(p.data.amount, p.data.currency, p.data.label, p.data.details ?? {});
+  } catch (err) {
+    console.warn("[wallet/pay] hold failed", err instanceof Error ? err.message : err);
+    return Response.json({ error: "Your wallet couldn't be reached. Nothing was charged. Try again." }, { status: 502 });
+  }
   if (!h.ok) return Response.json({ error: h.reason }, { status: 402 });
   const ref = bookingRef(null, `${h.id}:${p.data.label}`);
-  await w.capture(h.id, ref);
+  try {
+    await w.capture(h.id, ref);
+  } catch (err) {
+    // Don't leave the money held forever: give it back and say so.
+    console.warn("[wallet/pay] capture failed", err instanceof Error ? err.message : err);
+    await w.release(h.id).catch(() => undefined);
+    return Response.json({ error: "The payment didn't complete, so your money was returned. Try again." }, { status: 502 });
+  }
   return Response.json({ entryId: h.id, total: p.data.amount, currency: p.data.currency.toUpperCase(), ref });
 }

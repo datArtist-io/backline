@@ -6,7 +6,8 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import { gunzipSync, gzipSync } from "node:zlib";
 import type { Plan, SkillResult } from "@backline/engine";
 
-export type Sealed = { runId: string; plan: Plan; results: Record<string, SkillResult<unknown>>; at: number };
+/** final: a finished run, sealed only so follow-up questions work on any instance; never accepted as an approval. */
+export type Sealed = { runId: string; plan: Plan; results: Record<string, SkillResult<unknown>>; at: number; final?: boolean };
 
 const TTL_MS = 2 * 60 * 60_000;
 

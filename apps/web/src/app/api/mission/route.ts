@@ -26,7 +26,7 @@ import {
 import { getRun, isRunId, saveRun } from "@/lib/run-store";
 import { openRun, sealRun } from "@/lib/run-seal";
 import { localCurrency } from "@/lib/wallet";
-import { DIAL, underDailyCap } from "@/lib/demo-calls";
+import { DIAL, callsLeft, underDailyCap } from "@/lib/demo-calls";
 import { loadWallet, walletFor } from "@/lib/wallet";
 import { kycConfigured, kycFor } from "@/lib/kyc";
 import { saidOrigin } from "@/lib/origin";
@@ -120,7 +120,17 @@ export async function POST(req: Request) {
   if (session) ctx.traveller = { passport: await passportForBooking(session).catch(() => null) };
   if (session) ctx.userId = session.user.id;
   // Payments come from their Backline Wallet once it's set up (migration 0006).
-  if (session && (await loadWallet(session).catch(() => ({ ready: false }))).ready) ctx.wallet = walletFor(session);
+  // If the wallet can't be reached right now, nothing is paid automatically (fail closed): flights aren't
+  // booked and hotels get a held rate with a checkout link, so no booking goes unrecorded in the wallet.
+  if (session) {
+    const w = await loadWallet(session).catch((err) => (console.warn("[mission] wallet unreachable", err instanceof Error ? err.message : err), null));
+    if (w?.ready) ctx.wallet = walletFor(session);
+    else if (w === null) {
+      ctx.flights = null;
+      const h = ctx.hotels;
+      if (h) ctx.hotels = { name: h.name, sandbox: h.sandbox, search: h.search.bind(h), hold: h.hold.bind(h), confirm: h.confirm.bind(h) };
+    }
+  }
   // Identity checks (Persona), when configured: paid bookings need a verified traveller.
   if (session && kycConfigured()) ctx.identity = { required: true, verified: (await kycFor(session).catch(() => null))?.status === "verified" };
   // With sign-in switched on, only a signed-in person can have things bought, sent or called for them.
@@ -144,6 +154,8 @@ export async function POST(req: Request) {
           open = false;
         }
       };
+      // A first byte straight away, so the browser (and any proxy) sees the stream open while the plan is read.
+      send("ping", {});
       const ping = setInterval(() => send("ping", {}), 15_000);
       // Model and web-research calls since this mission started: timing and outcome, never content.
       const services = () => ({ llm: ctx.llm?.recentCalls(startedAt) ?? [], web: ctx.web?.recentCalls?.(startedAt) ?? [], resting: ctx.llm?.resting() ?? [] });
@@ -154,7 +166,11 @@ export async function POST(req: Request) {
       try {
         // Resume an earlier run if we still have it; otherwise plan from scratch.
         // The plan the person approved: this instance's memory, else the sealed copy they sent back.
-        const prior = isRunId(body.runId) ? (getRun(body.runId) ?? openRun(body.seal, body.runId)) : null;
+        // Whichever is newer: another instance may have re-planned it (an "Adjust") since this one saw it.
+        const mem = isRunId(body.runId) ? getRun(body.runId) : null;
+        const opened = isRunId(body.runId) ? openRun(body.seal, body.runId) : null;
+        const sealed = opened && !opened.final ? opened : null;
+        const prior = mem && sealed ? (sealed.at > mem.at ? sealed : mem) : (mem ?? sealed);
         const runId = prior && isRunId(body.runId) ? body.runId : crypto.randomUUID();
         // An approval for a plan we can't recover is never applied to a new plan: approvals carry
         // action ids, and a fresh plan could give the same id to a different restaurant or day.
@@ -176,7 +192,17 @@ export async function POST(req: Request) {
         // configured (local development), the CALL_DEMO_TO line is used instead.
         if (ctx.calls && !ctx.callsLive) {
           const own = session ? toE164(profile.phone ?? null, DIAL[(req.headers.get("x-vercel-ip-country") ?? "").toUpperCase()]) : null;
-          ctx.callDemoTo = session ? (own && underDailyCap(session.user.id) ? own : null) : supabaseConfig() ? null : ctx.callDemoTo;
+          // Checked here, but only counted when a call is actually placed: planning or approving isn't a call.
+          ctx.callDemoTo = session ? (own && callsLeft(session.user.id) ? own : null) : supabaseConfig() ? null : ctx.callDemoTo;
+          if (session && ctx.calls) {
+            const inner = ctx.calls;
+            const uid = session.user.id;
+            ctx.calls = {
+              status: inner.status.bind(inner),
+              retry: inner.retry?.bind(inner),
+              start: (call, signal) => (underDailyCap(uid) ? inner.start(call, signal) : Promise.reject(new Error("That's today's demo calls used up."))),
+            };
+          }
         }
         let plan: Plan;
         if (prior) {
@@ -340,6 +366,11 @@ export async function POST(req: Request) {
         const run = await runBrief(skills, ctx, input, (e: BriefEvent) => send(e.type, e), { stopBefore: pending.map((c) => c.before), seed });
         saveRun(runId, plan, { ...seed, ...run.results });
 
+        if (run.status !== "waiting") {
+          // Finished: sealed too, so follow-up questions work whichever server instance answers them.
+          const seal = sealRun({ runId, plan, results: { ...seed, ...run.results }, at: Date.now(), final: true });
+          if (seal) send("mission.sealed", { runId, seal });
+        }
         if (run.status === "waiting") {
           const seal = sealRun({ runId, plan, results: { ...seed, ...run.results }, at: Date.now() });
           if (seal) send("mission.sealed", { runId, seal });

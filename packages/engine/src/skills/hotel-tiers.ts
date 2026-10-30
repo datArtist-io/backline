@@ -49,7 +49,11 @@ const SYMBOLS: [RegExp, string][] = [
 export function parsePrice(note: string | null | undefined, fallbackCurrency: string): { low: number; high: number; currency: string } | null {
   if (!note) return null;
   const currency = SYMBOLS.find(([re]) => re.test(note))?.[1] ?? fallbackCurrency;
+  // Start at the first number next to a currency, so a date before it ("Nov 14-16: from €150") isn't read
+  // as the price, and skip totals ("€360 for 3 nights") so they don't stretch the nightly range.
+  const firstPriced = note.search(/(?:[€£$₦¥₹]|\b(?:EUR|GBP|USD|NGN|KES|GHS|ZAR|JPY|INR|AED)\s?)\d/i);
   const nums = [...note.matchAll(/(\d[\d,.]*)\s*(k|m)?\b/gi)]
+    .filter((m) => (firstPriced < 0 || (m.index ?? 0) >= firstPriced) && !/^\s*(?:for\s+\d+\s+nights|total|in total)/i.test(note.slice((m.index ?? 0) + m[0].length)))
     .map((m) => {
       const n = Number(m[1].replace(/,/g, ""));
       const mult = m[2]?.toLowerCase() === "k" ? 1_000 : m[2]?.toLowerCase() === "m" ? 1_000_000 : 1;

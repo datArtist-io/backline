@@ -29,6 +29,7 @@ import type {
 } from "@backline/engine";
 import type { Evidence, StepResult } from "./mission-stream";
 import { BRAND } from "./brand";
+import { hostOf } from "./host";
 
 const get = <T,>(r: Record<string, StepResult>, id: string) => r[id]?.data as T | undefined;
 
@@ -142,7 +143,7 @@ function tripReport(goal: string, results: Record<string, StepResult>): string {
 
   if (a.facts.length) {
     h("Research notes");
-    for (const f of a.facts) out.push(`- ${f.text}${f.url ? ` ([${new URL(f.url).hostname.replace(/^www\./, "")}](${f.url}))` : ""}`);
+    for (const f of a.facts) out.push(`- ${f.text}${f.url ? ` ([${hostOf(f.url)}](${f.url}))` : ""}`);
   }
 
   const steps = a.log.filter((l) => l.kind === "think" || l.kind === "saw" || l.kind === "note");

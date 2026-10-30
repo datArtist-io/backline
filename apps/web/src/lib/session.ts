@@ -24,22 +24,28 @@ export async function clearSession(): Promise<void> {
 }
 
 /** The current person, refreshing their tokens if needed, or null when signed out or sign-in isn't set up. */
-export async function getSession(): Promise<Session | null> {
+export async function getSession(opts: { refresh?: boolean } = {}): Promise<Session | null> {
   const cfg = supabaseConfig();
   if (!cfg) return null;
   const jar = await cookies();
   let accessToken = jar.get(ACCESS)?.value ?? null;
   const refreshToken = jar.get(REFRESH)?.value ?? null;
   const expiresAt = Number(jar.get(EXPIRES)?.value ?? 0);
-  if ((!accessToken || expiresAt - Date.now() < 60_000) && refreshToken) {
+  // Refresh with room to spare: a mission streams for up to five minutes on this token.
+  // Pages (server components) can't save cookies, so they never rotate the refresh token (refresh: false).
+  if (opts.refresh !== false && (!accessToken || expiresAt - Date.now() < 6 * 60_000) && refreshToken) {
     const fresh = await refreshTokens(cfg, refreshToken);
-    if (!fresh) {
+    if (fresh === "invalid") {
       await clearSession().catch(() => undefined);
       return null;
     }
-    accessToken = fresh.accessToken;
-    // Setting cookies only works in route handlers; elsewhere the refreshed token is used for this request.
-    await setSession(fresh).catch(() => undefined);
+    if (fresh === "unavailable") {
+      // Supabase didn't answer: keep them signed in on the current token if it still works.
+      if (!accessToken || expiresAt <= Date.now()) return null;
+    } else {
+      accessToken = fresh.accessToken;
+      await setSession(fresh).catch(() => undefined);
+    }
   }
   if (!accessToken) return null;
   const user = await userFor(cfg, accessToken);

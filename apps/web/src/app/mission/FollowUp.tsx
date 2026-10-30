@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 
 type Turn = { q: string; a?: string; facts?: { id: string; text: string }[]; suggest?: { mission: string; goal: string } | null; error?: string };
 
-export default function FollowUp({ runId, artist, autonomy }: { runId: string; artist: string; autonomy: "check" | "auto" }) {
+export default function FollowUp({ runId, seal, artist, autonomy }: { runId: string; seal?: string; artist: string; autonomy: "check" | "auto" }) {
   const [turns, setTurns] = useState<Turn[]>([]);
   const [q, setQ] = useState("");
   const [busy, setBusy] = useState(false);
@@ -20,7 +20,7 @@ export default function FollowUp({ runId, artist, autonomy }: { runId: string; a
     setBusy(true);
     setTurns((t) => [...t, { q: question }]);
     try {
-      const res = await fetch("/api/mission/ask", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ runId, question }) });
+      const res = await fetch("/api/mission/ask", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ runId, seal, question }) });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || "The agent couldn't answer just now.");
       setTurns((t) => t.map((x, i) => (i === t.length - 1 ? { ...x, a: data.answer, facts: data.facts, suggest: data.suggest } : x)));

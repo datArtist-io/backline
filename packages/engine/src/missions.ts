@@ -277,20 +277,21 @@ export type Plan = {
   fallbackReason?: string | null;
 };
 
+const MISSION_ALIASES: Record<string, MissionType> = { trip: "plan", travel: "plan", booking: "plan", book: "plan", event: "plan", brand: "brand_deal", brands: "brand_deal", "brand deal": "brand_deal", branddeal: "brand_deal", touring: "tour", growth: "grow" };
 const planSchema = z.object({
-  mission: z.enum(MISSION_TYPES),
-  artist: z.string().nullable(),
+  mission: z.preprocess((v) => (typeof v === "string" ? (MISSION_ALIASES[v.trim().toLowerCase()] ?? v.trim().toLowerCase()) : v), z.enum(MISSION_TYPES)),
+  artist: z.string().nullable().optional(),
   location: z.string().nullable().optional(),
   focus: z.string().nullable().optional(),
   compareWith: z.string().nullable().optional(),
   brands: z.array(z.string()).nullable().optional(),
   language: z.string().nullable().optional(),
-  selfReference: z.boolean().nullable().optional(),
-  offTopic: z.boolean().nullable().optional(),
+  selfReference: z.boolean().nullable().optional().catch(null),
+  offTopic: z.boolean().nullable().optional().catch(null),
   title: z.string().nullable().optional(),
   ack: z.string().nullable().optional(),
   reply: z.string().nullable().optional(),
-  suggestions: z.array(z.string()).nullable().optional(),
+  suggestions: z.array(z.string()).nullable().optional().catch(null),
   trip: rawTripSchema.nullable().optional(),
 });
 
