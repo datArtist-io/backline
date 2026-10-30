@@ -1243,9 +1243,13 @@ export async function finalize(
   const tripDays = t.startDate && t.endDate ? Math.max(1, Math.round((Date.parse(`${t.endDate}T12:00:00Z`) - Date.parse(`${t.startDate}T12:00:00Z`)) / 86_400_000) + 1) : 1;
   const MAX: Record<PlaceKind, number> = { stay: 5, dine: Math.max(6, Math.min(40, tripDays * 2)), venue: 4, activity: Math.max(5, Math.min(40, Math.ceil(tripDays * 1.5))) };
   const lists = {} as Record<PlaceKind, Place[]>;
+  // A hotel found again as a restaurant or a sight (Park Plaza tagged as dining) is shown once, as a stay.
+  const stayNames = new Set(byFit(s, "stay").map((p) => foldText(p.name)));
+  const notAStay = (k: PlaceKind) => (p: Place) => k === "stay" || k === "venue" || !stayNames.has(foldText(p.name));
+  for (const k of PLACE_KINDS) picks[k] = picks[k].filter((id) => { const p = s.places.get(id); return !p || notAStay(k)(p); });
   for (const k of PLACE_KINDS) {
-    const chosen = picks[k].map((id) => s.places.get(id)).filter((p): p is Place => Boolean(p));
-    const rest = byFit(s, k).filter((p) => !picks[k].includes(p.id));
+    const chosen = picks[k].map((id) => s.places.get(id)).filter((p): p is Place => Boolean(p)).filter(notAStay(k));
+    const rest = byFit(s, k).filter((p) => !picks[k].includes(p.id)).filter(notAStay(k));
     lists[k] = [...chosen, ...rest].slice(0, MAX[k]).map((p) => {
       const reason = why.get(p.id);
       return reason ? { ...p, why: [reason, ...p.why.filter((w) => w !== reason)].slice(0, 4) } : p;

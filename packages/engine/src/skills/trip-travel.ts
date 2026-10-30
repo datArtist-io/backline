@@ -295,6 +295,9 @@ export const tripTravel: Skill<BriefInput, TripTravelOutput> = {
       const shaped = shapeTravel(rawSchema.parse(raw), sources);
       // Prices in some other market's currency (MXN, BRL…) mean nothing to this traveller: keep the option, drop the price.
       shaped.options = onePerMode(shaped.options.map((o) => (o.currency && !allowed.has(o.currency) ? { ...o, priceMin: null, priceMax: null, currency: null } : o)));
+      // Over 3,000 km with a flight on offer, a train, bus or drive "route" is a curiosity, not a way to go
+      // (Lagos to London by rail across the Sahara): keep the flights.
+      if (km != null && km > 3000 && shaped.options.some((o) => o.mode === "flight")) shaped.options = shaped.options.filter((o) => o.mode === "flight" || o.mode === "other");
       if (!shaped.options.length) return fallback();
       ctx.progress?.({ kind: "saw", id: "tr.find", tool: "travel", ok: shaped.options.length > 0, text: shaped.options.length ? `${shaped.options.length} ways to get there` : "No reliable options found", ms: Date.now() - t0, by: "autopilot" });
       return {
