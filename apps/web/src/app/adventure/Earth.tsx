@@ -51,6 +51,19 @@ export type EarthProps = {
 const SAT = process.env.NEXT_PUBLIC_SATELLITE_TILES || "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}";
 const SAT_CREDIT = process.env.NEXT_PUBLIC_SATELLITE_ATTRIBUTION || "Imagery © Esri, Maxar, Earthstar Geographics";
 const VECTOR = process.env.NEXT_PUBLIC_VECTOR_TILES || "https://tiles.openfreemap.org/planet";
+/** Roughly where the viewer is, from their time zone: longitude from the UTC offset, latitude by region. */
+function homeGuess(): [number, number] | null {
+  try {
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone ?? "";
+    const lon = Math.max(-170, Math.min(170, -new Date().getTimezoneOffset() / 4));
+    const region = tz.split("/")[0];
+    const lat = ({ Africa: 6, Europe: 48, America: 25, Asia: 28, Australia: -28, Pacific: -15, Atlantic: 30, Indian: -10, Antarctica: -60 } as Record<string, number>)[region];
+    return lat == null ? null : [lon, lat];
+  } catch {
+    return null;
+  }
+}
+
 /** Trips (by page) whose plane has already flown in: the journey in plays once, even if the map is rebuilt. */
 const FLOWN = new Set<string>();
 const pageKey = () => (typeof window === "undefined" ? "" : `${window.location.pathname}${window.location.search}`);
@@ -510,7 +523,9 @@ export default function Earth(props: EarthProps) {
     const map = new maplibregl.Map({
       container: box.current,
       style: style(),
-      center: [props.destination?.lon ?? 10, (props.destination?.lat ?? 20) * 0.6],
+      // Start over where they probably are (from their clock's time zone), since the flight in starts at
+      // home: the globe then only turns a little to take off, instead of showing the destination first.
+      center: homeGuess() ?? [props.destination?.lon ?? 10, (props.destination?.lat ?? 20) * 0.6],
       zoom: gz(1.35),
       pitch: 0,
       maxPitch: 78,
@@ -897,6 +912,8 @@ export default function Earth(props: EarthProps) {
       const plane = new maplibregl.Marker({ element: pe, anchor: "center", rotationAlignment: "map", pitchAlignment: "map" }).setLngLat(pts[0]).addTo(map);
       planeRef.current = plane;
       pulse(pts[0][0], pts[0][1], "is-home");
+      // The route label waits until touch-down, so it never sits on top of the plane.
+      box.current?.classList.add("is-flying");
       const smooth = (f: number) => (f < 0.5 ? 4 * f * f * f : 1 - Math.pow(-2 * f + 2, 3) / 2);
       let ended = false;
       const step = () => {
@@ -919,6 +936,7 @@ export default function Earth(props: EarthProps) {
         else {
           ended = true;
           pulse(dest.lon, dest.lat, "is-dest");
+          box.current?.classList.remove("is-flying");
           pe.classList.add("is-landed");
           window.setTimeout(() => {
             if (planeRef.current === plane) planeRef.current = null;
@@ -1054,7 +1072,7 @@ export default function Earth(props: EarthProps) {
           if (s.orbit && !p.reduced && !map.isMoving()) map.setBearing(map.getBearing() + dt * 5);
           // Left alone in the city, the camera drifts slowly around it, like a film's establishing shot.
           else if (p.model && !p.reduced && !map.isMoving() && map.getZoom() > 10.5 && now - s.touchedAt > 9000) map.setBearing(map.getBearing() + dt * 1.6);
-          else if ((!p.destination || s.waiting) && !p.model && !s.user && !p.reduced && map.getZoom() < 3 && !map.isMoving()) map.setCenter([map.getCenter().lng + dt * 6, map.getCenter().lat]);
+          else if ((!p.destination || s.waiting) && !p.model && !s.user && !p.reduced && map.getZoom() < 3 && !map.isMoving()) map.setCenter([map.getCenter().lng + dt * (s.waiting ? 1.5 : 6), map.getCenter().lat]);
         }
       }
       s.raf = requestAnimationFrame(loop);
