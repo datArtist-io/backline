@@ -1178,3 +1178,8 @@ button:hover .ki-stop .ki-plane, .eq-card:hover .ki-stop .ki-plane { animation: 
 .eq-dock { grid-template-columns: minmax(0, 1fr); }
 .eq-dock > * { max-width: 100%; min-width: 0; }
 .eq-bar { max-width: 100%; min-width: 0; }
+
+/* Phones: the top row scrolls sideways; fade its right edge so a cut-off button reads as "more". */
+@media (max-width: 520px) {
+  .eq-top { -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 28px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 28px), transparent); padding-right: 24px; }
+}
