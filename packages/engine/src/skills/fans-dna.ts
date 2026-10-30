@@ -103,12 +103,16 @@ export const fansDna: Skill<BriefInput, FansDnaOutput> = {
     const { artist } = deps["artist.resolve"].data as ArtistResolveOutput;
 
     // These calls overlap with fans.profile and are served from the client cache.
-    const [similar, brands, movies, tv] = await Promise.all([
+    // One category failing (a rate limit, an unsupported type) shouldn't sink the whole reading.
+    const settled = await Promise.allSettled([
       ctx.qloo.insights("urn:entity:artist", { entityIds: [artist.id], take: 11 }, ctx.signal),
       ctx.qloo.insights("urn:entity:brand", { entityIds: [artist.id], take: 11 }, ctx.signal),
       ctx.qloo.insights("urn:entity:movie", { entityIds: [artist.id], take: 11 }, ctx.signal),
       ctx.qloo.insights("urn:entity:tv_show", { entityIds: [artist.id], take: 11 }, ctx.signal),
     ]);
+    if (settled.every((r) => r.status === "rejected")) throw (settled[0] as PromiseRejectedResult).reason;
+    for (const r of settled) if (r.status === "rejected") ctx.log.warn("Fan DNA: one taste category failed", { error: String(r.reason) });
+    const [similar, brands, movies, tv] = settled.map((r) => (r.status === "fulfilled" ? r.value : ([] as QlooEntity[])));
     const others = (list: QlooEntity[]) => list.filter((e) => e.id !== artist.id);
     const candidates = buildCandidates(artist, others(similar), [...others(similar), ...others(brands), ...others(movies), ...others(tv)]);
 

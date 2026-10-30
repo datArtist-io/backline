@@ -38,3 +38,15 @@ describe("keyword trip reader (model down)", () => {
     expect(t.endDate! > t.startDate!).toBe(true);
   });
 });
+
+describe("small talk (model down)", () => {
+  it("answers a greeting instead of running an artist mission on the word", () => {
+    for (const g of ["hello", "Hi there!", "testing"]) {
+      const p = keywordPlan(g);
+      expect(p.offTopic).toBe(true);
+      expect(p.artist).toBeNull();
+      expect(p.reply).toBeTruthy();
+    }
+    expect(keywordPlan("hello, plan a trip to Paris").offTopic).toBe(false);
+  });
+});

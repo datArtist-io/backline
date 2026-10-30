@@ -454,7 +454,30 @@ export function splitVersus(text: string): [string, string] | null {
   return a && b ? [a, b] : null;
 }
 
+/** Greetings and tests: answered with what Backline does, never run as a mission. */
+const SMALL_TALK = /^(?:hi|hello|hey|hiya|yo|sup|howdy|good (?:morning|afternoon|evening)|how are you|what'?s up|thanks?|thank you|test(?:ing)?|ok(?:ay)?|cool|nice|help|\?)(?:\s+(?:there|backline|again))?[\s!.?]*$/i;
+
 export function keywordPlan(text: string): Plan {
+  if (SMALL_TALK.test(text.trim())) {
+    return {
+      mission: "plan",
+      artist: null,
+      location: null,
+      focus: null,
+      compareWith: null,
+      compareBrands: null,
+      language: "English",
+      goal: text,
+      selfReference: false,
+      offTopic: true,
+      title: null,
+      ack: null,
+      reply: "Hi! Tell me where you want to go and when, and I'll plan it around your taste and book it.",
+      suggestions: ["A weekend in Lisbon from London, we love fado and seafood", "Dinner for 4 in Lagos this Friday", "3 days in Tokyo next month for our anniversary"],
+      trip: null,
+      method: "keywords",
+    };
+  }
   // "like Burna Boy would" names a star to take taste from: that's a plan, not an artist mission.
   const mission = inspiredByIn(text) ? "plan" : (KEYWORDS.find(([, re]) => re.test(text))?.[0] ?? "brief");
   let artist = guessArtist(text);
