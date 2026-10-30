@@ -333,6 +333,13 @@ function tasteOnly(src: AdventureSource): AdventureModel | null {
 export function tasteBecause(t: { signals: { name: string; from?: string }[]; tags: { name: string }[] }): string {
   const place = t.signals.find((s) => s.from === "place");
   if (place && t.signals.length === 1 && t.tags.length === 0) return `What people who love ${place.name} go for`;
-  const names = [...t.signals.map((s) => s.name), ...t.tags.map((x) => x.name)];
+  // Once each ("Nature, Nature" came from a signal and a tag with the same name).
+  const seen = new Set<string>();
+  const names = [...t.signals.map((s) => s.name), ...t.tags.map((x) => x.name)].filter((n) => {
+    const k = n.trim().toLowerCase();
+    if (!k || seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
   return names.length ? `Because you love ${names.slice(0, 4).join(", ")}` : "";
 }

@@ -3,7 +3,8 @@
 import { z } from "zod";
 import type { BriefInput, DocumentText, Profile, Skill, SkillId, SkillResult, TripRequest } from "./types";
 import type { LlmClient } from "./clients/llm";
-import { dayDate, groundTrip, normalizeTrip, rawTripSchema, weekendDates } from "./trip-request";
+import { dateRangeIn, dayDate, groundTrip, normalizeTrip, pinStatedDates, rawTripSchema, weekendDates } from "./trip-request";
+export { dateRangeIn, statedNights, pinStatedDates } from "./trip-request";
 import { documentsBlock } from "./documents";
 import { normalizeArtistName, artistResolve } from "./skills/artist-resolve";
 import { fansProfile } from "./skills/fans-profile";
@@ -300,7 +301,7 @@ export { normalizeTrip };
 const SELF = /\b(my|our|me|we|i'm|im|us|mine)\b/i;
 
 const KEYWORDS: [MissionType, RegExp][] = [
-  ["plan", /\b(trip|travel\w*|holiday|vacation|getaway|hotel\w*|book\w*|reserv\w*|restaurant\w*|dinner|lunch|brunch|party|birthday|wedding|anniversary|event|weekend|stay|honeymoon|retreat|offsite|visit\w*)\b/i],
+  ["plan", /\b(trip|travel\w*|holiday|vacation|getaway|hotel\w*|book\w*|reserv\w*|restaurant\w*|dinner|lunch|brunch|party|birthday|wedding|anniversary|event|weekend|stay|honeymoon|retreat|offsite|visit\w*|overnight|(?:\d+|one|two|three|four|five|six|seven|ten|a few|a couple of)[\s-]+(?:days?|nights?|weeks?)|a (?:week|night))\b/i],
   ["compare", /\b(vs\.?|versus|compare\w*|against|head.to.head)\b/i],
   ["brand_deal", /\b(brand|deal|sponsor\w*|partner\w*|endorse\w*|ambassador|campaign with)\b/i],
   ["tour", /\b(tour\w*|gig\w*|show\w*|concert\w*|venue\w*|live dates?|festival\w*)\b/i],
@@ -419,25 +420,6 @@ export function adultsIn(text: string): number | null {
   return /\b(we|us|our|couple|partner|wife|husband|girlfriend|boyfriend|fianc[eé]e?|bae|my friend)\b/i.test(text) ? 2 : null;
 }
 
-/** "Nov 14 to 16", "14-16 November": the check-in and check-out dates (the next such dates). Pure. */
-export function dateRangeIn(text: string, today = new Date().toISOString().slice(0, 10)): { startDate: string; endDate: string } | null {
-  const t = text.toLowerCase();
-  const a = t.match(new RegExp(`\\b(${MONTH_RE})\\s+(\\d{1,2})(?:st|nd|rd|th)?\\s*(?:to|until|till|through|-|–)\\s*(?:(${MONTH_RE})\\s+)?(\\d{1,2})(?:st|nd|rd|th)?\\b`));
-  const b = t.match(new RegExp(`\\b(\\d{1,2})(?:st|nd|rd|th)?\\s*(?:to|until|till|through|-|–)\\s*(\\d{1,2})(?:st|nd|rd|th)?\\s+(?:of\\s+)?(${MONTH_RE})`));
-  const c = t.match(new RegExp(`\\b(\\d{1,2})(?:st|nd|rd|th)?\\s+(?:of\\s+)?(${MONTH_RE})\\s*(?:to|until|till|through|-|–)\\s*(\\d{1,2})(?:st|nd|rd|th)?\\s+(?:of\\s+)?(${MONTH_RE})`));
-  let m1: number, d1: number, m2: number, d2: number;
-  if (c) [m1, d1, m2, d2] = [MONTHS.indexOf(c[2].slice(0, 3)) + 1, Number(c[1]), MONTHS.indexOf(c[4].slice(0, 3)) + 1, Number(c[3])];
-  else if (a) [m1, d1, m2, d2] = [MONTHS.indexOf(a[1].slice(0, 3)) + 1, Number(a[2]), a[3] ? MONTHS.indexOf(a[3].slice(0, 3)) + 1 : MONTHS.indexOf(a[1].slice(0, 3)) + 1, Number(a[4])];
-  else if (b) [m1, d1, m2, d2] = [MONTHS.indexOf(b[3].slice(0, 3)) + 1, Number(b[1]), MONTHS.indexOf(b[3].slice(0, 3)) + 1, Number(b[2])];
-  else return null;
-  if (!m1 || !m2 || d1 < 1 || d1 > 31 || d2 < 1 || d2 > 31) return null;
-  const iso = (y: number, m: number, d: number) => `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
-  let year = Number(today.slice(0, 4));
-  if (iso(year, m1, d1) < today) year += 1;
-  const startDate = iso(year, m1, d1);
-  const endDate = iso(m2 < m1 ? year + 1 : year, m2, d2);
-  return endDate > startDate ? { startDate, endDate } : null;
-}
 
 /** "close to the National Theatre", "near Lekki Phase 1" → the landmark. Pure. */
 export function guessNear(text: string): string | null {
@@ -454,6 +436,8 @@ export function splitVersus(text: string): [string, string] | null {
   const b = clean(m[2]);
   return a && b ? [a, b] : null;
 }
+
+const pinned = (t: TripRequest | null, text: string, today?: string) => (t ? pinStatedDates(t, text, today) : null);
 
 /** Greetings and tests: answered with what Backline does, never run as a mission. */
 const SMALL_TALK = /^(?:hi|hello|hey|hiya|yo|sup|howdy|good (?:morning|afternoon|evening)|how are you|what'?s up|thanks?|thank you|test(?:ing)?|ok(?:ay)?|cool|nice|help|\?)(?:\s+(?:there|backline|again))?[\s!.?]*$/i;
@@ -514,10 +498,10 @@ export function keywordPlan(text: string): Plan {
     suggestions: [],
     trip:
       mission === "plan"
-        ? normalizeTrip(
+        ? pinned(normalizeTrip(
             {
               destination: location,
-              ...(dateRangeIn(text) ?? { startDate: guessDate(text) }),
+              ...(dateRangeIn(text) ?? { startDate: guessDate(text) ?? dayDate(text, new Date().toISOString().slice(0, 10)) }),
               origin: originIn(text),
               adults: adultsIn(text),
               ...(() => {
@@ -532,7 +516,7 @@ export function keywordPlan(text: string): Plan {
               likes: likesIn(text),
             },
             location
-          )
+          ), text)
         : null,
     method: "keywords",
   };
@@ -702,7 +686,8 @@ export async function planGoal(
         ack: out.ack?.trim() || null,
         reply: out.reply?.trim() || null,
         suggestions: (out.suggestions ?? []).filter((x) => typeof x === "string" && x.trim()),
-        trip: out.mission === "plan" ? normalizeTrip(onCalendar(groundTrip(withStatedLikes(out.trip ?? null, goal), statedText, { near: true }), statedText, hints.today), out.location?.trim() || plan.location, hints.profile, hints.today) : null,
+        // The dates and length are pinned to what they typed ("7 days", "Nov 14 to 16"), whatever the model chose.
+        trip: out.mission === "plan" ? pinned(normalizeTrip(onCalendar(groundTrip(withStatedLikes(out.trip ?? null, goal), statedText, { near: true }), statedText, hints.today), out.location?.trim() || plan.location, hints.profile, hints.today), goal, hints.today) : null,
         goal,
         method: "model",
         fallbackReason: null,

@@ -512,3 +512,85 @@ export function localOuting(trip: TripRequest, text: string, home: string | null
     assumptions: [...trip.assumptions.filter((a) => !/night stay/i.test(a)), "It's in your own city, so no hotel: just the evening"],
   };
 }
+
+// ---------- the dates and length the person asked for ----------
+
+const MONTHS3 = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
+const MONTH_RX = "(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*";
+
+/** "Nov 14 to 16", "14-16 November": the check-in and check-out dates (the next such dates). Pure. */
+export function dateRangeIn(text: string, today = new Date().toISOString().slice(0, 10)): { startDate: string; endDate: string } | null {
+  const t = text.toLowerCase();
+  const a = t.match(new RegExp(`\\b(${MONTH_RX})\\s+(\\d{1,2})(?:st|nd|rd|th)?\\s*(?:to|until|till|through|-|–)\\s*(?:(${MONTH_RX})\\s+)?(\\d{1,2})(?:st|nd|rd|th)?\\b`));
+  const b = t.match(new RegExp(`\\b(\\d{1,2})(?:st|nd|rd|th)?\\s*(?:to|until|till|through|-|–)\\s*(\\d{1,2})(?:st|nd|rd|th)?\\s+(?:of\\s+)?(${MONTH_RX})`));
+  const c = t.match(new RegExp(`\\b(\\d{1,2})(?:st|nd|rd|th)?\\s+(?:of\\s+)?(${MONTH_RX})\\s*(?:to|until|till|through|-|–)\\s*(\\d{1,2})(?:st|nd|rd|th)?\\s+(?:of\\s+)?(${MONTH_RX})`));
+  let m1: number, d1: number, m2: number, d2: number;
+  if (c) [m1, d1, m2, d2] = [MONTHS3.indexOf(c[2].slice(0, 3)) + 1, Number(c[1]), MONTHS3.indexOf(c[4].slice(0, 3)) + 1, Number(c[3])];
+  else if (a) [m1, d1, m2, d2] = [MONTHS3.indexOf(a[1].slice(0, 3)) + 1, Number(a[2]), a[3] ? MONTHS3.indexOf(a[3].slice(0, 3)) + 1 : MONTHS3.indexOf(a[1].slice(0, 3)) + 1, Number(a[4])];
+  else if (b) [m1, d1, m2, d2] = [MONTHS3.indexOf(b[3].slice(0, 3)) + 1, Number(b[1]), MONTHS3.indexOf(b[3].slice(0, 3)) + 1, Number(b[2])];
+  else return null;
+  if (!m1 || !m2 || d1 < 1 || d1 > 31 || d2 < 1 || d2 > 31) return null;
+  const iso = (y: number, m: number, d: number) => `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+  let year = Number(today.slice(0, 4));
+  if (iso(year, m1, d1) < today) year += 1;
+  const startDate = iso(year, m1, d1);
+  const endDate = iso(m2 < m1 ? year + 1 : year, m2, d2);
+  return endDate > startDate ? { startDate, endDate } : null;
+}
+
+const COUNT: Record<string, number> = { a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10, eleven: 11, twelve: 12, thirteen: 13, fourteen: 14, "a couple of": 2, "a few": 3 };
+const COUNT_RX = "(\\d{1,2}|a couple of|a few|an?|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen)";
+const count = (w: string) => (/^\d/.test(w) ? Number(w) : (COUNT[w] ?? NaN));
+
+/**
+ * How many nights the request asks for: "3 nights" → 3, "7 days" / "a 7-day trip" → 6, "a week" → 7,
+ * "2 weeks" → 14, "overnight" → 1, "a day trip" / "one day in Rome" → 0. Null when it doesn't say.
+ * "In 3 days" (when, not how long) doesn't count. Pure.
+ */
+export function statedNights(text: string): number | null {
+  const t = ` ${text.toLowerCase().replace(/\s+/g, " ")} `;
+  // "Dinner for 4 tonight": one evening, no hotel.
+  if (LOCAL_ONLY.test(t) && !NEEDS_STAY.test(t) && /\b(tonight|today|this evening|this afternoon|tomorrow (?:night|evening))\b/.test(t)) return 0;
+  if (/(?<![\w]-)\bday[- ]trip\b|\bfor the day\b|\bsame[- ]day\b|\b(?:one|1|a|single)[- ]day (?:in|at|out|trip|visit|tour)\b|\bfor (?:one|a|1) day\b|\bspend (?:a|one|the) day\b/.test(t)) return 0;
+  const notWhen = "(?<!\\bin )(?<!\\bwithin )(?<!\\bevery )";
+  const n = t.match(new RegExp(`${notWhen}\\b${COUNT_RX}[\\s-]+nights?\\b`));
+  if (n) return Math.min(60, count(n[1]));
+  if (/\bovernight\b/.test(t)) return 1;
+  const w = t.match(new RegExp(`${notWhen}\\b${COUNT_RX}[\\s-]+weeks?\\b(?! (?:from now|later|ago|before|after|time))`));
+  if (w && !/\b(?:next|this|last) week\b/.test(w[0])) return Math.min(60, 7 * count(w[1]));
+  if (/\bweek-?long\b/.test(t)) return 7;
+  const d = t.match(new RegExp(`${notWhen}\\b(\\d{1,2}|a couple of|a few|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen)[\\s-]+days?\\b(?! (?:from now|later|ago|before|after|time|notice))`));
+  if (d) return Math.max(0, Math.min(60, count(d[1]) - 1));
+  return null;
+}
+
+const addDays = (iso: string, n: number) => new Date(Date.parse(`${iso}T12:00:00Z`) + n * 864e5).toISOString().slice(0, 10);
+
+/**
+ * The plan's dates exactly as asked: an explicit range ("Nov 14 to 16") is pinned as given, and a
+ * stated length ("7 days", "3 nights", "a day trip") sets the end from the start, whatever the model
+ * or a default chose. A day trip drops the hotel. Pure.
+ */
+export function pinStatedDates(trip: TripRequest, text: string, today = new Date().toISOString().slice(0, 10)): TripRequest {
+  const range = dateRangeIn(text, today);
+  if (range) {
+    if (trip.startDate === range.startDate && trip.endDate === range.endDate) return trip;
+    return { ...trip, ...range, assumptions: trip.assumptions.filter((a) => !/2-night stay|long weekend|No dates/i.test(a)) };
+  }
+  const nights = statedNights(text);
+  if (nights == null || !trip.startDate) return trip;
+  const endDate = addDays(trip.startDate, nights);
+  const defaulted = trip.assumptions.some((a) => /long weekend|No dates/i.test(a));
+  const assumptions = trip.assumptions.filter((a) => !/2-night stay|long weekend|No dates/i.test(a));
+  const day = new Date(`${trip.startDate}T12:00:00Z`).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" });
+  if (defaulted) assumptions.push(`No start date given, so it starts ${day}. Tell me your dates to change it`);
+  if (nights === 0) {
+    const meal = LOCAL_ONLY.test(text);
+    const needs = trip.needs.filter((n) => n !== "stay");
+    // A day out is more than a meal, unless a meal is all they asked for.
+    if (!meal && !needs.includes("activities")) needs.push("activities");
+    return { ...trip, endDate: trip.startDate, needs: needs.length ? needs : ["dine"], assumptions: [...assumptions, meal ? "Just the one outing, so no hotel" : "A day trip, so no hotel"] };
+  }
+  const needs = trip.needs.includes("stay") ? trip.needs : (["stay", ...trip.needs] as TripRequest["needs"]);
+  return { ...trip, endDate, needs, assumptions };
+}

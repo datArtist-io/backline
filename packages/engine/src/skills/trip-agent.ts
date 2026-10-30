@@ -11,7 +11,7 @@ import type { GeoHit } from "../clients/osm";
 import type { QlooEntity } from "../clients/qloo";
 import type { HotelOffer } from "../clients/hotels";
 import type { TasteOutput } from "./taste";
-import { CURRENCY_COUNTRY, describeTrip, groundTrip, rawTripSchema, tripRequestSchema, updateTrip } from "../trip-request";
+import { CURRENCY_COUNTRY, describeTrip, groundTrip, pinStatedDates, rawTripSchema, tripRequestSchema, updateTrip } from "../trip-request";
 import { documentsBlock, searchDocuments } from "../documents";
 import { webEvidence } from "../grounding";
 import { hotelScoreSchema, tierHotels, tierSchema } from "./hotel-tiers";
@@ -493,7 +493,9 @@ export function tripTools(ctx: SkillContext, s: TripAgentState): AnyTool<TripAge
     async run(a) {
       // Numbers and hosting must come from what the user said or attached, never from guesses.
       const stated = [s.input.request ?? "", ...(s.input.documents ?? []).map((d) => d.text.slice(0, 20000))].join("\n");
-      const next = updateTrip(t(), groundTrip(a, stated) ?? a, s.input.profile ?? {}, s.today);
+      const updated = updateTrip(t(), groundTrip(a, stated) ?? a, s.input.profile ?? {}, s.today);
+      // The model may "correct" the dates; the length and dates they typed always win.
+      const next = updated ? pinStatedDates(updated, s.input.request ?? "", s.today) : null;
       if (!next) throw new EngineError("Trip without destination", "That would leave the trip without a destination.");
       // "lagos" → "Lagos, Nigeria" or "theater" → "Theatre" is a clarification, not a new place:
       // keep what's pinned unless the city or country really changed.
