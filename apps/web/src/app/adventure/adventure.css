@@ -1172,3 +1172,9 @@ button:hover .ki-stop .ki-plane, .eq-card:hover .ki-stop .ki-plane { animation: 
 
 .codex-events li { line-height: 1.5; }
 .codex-fit { color: #7b5cff; font-weight: 600; }
+
+/* Long trips (30+ days): the dock's single grid column must not grow to fit every day, or the bar and the
+   card strip slide off-centre. The column is the dock's width; the days scroll inside the bar. */
+.eq-dock { grid-template-columns: minmax(0, 1fr); }
+.eq-dock > * { max-width: 100%; min-width: 0; }
+.eq-bar { max-width: 100%; min-width: 0; }
