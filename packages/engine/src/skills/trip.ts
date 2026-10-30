@@ -10,7 +10,7 @@ import { EngineError } from "../errors";
 import { mapLimit } from "../util";
 import { askedTime, dayDate, holdAskedTime } from "../trip-request";
 import { placeSchema, scorePlace, toPlace, type Place } from "./places";
-import { isArrivalStop, nameRefs, type Stop, type TripAgentOutput } from "./trip-agent";
+import { isArrivalStop, nameRefs, stayForBudget, type Stop, type TripAgentOutput } from "./trip-agent";
 import type { TripFlightsOutput } from "./flights";
 import type { TripTravelOutput, TravelOption } from "./trip-travel";
 import type { TripRoutesOutput } from "./trip-routes";
@@ -453,6 +453,12 @@ export function chooseStay(stays: Place[], stayId: string | null, trip: TripRequ
     const cap = p.offer ? stayCap(trip, p.offer.currency) : null;
     return cap == null || (p.offer?.total ?? 0) <= cap;
   };
+  // The price level they asked for ("affordable", a nightly budget) wins over a pricier planned hotel.
+  const lean = planned ? stayForBudget(trip, planned.id, stays) : null;
+  if (lean && planned && lean.id !== planned.id) {
+    const now = stays.find((p) => p.id === lean.id);
+    if (now) return { id: now.id, note: `${lean.reason}, instead of ${planned.name}.`, from: planned.id, checked: available.length };
+  }
   if (!available.length) return { id: planned?.id ?? null, note: null, from: null, checked: 0 };
   if (planned?.offer && fits(planned)) return { id: planned.id, note: `${planned.name} has rooms for your dates.`, from: null, checked: available.length };
   const best = available.filter(fits).sort((x, y) => (y.match ?? y.fit) - (x.match ?? x.fit) || y.fit - x.fit)[0];

@@ -529,8 +529,8 @@ const MAX_NIGHTS = 1095;
 const count = (w: string) => (/^\d/.test(w) ? Number(w) : (COUNT[w] ?? NaN));
 
 /**
- * How many nights the request asks for: "3 nights" → 3, "7 days" / "a 7-day trip" → 6, "a week" → 7,
- * "2 weeks" → 14, "overnight" → 1, "a day trip" / "one day in Rome" → 0. Null when it doesn't say.
+ * How many nights the request asks for: "3 nights" → 3, "7 days" / "a 7-day trip" → 6, "a week" → 6 (seven days, like "7 days"; a month is 30 days, a year 365),
+ * "2 weeks" → 13, "overnight" → 1, "a day trip" / "one day in Rome" → 0. Null when it doesn't say.
  * "In 3 days" (when, not how long) doesn't count. Pure.
  */
 export function statedNights(text: string): number | null {
@@ -543,14 +543,14 @@ export function statedNights(text: string): number | null {
   if (n) return Math.min(MAX_NIGHTS, count(n[1]));
   if (/\bovernight\b/.test(t)) return 1;
   const w = t.match(new RegExp(`${notWhen}\\b${COUNT_RX}[\\s-]+weeks?\\b(?! (?:from now|later|ago|before|after|time))`));
-  if (w && !/\b(?:next|this|last) week\b/.test(w[0])) return Math.min(MAX_NIGHTS, 7 * count(w[1]));
-  if (/\bweek-?long\b/.test(t)) return 7;
+  if (w && !/\b(?:next|this|last) week\b/.test(w[0])) return Math.min(MAX_NIGHTS, 7 * count(w[1]) - 1);
+  if (/\bweek-?long\b/.test(t)) return 6;
   // Months and years, for long stays: "6 months", "a year", "half a year", "2 years".
-  if (/\bhalf (?:a )?year\b/.test(t)) return 182;
+  if (/\bhalf (?:a )?year\b/.test(t)) return 181;
   const mo = t.match(new RegExp(`${notWhen}\\b${COUNT_RX}[\\s-]+months?\\b(?! (?:from now|later|ago|before|after|time))`));
-  if (mo && !/\b(?:next|this|last) month\b/.test(mo[0])) return Math.min(MAX_NIGHTS, Math.round(30.44 * count(mo[1])));
+  if (mo && !/\b(?:next|this|last) month\b/.test(mo[0])) return Math.min(MAX_NIGHTS, Math.round(30.44 * count(mo[1])) - 1);
   const yr = t.match(new RegExp(`${notWhen}\\b${COUNT_RX}[\\s-]+years?\\b(?! (?:from now|later|ago|before|after|time|old))`));
-  if (yr && !/\b(?:next|this|last) year\b/.test(yr[0])) return Math.min(MAX_NIGHTS, 365 * count(yr[1]));
+  if (yr && !/\b(?:next|this|last) year\b/.test(yr[0])) return Math.min(MAX_NIGHTS, 365 * count(yr[1]) - 1);
   const d = t.match(new RegExp(`${notWhen}\\b(\\d{1,4}|a couple of|a few|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen)[\\s-]+days?\\b(?! (?:from now|later|ago|before|after|time|notice))`));
   if (d) return Math.max(0, Math.min(MAX_NIGHTS, count(d[1]) - 1));
   return null;

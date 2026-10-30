@@ -2,7 +2,7 @@
 // as drafts from the places it found; the browser then asks for each remaining week here, so a trip of
 // any length (a month, a year) ends up planned day by day by the model. Answers only from the run's results.
 import { z } from "zod";
-import { createContext, writePlanWeek, type BriefInput, type Place, type TripAgentOutput } from "@backline/engine";
+import { createContext, routeDays, writePlanWeek, type BriefInput, type Place, type TripAgentOutput, type TripPlanOutput } from "@backline/engine";
 import { getRun, isRunId } from "@/lib/run-store";
 import { openRun } from "@/lib/run-seal";
 import { clientIp, rateLimiter } from "@/lib/rate-limit";
@@ -43,7 +43,11 @@ export async function POST(req: Request) {
   const input: BriefInput = { artist: "", trip: run.plan.trip ?? undefined, request: run.plan.asked ?? run.plan.goal, language: run.plan.language };
   try {
     const days = await writePlanWeek(ctx, input, run.results, body.from, used);
-    return Response.json({ from: body.from, days });
+    // The map follows the written days: routes for the new week, drawn the same way as the first pass.
+    const plan = run.results["trip.plan"]?.data as TripPlanOutput | undefined;
+    const total = plan?.days?.length ?? body.from + days.length;
+    const routes = await routeDays(ctx, agent, days.filter((d) => !d.draft).length ? days : [], body.from, total, plan?.stayId ?? null).catch(() => null);
+    return Response.json({ from: body.from, days, routes });
   } catch (err) {
     console.error("[mission/week] failed", err instanceof Error ? err.message : err);
     return fail(502, "That week couldn't be written just now.");

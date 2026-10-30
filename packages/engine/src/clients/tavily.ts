@@ -18,8 +18,8 @@ export class TavilyClient implements WebSearch {
     this.base = (config.baseUrl || "https://api.tavily.com").replace(/\/$/, "");
   }
 
-  async search(query: string, opts: { maxResults?: number; days?: number; signal?: AbortSignal } = {}): Promise<WebResult[]> {
-    const key = JSON.stringify([query, opts.maxResults, opts.days]);
+  async search(query: string, opts: { maxResults?: number; days?: number; signal?: AbortSignal; pageChars?: number } = {}): Promise<WebResult[]> {
+    const key = JSON.stringify([query, opts.maxResults, opts.days, opts.pageChars ?? 0]);
     const hit = this.cache.get(key);
     if (hit) return hit;
 
@@ -38,7 +38,7 @@ export class TavilyClient implements WebSearch {
               topic: opts.days ? "news" : "general",
               ...(opts.days ? { days: opts.days } : {}),
               include_answer: false,
-              include_raw_content: false,
+              include_raw_content: opts.pageChars ? "text" : false,
             }),
             signal: opts.signal ? AbortSignal.any([opts.signal, timeout]) : timeout,
           });
@@ -46,13 +46,13 @@ export class TavilyClient implements WebSearch {
           throw new UpstreamError("web", null, `Tavily network error: ${(err as Error).message}`);
         }
         if (!res.ok) throw new UpstreamError("web", res.status, `Tavily returned ${res.status}`);
-        const data = (await res.json()) as { results?: { title?: string; url?: string; content?: string; published_date?: string }[] };
+        const data = (await res.json()) as { results?: { title?: string; url?: string; content?: string; raw_content?: string | null; published_date?: string }[] };
         return (data.results || [])
           .filter((r) => typeof r.url === "string" && r.url.startsWith("https://"))
           .map((r) => ({
             title: (r.title || "").slice(0, 200),
             url: r.url as string,
-            content: (r.content || "").slice(0, 1500),
+            content: opts.pageChars && r.raw_content ? r.raw_content.replace(/\s+/g, " ").slice(0, opts.pageChars) : (r.content || "").slice(0, 1500),
             publishedDate: r.published_date ?? null,
           }));
       },

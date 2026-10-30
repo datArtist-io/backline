@@ -58,6 +58,7 @@ export { tripDates, writePlanWeek, MAX_TRIP_DAYS, bookingLink, mapsLink, cityLab
 export type { Place, TasteOutput, TripPlanOutput, TripAction, TripActionsOutput, TripExecuteOutput, ActionResult } from "./skills/trip";
 export type { TripAgentOutput, GeoPoint, Stop, Fact } from "./skills/trip-agent";
 export type { TripRoutesOutput } from "./skills/trip-routes";
+export { routeDays } from "./skills/trip-routes";
 export type { TripIntelOutput, DayWeather, SectionId } from "./skills/trip-intel";
 export type { TripEventsOutput, TripEvent } from "./skills/trip-events";
 export { EVENT_KINDS } from "./skills/trip-events";
@@ -102,7 +103,7 @@ export const BRIEF_SKILLS: Skill<BriefInput, unknown>[] = [
 ];
 export { readTags, ageLean, tasteZone, heatForMap, tasteHit, type TasteZone } from "./skills/taste";
 export { withMatch } from "./skills/places";
-export { likesIn } from "./missions";
+export { likesIn, suggestDestinations } from "./missions";
 export { areaName } from "./clients/osm";
 
 export type { TripTravelOutput, TravelOption, TravelMode } from "./skills/trip-travel";

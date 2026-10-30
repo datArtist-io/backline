@@ -1067,6 +1067,56 @@ async function priceHotels(ctx: SkillContext, s: TripAgentState, hotels: Place[]
   emit({ kind: "saw", id: "f.rates", tool: "check_places", ok: n > 0, text: n ? `Found listed prices for ${n} of ${hotels.length} hotels` : "No prices listed online for these hotels", ms: Date.now() - t0, by: "autopilot" });
 }
 
+/** A stay's price a night in the trip's currency, from a live offer or a listed rate. Pure. */
+function nightlyIn(p: Place, currency: string, nights: number): number | null {
+  if (p.offer && p.offer.currency === currency && !p.offer.test) return p.offer.perNight ?? p.offer.total / Math.max(1, nights);
+  if (p.rate && p.rate.currency === currency) return p.rate.perNight;
+  if (p.offer && p.offer.currency === currency) return p.offer.perNight ?? p.offer.total / Math.max(1, nights);
+  return null;
+}
+
+/**
+ * The stay the price level calls for, when the current pick doesn't fit it: the cheapest well-rated
+ * priced stay for a budget trip, a stay inside the nightly budget, or one near the typical price for a
+ * mid-range trip whose pick costs over twice that. Null when the pick already fits. Pure.
+ */
+export function stayForBudget(t: TripRequest, pickId: string | null, stays: Place[]): { id: string; reason: string } | null {
+  const nights = t.startDate && t.endDate ? Math.max(1, Math.round((Date.parse(`${t.endDate}T12:00:00Z`) - Date.parse(`${t.startDate}T12:00:00Z`)) / 86_400_000)) : 1;
+  const cur = t.budget.currency;
+  const priced = stays
+    .map((p) => ({ p, n: nightlyIn(p, cur, nights) }))
+    .filter((x): x is { p: Place; n: number } => x.n != null && x.n > 0 && (x.p.rating == null || x.p.rating >= 3.5));
+  if (priced.length < 2) return null;
+  const pick = priced.find((x) => x.p.id === pickId) ?? null;
+  const money = (n: number) => `${Math.round(n).toLocaleString("en")} ${cur}`;
+  const cap = t.budget.amount != null ? (t.budget.scope === "per_night" ? t.budget.amount : t.budget.scope === "total" ? (t.budget.amount * 0.5) / nights : null) : null;
+  if (cap != null) {
+    if (pick && pick.n <= cap) return null;
+    const inside = priced.filter((x) => x.n <= cap);
+    if (!inside.length) return null;
+    const best = inside[0];
+    return { id: best.p.id, reason: `Fits your budget at about ${money(best.n)} a night` };
+  }
+  const sorted = [...priced].sort((a, b) => a.n - b.n);
+  if (t.priceTier === 1) {
+    const cheapest = sorted[0];
+    if (pick && pick.n <= cheapest.n * 1.25) return null;
+    // Of the cheaper half, the best match (stays come best fit first).
+    const cheapHalf = sorted.slice(0, Math.max(1, Math.ceil(sorted.length / 2)));
+    const best = priced.find((x) => cheapHalf.includes(x)) ?? cheapest;
+    if (pick && best.n >= pick.n) return null;
+    return { id: best.p.id, reason: `You asked for affordable, so I chose ${best.p.name} at about ${money(best.n)} a night` };
+  }
+  if (t.priceTier === 2 && pick) {
+    const median = sorted[Math.floor(sorted.length / 2)].n;
+    if (pick.n <= median * 2) return null;
+    const best = priced.find((x) => x.n <= median * 1.3);
+    if (!best) return null;
+    return { id: best.p.id, reason: `Kept it mid-range: ${best.p.name} at about ${money(best.n)} a night` };
+  }
+  return null;
+}
+
 /** What to tell the user when the autopilot finished the job (nothing when the model simply used its turns). */
 const FALLBACK_NOTE: Record<FallbackReason, string | null> = {
   turns: null,
@@ -1130,6 +1180,16 @@ export async function finalize(
   if (arrivalMode(t) === "flight" && s.city && !hasArrival(s) && timeLeft() > 6000) jobs.push(direct(byName.get("locate"), { query: "international airport", role: "place" }, s, emit, "f.8", ctx.signal));
   await Promise.all(jobs);
 
+  // 3b. The price they asked for decides the hotel: an "affordable" trip never gets the dearest room,
+  //     and a stated budget isn't blown when a good stay inside it was found.
+  const budgetStay = stayForBudget(t, picks.stay[0] ?? null, byFit(s, "stay"));
+  if (budgetStay && budgetStay.id !== picks.stay[0]) {
+    const was = picks.stay[0] ? s.places.get(picks.stay[0]) : null;
+    picks.stay = [budgetStay.id, ...picks.stay.filter((id) => id !== budgetStay.id)];
+    why.set(budgetStay.id, budgetStay.reason);
+    s.notes.push(`${budgetStay.reason}${was ? `, instead of ${was.name}` : ""}.`);
+  }
+
   // 4. What the user sees: picks first, then the strongest alternatives.
   // Longer trips need more places to fill the days without repeating (two meals and one or two outings a day).
   const tripDays = t.startDate && t.endDate ? Math.max(1, Math.round((Date.parse(`${t.endDate}T12:00:00Z`) - Date.parse(`${t.startDate}T12:00:00Z`)) / 86_400_000) + 1) : 1;
@@ -1164,6 +1224,10 @@ export async function finalize(
   const notes = [...s.notes];
   for (const k of needed) if (lists[k].length === 0) notes.push(`I couldn't find ${KINDS[k].plural}${focusOf(s) ? ` near ${focusOf(s)!.name}` : ` in ${t.destination}`} in the map and taste data.`);
   if (t.near && !s.landmark) notes.push(`I couldn't pin ${t.near} on the map, so distances are from the city centre.`);
+  // "Kenya", "Japan": a whole country was asked for, so say which city the trip is based in.
+  const asked = foldText(t.destination.split(",")[0]);
+  if (s.city && asked && s.city.country && asked === foldText(s.city.country) && asked !== foldText(s.city.name))
+    notes.push(`${t.destination.split(",")[0].trim()} is a whole country, so I based the trip in ${s.city.name}. Name a city or region to plan somewhere else.`);
   const fallbackNote = run.usedFallback ? FALLBACK_NOTE[run.fallbackReason ?? "failures"] : null;
   if (fallbackNote) notes.push(fallbackNote);
   if (s.webDown) notes.push(`Web research wasn't available this time (${s.webDown.replace(/\.$/, "")}), so confirm prices when you book.`);

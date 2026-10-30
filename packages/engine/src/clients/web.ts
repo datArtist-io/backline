@@ -6,7 +6,14 @@ export type WebResult = { title: string; url: string; content: string; published
 export type ProviderCall = { at: number; purpose: string; model: string; ms: number; ok: boolean; status: number | null; error: string | null };
 
 /** "booking" lookups want prices and contacts (live web only); "facts" can come from reference sites. */
-export type SearchOptions = { maxResults?: number; days?: number; signal?: AbortSignal; need?: "facts" | "booking" };
+export type SearchOptions = {
+  maxResults?: number;
+  days?: number;
+  signal?: AbortSignal;
+  need?: "facts" | "booking";
+  /** Read the pages themselves, up to this many characters each (providers that can; others ignore it). */
+  pageChars?: number;
+};
 
 export interface WebSearch {
   readonly provider: string;
