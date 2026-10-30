@@ -484,11 +484,13 @@ export default function Earth(props: EarthProps) {
   const journeyRef = useRef<Marker | null>(null);
   // The plane that flies the arc on the way in.
   const planeRef = useRef<Marker | null>(null);
+  // The globe waited once for home to be known; after that, an unknown home just lands.
+  const waitedRef = useRef(false);
   const [credit, setCredit] = useState("");
   const markers = useRef(new Map<string, { m: Marker; el: HTMLElement }>());
   const live = useRef(props);
   live.current = props;
-  const state = useRef({ loaded: false, introAt: -1, introDone: false, introFor: "", originFor: "", user: false, orbit: false, touchedAt: 0, bearing: 0, raf: 0, last: 0, dwell: 0, nextStop: 0, playDay: -2, trailAt: 0 });
+  const state = useRef({ loaded: false, introAt: -1, introDone: false, introFor: "", introDest: null as { lat: number; lon: number } | null, flown: false, waiting: 0, originFor: "", user: false, orbit: false, touchedAt: 0, bearing: 0, raf: 0, last: 0, dwell: 0, nextStop: 0, playDay: -2, trailAt: 0 });
 
   // Space views are framed for a laptop; on a phone the whole globe sits inside the screen with
   // its atmosphere showing, instead of a cropped ball filling the width.
@@ -799,11 +801,26 @@ export default function Earth(props: EarthProps) {
     const dest = p.destination ?? (p.model ? { name: p.model.city, lat: p.model.center.lat, lon: p.model.center.lon } : null);
     if (!map || !s.loaded || !dest) return;
     s.introFor = `${dest.lat.toFixed(2)},${dest.lon.toFixed(2)}`;
+    s.introDest = { lat: dest.lat, lon: dest.lon };
     s.introAt = performance.now();
     s.originFor = p.origin ? `${p.origin.lat.toFixed(2)},${p.origin.lon.toFixed(2)}` : "";
     s.user = false;
     const arc = map.getSource("arc") as GeoJSONSource;
     const from = p.origin && kmBetween(p.origin, dest) > 150 ? p.origin : null;
+    // Where they're flying from is usually known a few seconds after the destination. Keep the globe
+    // turning gently until then, so the journey is one flight, not a spin in, a jump out and a flight.
+    if (s.waiting) {
+      window.clearTimeout(s.waiting);
+      s.waiting = 0;
+    }
+    if (!from && !p.reduced && !s.flown && !p.model && !waitedRef.current) {
+      s.waiting = window.setTimeout(() => {
+        s.waiting = 0;
+        waitedRef.current = true;
+        intro();
+      }, 7000);
+      return;
+    }
     const land = () => {
       s.introDone = true;
       if (live.current.model && (live.current.model.nodes.length || live.current.model.heat.length)) overview(4200);
@@ -816,18 +833,31 @@ export default function Earth(props: EarthProps) {
     }
     s.introDone = false;
     if (from) {
+      s.flown = true;
       const path = greatCircle(from, dest);
       const far = kmBetween(from, dest);
-      map.jumpTo({ center: [from.lon, from.lat], zoom: gz(far > 4000 ? 1.6 : 2.6), pitch: 0, bearing: 0 });
+      // Turn the globe to home (no cut), then fly.
+      const lead = map.getZoom() < 5 ? 1300 : 0;
+      if (lead) map.easeTo({ center: [from.lon, from.lat], zoom: gz(far > 4000 ? 1.6 : 2.6), pitch: 0, bearing: 0, duration: lead, easing: (x) => 1 - Math.pow(1 - x, 3) });
+      else map.jumpTo({ center: [from.lon, from.lat], zoom: gz(far > 4000 ? 1.6 : 2.6), pitch: 0, bearing: 0 });
+      window.setTimeout(() => takeOff(path, far), lead);
+    } else {
+      arc.setData(fc([]));
+      map.easeTo({ center: [dest.lon, dest.lat], zoom: gz(3), pitch: 0, bearing: 0, duration: 2600 });
+      window.setTimeout(land, 2700);
+    }
+
+    function takeOff(path: ReturnType<typeof greatCircle>, far: number) {
+      if (!map || !dest) return;
       const t0 = performance.now();
-      const dur = 3800;
+      const dur = 4200;
       const mid = path[Math.floor(path.length / 2)];
       map.easeTo({ center: mid, zoom: gz(far > 4000 ? 1.45 : 2.4), duration: dur * 0.5, easing: (x) => x });
       window.setTimeout(() => map.easeTo({ center: [dest.lon, dest.lat], zoom: gz(far > 4000 ? 2.6 : 3.6), duration: dur * 0.5, easing: (x) => 1 - (1 - x) * (1 - x) }), dur * 0.5);
       planeRef.current?.remove();
       const pe = document.createElement("div");
       pe.className = "eq-plane-pin";
-      pe.innerHTML = `<div class="eq-plane"><svg viewBox="0 0 24 24" width="30" height="30" aria-hidden="true"><path d="M12 1.6c.9 0 1.5 1.1 1.5 2.4v5.3l8 4.7v2.2l-8-2.4v4.8l2.6 2v1.7L12 21.2l-4.1 1.1v-1.7l2.6-2v-4.8l-8 2.4V14l8-4.7V4c0-1.3.6-2.4 1.5-2.4z" fill="currentColor"/></svg></div>`;
+      pe.innerHTML = `<div class="eq-plane"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M12 1.6c.9 0 1.5 1.1 1.5 2.4v5.3l8 4.7v2.2l-8-2.4v4.8l2.6 2v1.7L12 21.2l-4.1 1.1v-1.7l2.6-2v-4.8l-8 2.4V14l8-4.7V4c0-1.3.6-2.4 1.5-2.4z" fill="currentColor"/></svg></div>`;
       const plane = new maplibregl.Marker({ element: pe, anchor: "center", rotationAlignment: "map", pitchAlignment: "map" }).setLngLat(path[0] as [number, number]).addTo(map);
       planeRef.current = plane;
       const heading = (a: number[], b: number[]) => {
@@ -855,11 +885,6 @@ export default function Earth(props: EarthProps) {
         }
       };
       requestAnimationFrame(step);
-    } else {
-      arc.setData(fc([]));
-      map.jumpTo({ center: [dest.lon - 70, dest.lat * 0.5], zoom: gz(1.4), pitch: 0, bearing: 0 });
-      map.easeTo({ center: [dest.lon, dest.lat], zoom: gz(3), duration: 2600 });
-      window.setTimeout(land, 2700);
     }
   };
 
@@ -868,7 +893,7 @@ export default function Earth(props: EarthProps) {
     const back = () => {
       const map = mapRef.current;
       const s = state.current;
-      if (document.visibilityState !== "visible" || !map || !s.loaded || s.user || !s.introFor) return;
+      if (document.visibilityState !== "visible" || !map || !s.loaded || s.user || !s.introFor || s.waiting) return;
       if (map.getZoom() < 7 && !map.isMoving() && performance.now() - s.introAt > 9000) {
         s.introDone = true;
         const p = live.current;
@@ -893,9 +918,11 @@ export default function Earth(props: EarthProps) {
     const dest = props.destination ?? (props.model ? { lat: props.model.center.lat, lon: props.model.center.lon } : null);
     const key = dest ? `${dest.lat.toFixed(2)},${dest.lon.toFixed(2)}` : "";
     const originKey = props.origin ? `${props.origin.lat.toFixed(2)},${props.origin.lon.toFixed(2)}` : "";
-    if (key && s.loaded && s.introFor !== key) intro();
-    // Home became known after we'd landed: replay the journey in, unless they're exploring.
-    else if (key && s.loaded && originKey && s.originFor !== originKey && !s.user && !props.selectedId && !props.play) intro();
+    // A destination refined by a few km (the quick guess, then the agent's pin) isn't a new journey.
+    const moved = dest && (!s.introDest || kmBetween({ name: "", ...s.introDest }, { name: "", ...dest }) > 60);
+    if (key && s.loaded && s.introFor !== key && (moved || (!s.flown && !s.introDone && !s.waiting))) intro();
+    // Home became known: fly in from there, once, unless they're already exploring.
+    else if (key && s.loaded && originKey && s.originFor !== originKey && !s.flown && !s.user && !props.selectedId && !props.play) intro();
     // Only re-frame when the places themselves changed, not on every re-render of the same plan.
     else if (props.model && s.introDone && !s.user && !props.selectedId && !props.play && framedSig.current !== modelSig) overview(2600);
     framedSig.current = modelSig;
@@ -925,6 +952,8 @@ export default function Earth(props: EarthProps) {
   }, [props.selectedId, props.hoverId, props.activeDay, props.showTaste, props.look, props.weather.kind, props.weather.hour]);
 
   useEffect(() => {
+    // Replaying the way in never waits for home: what's known now is what flies.
+    if (props.introKey > 0) waitedRef.current = true;
     if (state.current.loaded) intro();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [props.introKey]);
@@ -982,7 +1011,7 @@ export default function Earth(props: EarthProps) {
           if (s.orbit && !p.reduced && !map.isMoving()) map.setBearing(map.getBearing() + dt * 5);
           // Left alone in the city, the camera drifts slowly around it, like a film's establishing shot.
           else if (p.model && !p.reduced && !map.isMoving() && map.getZoom() > 10.5 && now - s.touchedAt > 9000) map.setBearing(map.getBearing() + dt * 1.6);
-          else if (!p.destination && !p.model && !s.user && !p.reduced && map.getZoom() < 3 && !map.isMoving()) map.setCenter([map.getCenter().lng + dt * 6, map.getCenter().lat]);
+          else if ((!p.destination || s.waiting) && !p.model && !s.user && !p.reduced && map.getZoom() < 3 && !map.isMoving()) map.setCenter([map.getCenter().lng + dt * 6, map.getCenter().lat]);
         }
       }
       s.raf = requestAnimationFrame(loop);
