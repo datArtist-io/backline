@@ -211,7 +211,7 @@ export async function POST(req: Request) {
           plan = await planGoal(
             ctx.llm,
             body.goal?.trim() || body.artist?.trim() || "Plan this for me using the attached document.",
-            { artist: body.artist, location: body.location, mission: body.mission, profile, today: body.today, documents },
+            { artist: body.artist, location: body.location, mission: body.mission, profile, today: body.today, documents, dayFirst: (req.headers.get("x-vercel-ip-country") ?? "").toUpperCase() !== "US" },
             req.signal
           );
           // Where they're travelling from, so getting there, fares and the journey in are never blank:

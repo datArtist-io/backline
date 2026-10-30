@@ -53,6 +53,7 @@ export type { TripFlightsOutput } from "./skills/flights";
 export { DuffelClient } from "./clients/duffel";
 export { UberClient, cheapestFare } from "./clients/uber";
 export { LiteApiProvider } from "./clients/liteapi";
+export { readWhen, readTime, easter } from "./when";
 export { tripDates, writePlanWeek, MAX_TRIP_DAYS, bookingLink, mapsLink, cityLabel, ACTION_LIMITS, callInstructions, bookingRef } from "./skills/trip";
 export type { Place, TasteOutput, TripPlanOutput, TripAction, TripActionsOutput, TripExecuteOutput, ActionResult } from "./skills/trip";
 export type { TripAgentOutput, GeoPoint, Stop, Fact } from "./skills/trip-agent";
