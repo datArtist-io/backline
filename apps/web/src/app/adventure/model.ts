@@ -1,7 +1,7 @@
 // The adventure map's data layer: turns what the agent found (places, the plan, the routes, the
 // person's Qloo taste, the field guide) into a small "world" the 3D scene and the HUD both read.
 // Pure and framework-free, so it's unit-tested without a browser.
-import type { Place, TasteOutput, TripAgentOutput, TripIntelOutput, TripPlanOutput, TripTravelOutput, TripRoutesOutput } from "@backline/engine";
+import type { Place, TasteOutput, TripAgentOutput, TripEventsOutput, TripIntelOutput, TripPlanOutput, TripTravelOutput, TripRoutesOutput } from "@backline/engine";
 
 export type NodeKind = "stay" | "dine" | "venue" | "activity" | "landmark" | "stop";
 
@@ -76,6 +76,8 @@ export type AdventureModel = {
   taste: { signals: string[]; because: string; vibes: string[]; scenes: string[]; dishes: string[]; audience: string | null; alsoLoved: string[] } | null;
   intel: TripIntelOutput | null;
   travel: TripTravelOutput | null;
+  /** What's on during the trip, ranked by taste. */
+  events: TripEventsOutput | null;
   summary: string | null;
   stats: { places: number; picked: number; km: number; match: number | null; xp: number; days: number };
 };
@@ -88,6 +90,7 @@ export type AdventureSource = {
   taste?: TasteOutput | null;
   intel?: TripIntelOutput | null;
   travel?: TripTravelOutput | null;
+  events?: TripEventsOutput | null;
   sample?: boolean;
   /** Where the trip goes, known before the agent's places (for the early, taste-only world). */
   destination?: { name: string; lat: number; lon: number } | null;
@@ -274,6 +277,7 @@ export function buildAdventure(src: AdventureSource): AdventureModel | null {
       : null,
     intel: src.intel ?? null,
     travel: src.travel ?? null,
+    events: src.events ?? null,
     summary: plan?.summary ?? a.summary ?? null,
     stats: {
       places: nodes.filter((n) => n.place).length,
@@ -324,6 +328,7 @@ function tasteOnly(src: AdventureSource): AdventureModel | null {
     taste: taste.signals.length || taste.tags.length || taste.vibes.length ? { signals: [...taste.signals.map((s) => s.name), ...taste.tags.map((t) => t.name)].slice(0, 6), because: tasteBecause(taste), vibes: taste.vibes, scenes: taste.scenes, dishes: taste.dishes, audience: taste.audience, alsoLoved: taste.alsoLoved.map((x) => x.name).slice(0, 4) } : null,
     intel: src.intel ?? null,
     travel: src.travel ?? null,
+    events: src.events ?? null,
     summary: null,
     stats: { places: 0, picked: 0, km: 0, match: null, xp: 0, days: 0 },
   };

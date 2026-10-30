@@ -34,6 +34,7 @@ import type {
   TripAgentOutput,
   TripExecuteOutput,
   TripPlanOutput,
+  TripEventsOutput,
   TripRoutesOutput,
   TasteOutput,
   TripFlightsOutput,
@@ -985,6 +986,7 @@ function TripGame({
   const taste = r<TasteOutput>("trip.taste")?.data;
   const intel = r<TripIntelOutput>("trip.intel")?.data ?? null;
   const travel = r<TripTravelOutput>("trip.travel")?.data ?? null;
+  const events = r<TripEventsOutput>("trip.events")?.data ?? null;
   const intelStep = steps.find((s) => s.id === "trip.intel");
   const actionsOut = r<TripActionsOutput>("trip.actions")?.data;
   const execOut = r<TripExecuteOutput>("trip.execute")?.data ?? null;
@@ -1002,7 +1004,7 @@ function TripGame({
     () => (cityName != null && cityLat != null && cityLon != null ? { name: cityName, lat: cityLat, lon: cityLon } : toName != null && toLat != null && toLon != null ? { name: toName, lat: toLat, lon: toLon } : guess),
     [cityName, cityLat, cityLon, toName, toLat, toLon, guess]
   );
-  const model = useMemo(() => buildAdventure({ title: goal, agent, plan, routes, taste, intel, travel, destination }), [goal, agent, plan, routes, taste, intel, travel, destination]);
+  const model = useMemo(() => buildAdventure({ title: goal, agent, plan, routes, taste, intel, travel, events, destination }), [goal, agent, plan, routes, taste, intel, travel, events, destination]);
   const reach = useMemo(() => {
     const out: Record<string, Reach> = {};
     const aff = new Map((model?.nodes ?? []).map((n) => [n.id, n.affinity ?? n.match ?? null]));

@@ -1162,3 +1162,13 @@ button:hover .ki-stop .ki-plane, .eq-card:hover .ki-stop .ki-plane { animation: 
 .ck-row.on .ck-tick::after { content: ""; position: absolute; inset: 0; margin: 0; width: auto; height: auto; border: 0; transform: none; background: center / 12px 12px no-repeat url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.4 6.3l2.3 2.3 4.9-5' fill='none' stroke='%23fff' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); animation: cktick .3s cubic-bezier(.2, 1.4, .4, 1) both; }
 @keyframes cktick { from { opacity: 0; transform: scale(.4); } }
 @media (prefers-reduced-motion: reduce) { .ck-tick, .ck-row.on .ck-tick::after { transition: none; animation: none; } }
+
+/* Close buttons stay in reach however far a panel is scrolled. */
+.eq-sheet > .eq-x { position: sticky; top: 0; float: right; margin: -12px -14px 0 12px; z-index: 6; }
+.ck-head { position: relative; }
+.ck-x { position: absolute; top: 14px; right: 14px; z-index: 3; display: grid; place-items: center; width: 34px; height: 34px; border: 0; border-radius: 50%; font-size: 20px; line-height: 1; color: #14171c; background: rgba(20, 23, 28, 0.06); cursor: pointer; transition: transform 0.3s, background 0.2s; }
+.ck-x:hover { background: rgba(20, 23, 28, 0.12); transform: rotate(90deg); }
+.ck-head .eyebrow, .ck-head .cp-title { padding-right: 44px; }
+
+.codex-events li { line-height: 1.5; }
+.codex-fit { color: #7b5cff; font-weight: 600; }

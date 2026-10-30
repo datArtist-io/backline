@@ -450,6 +450,14 @@ export function ActionsCheckpoint({
   onConfirm: (ids: string[], profile: Profile) => void;
 }) {
   const [picked, setPicked] = useState<string[]>(() => actions.filter((a) => a.recommended).map((a) => a.id));
+  // Escape closes the slip, wherever it's scrolled to.
+  const lookRef = useRef(onLook);
+  lookRef.current = onLook;
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && lookRef.current?.();
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
   const [me, setMe] = useState<Profile>({ name: profile.name, email: profile.email, phone: profile.phone });
   // Signed in: their account's name and email fill any gaps, so they never type what we already know.
   useEffect(() => {
@@ -510,9 +518,15 @@ export function ActionsCheckpoint({
     return "";
   };
   const body = (
-    <div className="ck-scrim" role="presentation">
+    <div className="ck-scrim" role="presentation" onClick={(e) => e.target === e.currentTarget && !busy && onLook?.()}>
       <section className="lg checkpoint ck" role="dialog" aria-modal="true" aria-labelledby="cp-actions">
         <header className="ck-head">
+          {/* Always in reach: the header stays put while the list scrolls. */}
+          {onLook && (
+            <button type="button" className="ck-x" onClick={onLook} aria-label="Close the payment slip">
+              ×
+            </button>
+          )}
           <p className="eyebrow">Your payment slip</p>
           <h2 id="cp-actions" className="cp-title">Approve the whole trip?</h2>
           <p className="muted">{priced.length ? `Everything the trip needs, paid in one tap from your Backline Wallet, with a receipt for each.` : "Here's everything I'll take care of."}</p>
