@@ -1005,8 +1005,19 @@ button:hover .ki-stop .ki-plane, .eq-card:hover .ki-stop .ki-plane { animation: 
 
 /* The plane on the way in (rotation lives on the marker, the look on the inner element). */
 .eq-plane-pin { pointer-events: none; z-index: 4; }
-.eq-plane { color: #fff; filter: drop-shadow(0 2px 6px rgba(20, 30, 60, .55)) drop-shadow(0 0 10px rgba(188, 214, 255, .8)); transition: opacity .8s ease, transform .8s ease; }
-.eq-plane-pin.is-landed .eq-plane { opacity: 0; transform: scale(.4); }
+.eq-plane-pin { --alt: 0; position: relative; }
+/* Altitude: the plane grows a little at cruise and its shadow falls away below it. */
+.eq-plane { position: relative; line-height: 0; color: #fff; transform: scale(calc(1 + var(--alt) * .28)); filter: drop-shadow(0 2px 6px rgba(20, 30, 60, .55)) drop-shadow(0 0 10px rgba(188, 214, 255, .8)); transition: opacity .8s ease; }
+.eq-plane-shadow { position: absolute; left: 50%; top: 50%; width: 16px; height: 16px; margin: -8px 0 0 -8px; border-radius: 50%; background: radial-gradient(closest-side, rgba(8, 14, 30, .45), transparent); transform: translate(calc(var(--alt) * 9px), calc(var(--alt) * 14px)) scale(calc(1 - var(--alt) * .35)); opacity: calc(.85 - var(--alt) * .45); pointer-events: none; }
+.eq-plane-pin.is-landed .eq-plane { opacity: 0; transform: scale(.4); transition: opacity .8s ease, transform .8s ease; }
+.eq-plane-pin.is-landed .eq-plane-shadow { opacity: 0; transition: opacity .5s ease; }
+/* Take-off and touch-down: a soft ring that spreads and fades. */
+.eq-pulse { width: 14px; height: 14px; border-radius: 50%; pointer-events: none; position: relative; }
+.eq-pulse::before, .eq-pulse::after { content: ""; position: absolute; inset: 0; border-radius: 50%; border: 2px solid rgba(188, 214, 255, .95); box-shadow: 0 0 14px rgba(188, 214, 255, .7); animation: eq-pulse 2.2s cubic-bezier(.2, .7, .3, 1) forwards; }
+.eq-pulse::after { animation-delay: .45s; }
+.eq-pulse.is-dest::before, .eq-pulse.is-dest::after { border-color: #ffd27a; box-shadow: 0 0 16px rgba(255, 210, 122, .75); }
+@keyframes eq-pulse { 0% { transform: scale(.4); opacity: 1; } 100% { transform: scale(5.5); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .eq-pulse::before, .eq-pulse::after { animation: none; opacity: 0; } }
 
 /* ---- Wallet, refined: card and controls side by side, a balance that always fits ---- */
 .wl-top { display: grid; gap: 20px; align-items: stretch; }
