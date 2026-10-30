@@ -301,7 +301,7 @@ export { normalizeTrip };
 const SELF = /\b(my|our|me|we|i'm|im|us|mine)\b/i;
 
 const KEYWORDS: [MissionType, RegExp][] = [
-  ["plan", /\b(trip|travel\w*|holiday|vacation|getaway|hotel\w*|book\w*|reserv\w*|restaurant\w*|dinner|lunch|brunch|party|birthday|wedding|anniversary|event|weekend|stay|honeymoon|retreat|offsite|visit\w*|overnight|(?:\d+|one|two|three|four|five|six|seven|ten|a few|a couple of)[\s-]+(?:days?|nights?|weeks?)|a (?:week|night))\b/i],
+  ["plan", /\b(trip|travel\w*|holiday|vacation|getaway|hotel\w*|book\w*|reserv\w*|restaurant\w*|dinner|lunch|brunch|party|birthday|wedding|anniversary|event|weekend|stay|honeymoon|retreat|offsite|visit\w*|overnight|(?:\d+|one|two|three|four|five|six|seven|ten|a few|a couple of)[\s-]+(?:days?|nights?|weeks?|months?|years?)|a (?:week|night|month|year)|half a year)\b/i],
   ["compare", /\b(vs\.?|versus|compare\w*|against|head.to.head)\b/i],
   ["brand_deal", /\b(brand|deal|sponsor\w*|partner\w*|endorse\w*|ambassador|campaign with)\b/i],
   ["tour", /\b(tour\w*|gig\w*|show\w*|concert\w*|venue\w*|live dates?|festival\w*)\b/i],

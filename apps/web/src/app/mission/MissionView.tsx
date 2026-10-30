@@ -222,6 +222,62 @@ export default function MissionView(props: { goal?: string; artist?: string; mis
     saveTrip<Snap>(here(), { planned, steps, results, checkpoints, status, seal: sealRef.current, adjusted });
   }, [planned, steps, results, checkpoints, status, adjusted]);
 
+  // Long trips (a month, a year): the first pass plans what it can in time and leaves later weeks as drafts
+  // from the places found. Once the plan settles, each draft week is written by the model here, one at a
+  // time, so every day of a trip of any length ends up properly planned.
+  const [writingWeek, setWritingWeek] = useState<{ from: number; to: number; total: number } | null>(null);
+  const [weekTick, setWeekTick] = useState(0);
+  const weekFails = useRef<Record<string, number>>({});
+  useEffect(() => {
+    if (status !== "done" && status !== "waiting") return;
+    const runId = planned?.runId;
+    const plan = results["trip.plan"]?.data as TripPlanOutput | undefined;
+    if (!runId || !plan?.days?.length) return;
+    const from = plan.days.findIndex((d, i) => d.draft && (weekFails.current[`${runId}:${i}`] ?? 0) < 2 && (i === 0 || !plan.days[i - 1].draft || i % 7 === 0));
+    if (from < 0) {
+      setWritingWeek(null);
+      return;
+    }
+    const key = `${runId}:${from}`;
+    let live = true;
+    const c = new AbortController();
+    const usedIds = [...new Set(plan.days.slice(0, from).flatMap((d) => d.items.map((it) => it.placeId)).filter((x): x is string => Boolean(x)))].slice(-120);
+    setWritingWeek({ from, to: Math.min(plan.days.length, from + 7), total: plan.days.length });
+    fetch("/api/mission/week", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ runId, seal: sealRef.current?.runId === runId ? sealRef.current.seal : undefined, from, usedIds }),
+      signal: c.signal,
+    })
+      .then((res) => (res.ok ? res.json() : Promise.reject(new Error(String(res.status)))))
+      .then((j: { from: number; days: TripPlanOutput["days"] }) => {
+        if (!live) return;
+        const fresh = (j.days ?? []).filter((d) => !d.draft);
+        if (!fresh.length) throw new Error("week not written");
+        setResults((prev) => {
+          const cur = prev["trip.plan"];
+          if (!cur) return prev;
+          const data = cur.data as TripPlanOutput;
+          const days = data.days.slice();
+          j.days.forEach((d, i) => {
+            const at = j.from + i;
+            if (days[at] && !d.draft) days[at] = { ...d, date: days[at].date ?? d.date, draft: false };
+          });
+          return { ...prev, "trip.plan": { ...cur, data: { ...data, days } } };
+        });
+      })
+      .catch((err) => {
+        if (!live || (err instanceof DOMException && err.name === "AbortError")) return;
+        weekFails.current[key] = (weekFails.current[key] ?? 0) + 1;
+        // Try again shortly (a rate limit or a slow model); after two misses that week stays a draft.
+        setTimeout(() => setWeekTick((n) => n + 1), 4000);
+      });
+    return () => {
+      live = false;
+      c.abort();
+    };
+  }, [status, results, planned?.runId, weekTick]);
+
   /** Re-plan with the person's changes, keeping research and Qloo picks; stops at the booking step again. */
   const adjust = () => {
     const p = plannedRef.current;
@@ -460,6 +516,11 @@ export default function MissionView(props: { goal?: string; artist?: string; mis
         />
         {bookOpen && checkpoints.length > 0 && cpNodes}
         <Preferences open={prefsOpen} onClose={() => setPrefsOpen(false)} />
+        {writingWeek && (
+          <p className="week-writing" role="status">
+            Writing days {writingWeek.from + 1}–{writingWeek.to} of {writingWeek.total}…
+          </p>
+        )}
       </>
     );
   }
