@@ -549,6 +549,17 @@ export function tripTools(ctx: SkillContext, s: TripAgentState): AnyTool<TripAge
     label: (a) => (a.role === "city" ? `Pinning ${a.query} on the map` : a.role === "landmark" ? `Finding ${a.query} on the map` : `Looking up ${a.query}`),
     async run(a) {
       if (a.role === "city") {
+        // The city is the destination only. Pinning where they travel from (or anywhere else once the
+        // destination is pinned) would move every search there: a Nairobi trip planned in Lagos.
+        const dest = t().destination;
+        const isDest = !dest || saidIn(a.query, dest) || saidIn(dest, a.query.split(",")[0]);
+        const isOrigin = Boolean(t().origin) && saidIn(a.query, t().origin!) && !isDest;
+        if (isOrigin || (s.city && !isDest)) {
+          return {
+            observation: `${a.query} isn't the destination (${dest}${isOrigin ? `; it's where they travel from, and the journey there is handled separately` : ""}). The destination stays pinned at ${s.city?.display ?? dest}. To change the destination, use update_trip first.`,
+            summary: `Kept the trip in ${s.city?.name ?? dest}`,
+          };
+        }
         // Searches started in the same turn wait on this, so they have a point to measure from.
         const pin = (async (): Promise<ToolOutput> => {
           const hits = await findOnMap(ctx, a.query, null, null, "city");
