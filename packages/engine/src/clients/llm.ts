@@ -13,7 +13,7 @@ import { withRetry } from "../util";
 
 export type ModelTier = "fast" | "default" | "strong";
 
-type Config = {
+export type LlmConfig = {
   apiKey: string;
   baseUrl: string;
   models: { default: string; fast?: string; strong?: string };
@@ -98,7 +98,7 @@ export class LlmClient {
   private readonly strikes = new Map<ModelTier, { n: number; first: number }>();
   private readonly restedUntil = new Map<ModelTier, number>();
 
-  constructor(private readonly config: Config) {
+  constructor(private readonly config: LlmConfig) {
     if (!config.apiKey || !config.models.default) throw new Error("LlmClient requires an API key and a default model");
     this.base = config.baseUrl.replace(/\/$/, "");
   }

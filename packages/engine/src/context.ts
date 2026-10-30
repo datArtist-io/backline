@@ -2,7 +2,8 @@
 // fails loudly and early, not halfway through a mission.
 import { z } from "zod";
 import { QlooClient } from "./clients/qloo";
-import { LlmClient } from "./clients/llm";
+import { LlmClient, type LlmConfig } from "./clients/llm";
+import { FailoverLlm } from "./clients/llm-failover";
 import { TavilyClient } from "./clients/tavily";
 import { ResendSender, type EmailSender } from "./clients/email";
 import { VapiCaller, type CallPlacer } from "./clients/calls";
@@ -25,6 +26,15 @@ const envSchema = z.object({
   LLM_MODEL: z.string().optional(),
   LLM_MODEL_FAST: z.string().optional(),
   LLM_MODEL_STRONG: z.string().optional(),
+  // Backup providers, tried in order when the first one fails (out of credit, bad key, rate limit, timeout).
+  LLM2_API_KEY: z.string().optional(),
+  LLM2_BASE_URL: z.string().url().default("https://api.groq.com/openai/v1"),
+  LLM2_MODEL: z.string().optional(),
+  LLM2_MODEL_FAST: z.string().optional(),
+  LLM3_API_KEY: z.string().optional(),
+  LLM3_BASE_URL: z.string().url().default("https://api.groq.com/openai/v1"),
+  LLM3_MODEL: z.string().optional(),
+  LLM3_MODEL_FAST: z.string().optional(),
   /** Optional JSON merged into every model request, e.g. {"chat_template_kwargs":{"enable_thinking":false}}. */
   LLM_EXTRA_BODY: z.string().optional(),
   TAVILY_API_KEY: z.string().optional(),
@@ -101,6 +111,16 @@ function pickWebSearch(e: EngineEnv, claude: ClaudeSearchClient | null): WebSear
   return new ChainedWebSearch([...keyed, new WikiSearchClient({ userAgent: ua })]);
 }
 
+/** The model providers in the order they're tried: LLM_*, then LLM2_*, then LLM3_*. One alone is a plain client. */
+function buildLlm(e: EngineEnv): LlmClient | null {
+  const configs: LlmConfig[] = [];
+  if (e.LLM_API_KEY && e.LLM_MODEL) configs.push({ apiKey: e.LLM_API_KEY, baseUrl: e.LLM_BASE_URL, models: { default: e.LLM_MODEL, fast: e.LLM_MODEL_FAST, strong: e.LLM_MODEL_STRONG }, extraBody: parseExtraBody(e.LLM_EXTRA_BODY) });
+  if (e.LLM2_API_KEY && e.LLM2_MODEL) configs.push({ apiKey: e.LLM2_API_KEY, baseUrl: e.LLM2_BASE_URL, models: { default: e.LLM2_MODEL, fast: e.LLM2_MODEL_FAST } });
+  if (e.LLM3_API_KEY && e.LLM3_MODEL) configs.push({ apiKey: e.LLM3_API_KEY, baseUrl: e.LLM3_BASE_URL, models: { default: e.LLM3_MODEL, fast: e.LLM3_MODEL_FAST } });
+  if (configs.length === 0) return null;
+  return configs.length === 1 ? new LlmClient(configs[0]) : new FailoverLlm(configs);
+}
+
 /** What the agent can actually do on the user's behalf in this deployment. */
 export function capabilities(env: Record<string, string | undefined>): { email: boolean; calls: boolean; web: boolean; maps: boolean } {
   const e = readEnv(env);
@@ -134,6 +154,14 @@ export function createContext(env: Record<string, string | undefined>, opts: { l
     e.LLM_MODEL_FAST,
     e.LLM_MODEL_STRONG,
     e.LLM_EXTRA_BODY,
+    e.LLM2_API_KEY?.slice(-6),
+    e.LLM2_BASE_URL,
+    e.LLM2_MODEL,
+    e.LLM2_MODEL_FAST,
+    e.LLM3_API_KEY?.slice(-6),
+    e.LLM3_BASE_URL,
+    e.LLM3_MODEL,
+    e.LLM3_MODEL_FAST,
     e.MAPS,
     Boolean(e.TAVILY_API_KEY),
     Boolean(e.ANTHROPIC_API_KEY),
@@ -155,10 +183,7 @@ export function createContext(env: Record<string, string | undefined>, opts: { l
       rates: claude,
       key,
       qloo: new QlooClient({ apiKey: e.QLOO_API_KEY, baseUrl: e.QLOO_API_URL }),
-      llm:
-        e.LLM_API_KEY && e.LLM_MODEL
-          ? new LlmClient({ apiKey: e.LLM_API_KEY, baseUrl: e.LLM_BASE_URL, models: { default: e.LLM_MODEL, fast: e.LLM_MODEL_FAST, strong: e.LLM_MODEL_STRONG }, extraBody: parseExtraBody(e.LLM_EXTRA_BODY) })
-          : null,
+      llm: buildLlm(e),
       web: pickWebSearch(e, claude),
       email: e.RESEND_API_KEY && e.ACTIONS_FROM_EMAIL ? new ResendSender({ apiKey: e.RESEND_API_KEY, from: e.ACTIONS_FROM_EMAIL }) : null,
       calls: e.VAPI_API_KEY && e.VAPI_PHONE_NUMBER_ID ? new VapiCaller({ apiKey: e.VAPI_API_KEY, phoneNumberId: e.VAPI_PHONE_NUMBER_ID, model: e.VAPI_MODEL }) : null,

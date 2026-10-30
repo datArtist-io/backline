@@ -3,6 +3,7 @@ export * from "./errors";
 export { QlooClient } from "./clients/qloo";
 export type { QlooEntity, QlooTag, InsightType, InsightParams, DemographicsRow, HeatPoint } from "./clients/qloo";
 export { LlmClient, extractJson } from "./clients/llm";
+export { FailoverLlm } from "./clients/llm-failover";
 export type { ModelTier } from "./clients/llm";
 export { TavilyClient } from "./clients/tavily";
 export type { WebResult, WebSearch, ProviderCall } from "./clients/web";
