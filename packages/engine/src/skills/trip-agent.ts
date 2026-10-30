@@ -1133,7 +1133,7 @@ export async function finalize(
   // 4. What the user sees: picks first, then the strongest alternatives.
   // Longer trips need more places to fill the days without repeating (two meals and one or two outings a day).
   const tripDays = t.startDate && t.endDate ? Math.max(1, Math.round((Date.parse(`${t.endDate}T12:00:00Z`) - Date.parse(`${t.startDate}T12:00:00Z`)) / 86_400_000) + 1) : 1;
-  const MAX: Record<PlaceKind, number> = { stay: 5, dine: Math.max(6, Math.min(20, tripDays * 2)), venue: 4, activity: Math.max(5, Math.min(20, Math.ceil(tripDays * 1.5))) };
+  const MAX: Record<PlaceKind, number> = { stay: 5, dine: Math.max(6, Math.min(40, tripDays * 2)), venue: 4, activity: Math.max(5, Math.min(40, Math.ceil(tripDays * 1.5))) };
   const lists = {} as Record<PlaceKind, Place[]>;
   for (const k of PLACE_KINDS) {
     const chosen = picks[k].map((id) => s.places.get(id)).filter((p): p is Place => Boolean(p));

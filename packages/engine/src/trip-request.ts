@@ -539,7 +539,9 @@ export function dateRangeIn(text: string, today = new Date().toISOString().slice
 }
 
 const COUNT: Record<string, number> = { a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10, eleven: 11, twelve: 12, thirteen: 13, fourteen: 14, "a couple of": 2, "a few": 3 };
-const COUNT_RX = "(\\d{1,2}|a couple of|a few|an?|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen)";
+const COUNT_RX = "(\\d{1,4}|a couple of|a few|an?|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen)";
+/** Longest stay read from a request: three years. */
+const MAX_NIGHTS = 1095;
 const count = (w: string) => (/^\d/.test(w) ? Number(w) : (COUNT[w] ?? NaN));
 
 /**
@@ -554,13 +556,19 @@ export function statedNights(text: string): number | null {
   if (/(?<![\w]-)\bday[- ]trip\b|\bfor the day\b|\bsame[- ]day\b|\b(?:one|1|a|single)[- ]day (?:in|at|out|trip|visit|tour)\b|\bfor (?:one|a|1) day\b|\bspend (?:a|one|the) day\b/.test(t)) return 0;
   const notWhen = "(?<!\\bin )(?<!\\bwithin )(?<!\\bevery )";
   const n = t.match(new RegExp(`${notWhen}\\b${COUNT_RX}[\\s-]+nights?\\b`));
-  if (n) return Math.min(60, count(n[1]));
+  if (n) return Math.min(MAX_NIGHTS, count(n[1]));
   if (/\bovernight\b/.test(t)) return 1;
   const w = t.match(new RegExp(`${notWhen}\\b${COUNT_RX}[\\s-]+weeks?\\b(?! (?:from now|later|ago|before|after|time))`));
-  if (w && !/\b(?:next|this|last) week\b/.test(w[0])) return Math.min(60, 7 * count(w[1]));
+  if (w && !/\b(?:next|this|last) week\b/.test(w[0])) return Math.min(MAX_NIGHTS, 7 * count(w[1]));
   if (/\bweek-?long\b/.test(t)) return 7;
-  const d = t.match(new RegExp(`${notWhen}\\b(\\d{1,2}|a couple of|a few|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen)[\\s-]+days?\\b(?! (?:from now|later|ago|before|after|time|notice))`));
-  if (d) return Math.max(0, Math.min(60, count(d[1]) - 1));
+  // Months and years, for long stays: "6 months", "a year", "half a year", "2 years".
+  if (/\bhalf (?:a )?year\b/.test(t)) return 182;
+  const mo = t.match(new RegExp(`${notWhen}\\b${COUNT_RX}[\\s-]+months?\\b(?! (?:from now|later|ago|before|after|time))`));
+  if (mo && !/\b(?:next|this|last) month\b/.test(mo[0])) return Math.min(MAX_NIGHTS, Math.round(30.44 * count(mo[1])));
+  const yr = t.match(new RegExp(`${notWhen}\\b${COUNT_RX}[\\s-]+years?\\b(?! (?:from now|later|ago|before|after|time|old))`));
+  if (yr && !/\b(?:next|this|last) year\b/.test(yr[0])) return Math.min(MAX_NIGHTS, 365 * count(yr[1]));
+  const d = t.match(new RegExp(`${notWhen}\\b(\\d{1,4}|a couple of|a few|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen)[\\s-]+days?\\b(?! (?:from now|later|ago|before|after|time|notice))`));
+  if (d) return Math.max(0, Math.min(MAX_NIGHTS, count(d[1]) - 1));
   return null;
 }
 

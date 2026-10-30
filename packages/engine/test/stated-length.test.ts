@@ -54,3 +54,19 @@ describe("long trips", () => {
     expect(templatePlan(trip, [place("s1", "stay")], [place("d1", "dine")], [], dates, { activities: [place("a1", "activity")] }).days).toHaveLength(14);
   });
 });
+
+describe("trips of any length", () => {
+  it.each([
+    ["365 days in Japan", 364],
+    ["a year in London", 365],
+    ["6 months in Bali", 183],
+    ["2 years in Canada", 730],
+    ["I'm 30 years old, weekend in Accra", null],
+  ])("%s → %s nights", (text, nights) => {
+    expect(statedNights(text)).toBe(nights);
+  });
+  it("has a date for every day of a year-long trip", async () => {
+    const t = (await planGoal(null, "365 days in Japan", { today: TODAY })).trip!;
+    expect(tripDates(t.startDate, t.endDate)).toHaveLength(365);
+  });
+});
