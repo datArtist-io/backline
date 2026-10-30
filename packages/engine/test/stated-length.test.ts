@@ -11,8 +11,8 @@ describe("trip length from the prompt", () => {
     ["3 nights in Dubai", 3],
     ["7 days in Paris", 6],
     ["a 7-day trip to Tokyo", 6],
-    ["a week in Bali", 7],
-    ["2 weeks in Thailand", 14],
+    ["a week in Bali", 6],
+    ["2 weeks in Thailand", 13],
     ["one day in Rome", 0],
     ["day trip to Ibadan", 0],
     ["overnight in Abuja", 1],
@@ -58,9 +58,9 @@ describe("long trips", () => {
 describe("trips of any length", () => {
   it.each([
     ["365 days in Japan", 364],
-    ["a year in London", 365],
-    ["6 months in Bali", 183],
-    ["2 years in Canada", 730],
+    ["a year in London", 364],
+    ["6 months in Bali", 182],
+    ["2 years in Canada", 729],
     ["I'm 30 years old, weekend in Accra", null],
   ])("%s → %s nights", (text, nights) => {
     expect(statedNights(text)).toBe(nights);

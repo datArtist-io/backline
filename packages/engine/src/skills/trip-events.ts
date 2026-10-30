@@ -138,13 +138,13 @@ export function shapeEvents(raw: z.infer<typeof rawSchema>, sources: WebResult[]
     .map((e, i) => ({ ...e, id: `e${i + 1}` }));
 }
 
-async function search(ctx: SkillContext, q: string): Promise<WebResult[]> {
+async function search(ctx: SkillContext, q: string, pageChars?: number): Promise<WebResult[]> {
   if (!ctx.web) return [];
   const ac = new AbortController();
   const stop = () => ac.abort();
   ctx.signal?.addEventListener("abort", stop);
   try {
-    return await withTimeout(ctx.web.search(q, { maxResults: 6, need: "booking", signal: ac.signal }), 30_000, "events search");
+    return await withTimeout(ctx.web.search(q, { maxResults: pageChars ? 4 : 6, need: "booking", signal: ac.signal, pageChars }), 30_000, "events search");
   } catch (err) {
     ac.abort();
     ctx.log.warn("events search failed", { error: String(err).slice(0, 160) });
@@ -159,7 +159,8 @@ export const tripEvents: Skill<BriefInput, TripEventsOutput> = {
   title: "Finding what's on while you're there",
   dependsOn: ["trip.agent"],
   optionalDeps: ["trip.taste"],
-  timeoutMs: 80_000,
+  // Two passes at most: search snippets, then (when they give few dated events) the listing pages themselves.
+  timeoutMs: 110_000,
   output: eventsOutput,
   async run(ctx, input, deps) {
     const a = agentOf(deps);
@@ -199,8 +200,9 @@ export const tripEvents: Skill<BriefInput, TripEventsOutput> = {
       ctx.progress?.({ kind: "saw", id: "ev.find", tool: "events", ok: true, text: `${listings.length} event listings to browse`, ms: Date.now() - t0, by: "autopilot" });
       return { data: { city, from, to, events: [], listings, gaps: [] }, evidence: listings.map((l) => webEvidence(sources.find((s) => s.url === l.url)!)), notes: [] };
     }
-    try {
-      const raw = await ctx.llm.json({
+    const llm = ctx.llm;
+    const read = async (srcs: WebResult[]) => {
+      const raw = await llm.json({
         tier: "default",
         schema: rawSchema,
         maxTokens: 3000,
@@ -221,9 +223,35 @@ export const tripEvents: Skill<BriefInput, TripEventsOutput> = {
           languageRule(input),
           'Shape: {"events":[{"name":"…","kind":"concert","date":"2026-11-05","endDate":null,"time":"20:00","venue":"…","price":"from CA$45","why":"…","fit":0.9,"source":"w3"}]}',
         ].join("\n"),
-        user: [`City: ${city}`, `Dates: ${from} to ${to}`, "", quoteWeb(sources)].join("\n"),
+        user: [`City: ${city}`, `Dates: ${from} to ${to}`, "", quoteWeb(srcs)].join("\n"),
       });
-      const events = shapeEvents(rawSchema.parse(raw), sources, from, to);
+      return shapeEvents(rawSchema.parse(raw), srcs, from, to);
+    };
+    try {
+      let events = await read(sources);
+      // Search snippets often name a listing page without its dates (common outside big ticketing markets).
+      // Then read the listing pages themselves, so the trip still gets real dated events.
+      if (events.length < 4 && Date.now() - t0 < 45_000) {
+        ctx.progress?.({ kind: "act", id: "ev.read", tool: "events", text: `Reading event listings for ${place}`, by: "autopilot" });
+        const pages = (await Promise.all([search(ctx, `${place} upcoming events ${when}`, 6000), search(ctx, `${place} concerts and shows ${when}`, 6000)])).flat();
+        const seenPage = new Set<string>();
+        const fresh = pages.filter((p) => (seenPage.has(p.url) ? false : (seenPage.add(p.url), true))).slice(0, 6);
+        if (fresh.length) {
+          const more = await read(fresh).catch(() => [] as TripEvent[]);
+          const all = new Map<string, TripEvent>();
+          for (const e of [...events, ...more]) {
+            const key = `${e.name.toLowerCase().replace(/[^a-z0-9]/g, "")}|${e.date}`;
+            if (!all.has(key)) all.set(key, e);
+          }
+          events = [...all.values()]
+            .sort((x, y) => y.fit - x.fit || x.date.localeCompare(y.date))
+            .slice(0, 24)
+            .sort((x, y) => x.date.localeCompare(y.date) || (x.time ?? "99").localeCompare(y.time ?? "99"))
+            .map((e, i) => ({ ...e, id: `e${i + 1}` }));
+          sources.push(...fresh.filter((p) => !sources.some((s) => s.url === p.url)));
+        }
+        ctx.progress?.({ kind: "saw", id: "ev.read", tool: "events", ok: fresh.length > 0, text: fresh.length ? `Read ${fresh.length} listing pages` : "No listing pages to read", ms: Date.now() - t0, by: "autopilot" });
+      }
       ctx.progress?.({ kind: "saw", id: "ev.find", tool: "events", ok: true, text: events.length ? `${events.length} events on during your trip` : "No dated events found; listings to browse", ms: Date.now() - t0, by: "autopilot" });
       const used = new Set(events.map((e) => e.url));
       return {

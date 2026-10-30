@@ -251,7 +251,7 @@ export default function MissionView(props: { goal?: string; artist?: string; mis
       signal: c.signal,
     })
       .then((res) => (res.ok ? res.json() : Promise.reject(new Error(String(res.status)))))
-      .then((j: { from: number; days: TripPlanOutput["days"] }) => {
+      .then((j: { from: number; days: TripPlanOutput["days"]; routes?: TripRoutesOutput["days"] | null }) => {
         if (!live) return;
         const fresh = (j.days ?? []).filter((d) => !d.draft);
         if (!fresh.length) throw new Error("week not written");
@@ -264,7 +264,23 @@ export default function MissionView(props: { goal?: string; artist?: string; mis
             const at = j.from + i;
             if (days[at] && !d.draft) days[at] = { ...d, date: days[at].date ?? d.date, draft: false };
           });
-          return { ...prev, "trip.plan": { ...cur, data: { ...data, days } } };
+          const next: typeof prev = { ...prev, "trip.plan": { ...cur, data: { ...data, days } } };
+          // Redraw the map's routes for the days just written, so they match the new plan.
+          const rt = prev["trip.routes"];
+          const newRoutes = (j.routes ?? []).filter((r) => days[r.index] && !j.days[r.index - j.from]?.draft);
+          if (rt && newRoutes.length) {
+            const rdata = rt.data as TripRoutesOutput;
+            const rdays = rdata.days.slice();
+            for (const r of newRoutes) {
+              const at = rdays.findIndex((x) => x.index === r.index);
+              const merged = { ...r, date: days[r.index].date ?? r.date };
+              if (at >= 0) rdays[at] = merged;
+              else rdays.push(merged);
+            }
+            rdays.sort((x, y) => x.index - y.index);
+            next["trip.routes"] = { ...rt, data: { ...rdata, days: rdays } };
+          }
+          return next;
         });
       })
       .catch((err) => {

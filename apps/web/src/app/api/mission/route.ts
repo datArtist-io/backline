@@ -14,6 +14,7 @@ import {
   normalizeArtistName,
   pendingCheckpoints,
   planGoal,
+  suggestDestinations,
   runBrief,
   sanitizeSelections,
   type BriefEvent,
@@ -259,6 +260,12 @@ export async function POST(req: Request) {
           return;
         }
         if (plan.mission === "plan" && !plan.trip) {
+          // No destination named ("somewhere warm", "good weather in December"): suggest a few that fit.
+          const ideas = await suggestDestinations(ctx.llm, body.goal ?? plan.goal, { origin: profile.homeCity?.trim() || cityFromRequest(req), today: body.today, signal: req.signal });
+          if (ideas) {
+            send("mission.reply", { message: ideas.message, suggestions: ideas.suggestions, plan });
+            return;
+          }
           send("mission.needs", {
             field: "destination",
             message: "Where to? Add when and for how many people if you know.",

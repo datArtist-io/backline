@@ -182,6 +182,52 @@ async function roundTrip(ctx: SkillContext, a: TripAgentOutput, input: BriefInpu
   }
 }
 
+/**
+ * Routes for days written after the first pass (a long trip's later weeks), so the map follows the
+ * newly written days instead of the drafts. Same rules as the skill: roads while they answer, else estimates.
+ */
+export async function routeDays(
+  ctx: SkillContext,
+  a: TripAgentOutput,
+  days: TripPlanOutput["days"],
+  from: number,
+  total: number,
+  stayId: string | null
+): Promise<TripRoutesOutput["days"]> {
+  const located = locatedPlaces(a);
+  const where = [a.where.city?.countryCode, a.where.city?.display, a.trip.destination].filter(Boolean).join(" ");
+  const hotelId = stayId ?? a.picks.stays[0] ?? null;
+  const until = Date.now() + 20_000;
+  let roadsOk = true;
+  const out: TripRoutesOutput["days"] = [];
+  for (const [k, d] of days.entries()) {
+    const i = from + k;
+    const stops = dayStops(d, i, total, located, hotelId);
+    if (stops.length < 2) {
+      out.push({ index: i, date: d.date, label: d.label, stops, legs: [], path: stops.map((s) => [s.lat, s.lon]), km: 0, minutes: 0, directions: null });
+      continue;
+    }
+    const road = roadsOk && Date.now() < until ? await roadRoute(ctx, stops) : null;
+    if (!road) roadsOk = false;
+    const legs = withRides(road?.legs ?? estimateLegs(stops), stops, where);
+    const currency = legs.find((l) => l.ride)?.ride?.currency;
+    const priced = legs.filter((l) => l.ride && l.ride.currency === currency);
+    out.push({
+      index: i,
+      date: d.date,
+      label: d.label,
+      stops,
+      legs,
+      path: road?.path ?? stops.map((s) => [s.lat, s.lon]),
+      km: Math.round(legs.reduce((sum, l) => sum + l.km, 0) * 10) / 10,
+      minutes: legs.reduce((sum, l) => sum + l.minutes, 0),
+      directions: directionsUrl(stops),
+      rides: priced.length ? { low: priced.reduce((n, l) => n + l.ride!.low, 0), high: priced.reduce((n, l) => n + l.ride!.high, 0), currency: priced[0].ride!.currency, count: priced.length } : null,
+    });
+  }
+  return out;
+}
+
 export const tripRoutes: Skill<BriefInput, TripRoutesOutput> = {
   id: "trip.routes",
   title: "Mapping your routes",

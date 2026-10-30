@@ -3,7 +3,7 @@
 import { z } from "zod";
 import type { BriefInput, DocumentText, Profile, Skill, SkillId, SkillResult, TripRequest } from "./types";
 import type { LlmClient } from "./clients/llm";
-import { dateRangeIn, dayDate, groundTrip, normalizeTrip, pinStatedDates, rawTripSchema, weekendDates } from "./trip-request";
+import { dateRangeIn, dayDate, groundTrip, saidIn, normalizeTrip, pinStatedDates, rawTripSchema, weekendDates } from "./trip-request";
 export { dateRangeIn, statedNights, pinStatedDates } from "./trip-request";
 import { documentsBlock } from "./documents";
 import { normalizeArtistName, artistResolve } from "./skills/artist-resolve";
@@ -331,10 +331,13 @@ const NOT_PLACE = /^(?:plan|book|reserve|go|get|be|do|have|make|see|find|the|a|a
 /** First plausible place name after "to/in/across…": short, not a verb phrase. Pure. */
 export function guessLocation(text: string): string | null {
   // "to" only counts as a place for travel ("trip to Lagos"), not for goals ("a deal to grow").
-  const preps = /\b(trip|travel\w*|visit\w*|fly\w*|going|go|headed|heading)\b/i.test(text) ? "in|across|around|through|to" : "in|across|around|through";
+  const preps = /\b(trip|travel\w*|visit\w*|fly\w*|going|go|headed|heading)\b/i.test(text) ? "in|across|around|through|to|visit|visiting|explore|exploring" : "in|across|around|through";
   const re = new RegExp(`\\b(?:${preps})\\s+([\\p{L}][\\p{L}\\p{M} ,.'’-]{1,60}?)(?=[.?!;]|,\\s+(?:and|then|so|but|i)\\b|$|\\s+(?:on|at|by|from|for|with|and|via|like|inspired|close|near|next|this|today|tomorrow|tonight|soon|in \\d|the \\d|\\d|(?:in\\s+)?(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*(?:\\s+\\d+)?|(?:early|mid|late)[\\s-])\\b)`, "giu");
   for (const m of text.matchAll(re)) {
-    const cand = m[1].trim().replace(/,$/, "");
+    // "to visit Kenya" → Kenya; "visit my mum in Accra" → Accra.
+    let cand = m[1].trim().replace(/,$/, "").replace(/^(?:visit|visiting|explore|exploring|see)\s+/i, "");
+    const inner = cand.match(/\b(?:in|to)\s+([\p{L}][\p{L}\p{M} .'’-]*)$/iu);
+    if (inner) cand = inner[1].trim();
     if (!NOT_PLACE.test(cand) && cand.split(/\s+/).length <= 4) return cand;
   }
   return null;
@@ -439,7 +442,19 @@ export function splitVersus(text: string): [string, string] | null {
   return a && b ? [a, b] : null;
 }
 
-const pinned = (t: TripRequest | null, text: string, today?: string, dayFirst?: boolean) => (t ? pinStatedDates(t, text, today, { dayFirst }) : null);
+const pinned = (t: TripRequest | null, text: string, today?: string, dayFirst?: boolean) => (t ? statedTier(pinStatedDates(t, text, today, { dayFirst }), text) : null);
+
+const CHEAP = /\b(cheap|cheapest|affordable|budget|inexpensive|low[- ]cost|backpack\w*|on a shoestring|not too expensive)\b/i;
+const LUXE = /\b(luxury|luxurious|5[- ]star|five[- ]star|high[- ]end|upscale|splurge|lavish|premium)\b/i;
+/** "Affordable hotels", "a luxury weekend": the price level they said wins over a mid-range default. Pure. */
+export function statedTier(t: TripRequest, text: string): TripRequest {
+  if (t.budget.amount != null) return t;
+  const cheap = CHEAP.test(text) && !/\bbudget (?:of|is|around|about)\b|\b(?:my|our|a) budget\b/i.test(text);
+  const tier = cheap ? 1 : LUXE.test(text) ? 4 : null;
+  if (!tier || t.priceTier === tier) return t;
+  const assumptions = t.assumptions.filter((a) => !/aimed mid-range/i.test(a));
+  return { ...t, priceTier: tier, assumptions };
+}
 
 /** Greetings and tests: answered with what Backline does, never run as a mission. */
 const SMALL_TALK = /^(?:hi|hello|hey|hiya|yo|sup|howdy|good (?:morning|afternoon|evening)|how are you|what'?s up|thanks?|thank you|test(?:ing)?|ok(?:ay)?|cool|nice|help|\?)(?:\s+(?:there|backline|again))?[\s!.?]*$/i;
@@ -706,6 +721,10 @@ export async function planGoal(
   if (plan.mission === "plan") {
     plan.artist = null;
     if (!plan.trip) plan.trip = normalizeTrip({ destination: hints.location ?? plan.location }, hints.location ?? plan.location, hints.profile, hints.today);
+    // "Somewhere with good weather in December": the model chose the place, so say so.
+    const dest = plan.trip?.destination?.split(",")[0]?.trim();
+    if (plan.trip && dest && !hints.documents?.length && !hints.location && !saidIn(goal, plan.trip.destination))
+      plan.trip.assumptions = [...plan.trip.assumptions, `You didn't name a place, so I chose ${dest} for what you asked. Name a city to plan somewhere else`];
   } else plan.trip = null;
   if (hints.artist?.trim()) plan.artist = hints.artist.trim();
   if (hints.location?.trim()) plan.location = hints.location.trim();
@@ -750,4 +769,54 @@ export async function planGoal(
 export function missionSteps(type: MissionType): { id: string; title: string; dependsOn: string[]; checkpoint: string | null }[] {
   const cps = MISSIONS[type].checkpoints;
   return missionSkills(type).map((s) => ({ id: s.id, title: s.title, dependsOn: s.dependsOn, checkpoint: cps.find((c) => c.before === s.id)?.id ?? null }));
+}
+
+const ideasSchema = z.object({
+  message: z.string().nullable().optional().catch(null),
+  ideas: z.array(z.object({ place: z.string(), why: z.string().nullable().optional().catch(null), request: z.string() })).default([]).catch([]),
+});
+
+/**
+ * "Somewhere warm for the weekend", "good weather in December": no destination named, so suggest a few
+ * that fit (season, where they travel from, what they asked for), each a full request they can run as is.
+ * Returns null when there's no model or nothing usable came back.
+ */
+export async function suggestDestinations(
+  llm: LlmClient | null | undefined,
+  goal: string,
+  opts: { origin?: string | null; today?: string; signal?: AbortSignal } = {}
+): Promise<{ message: string; suggestions: string[] } | null> {
+  if (!llm) return null;
+  const today = opts.today ?? new Date().toISOString().slice(0, 10);
+  try {
+    const out = await llm.json({
+      tier: "default",
+      schema: ideasSchema,
+      maxTokens: 900,
+      temperature: 0.4,
+      timeoutMs: 25_000,
+      signal: opts.signal,
+      purpose: "destination ideas",
+      system: [
+        "You are a travel agent. The person asked for a trip without naming where. Suggest exactly 3 real destinations (City, Country) that fit what they asked.",
+        `Today is ${today}. Judge weather and season for the dates they mean (this weekend, a named month, else the next few weeks): only suggest places that really are warm, dry or in season then.`,
+        opts.origin ? `They travel from ${opts.origin}: prefer places reachable for their trip length (a weekend means a short trip from there).` : "Prefer places that suit the trip length they gave.",
+        "Vary them (not three beach towns in one country). why is one short line on why it fits (weather then, mood, what they asked for).",
+        "request is their own request rewritten with the destination named, keeping their length, dates, people, budget and tastes exactly, e.g. \"A relaxing weekend in Zanzibar, Tanzania, somewhere warm\". Under 140 characters.",
+        "message is one friendly sentence introducing the three, saying what you judged by (e.g. the weather that weekend). No question marks needed; they'll tap one.",
+        'Shape: {"message":"…","ideas":[{"place":"Zanzibar, Tanzania","why":"…","request":"…"}]}',
+      ].join("\n"),
+      user: goal.slice(0, 600),
+    });
+    const ideas = out.ideas
+      .map((i) => ({ place: i.place.trim().slice(0, 80), why: (i.why ?? "").trim().slice(0, 140), request: i.request.replace(/\s+/g, " ").trim().slice(0, 160) }))
+      .filter((i) => i.place && i.request)
+      .slice(0, 3);
+    if (ideas.length < 2) return null;
+    const lines = ideas.map((i) => `${i.place}${i.why ? `: ${i.why}` : ""}`).join(". ");
+    const message = `${(out.message ?? "").trim() || "A few places that fit what you asked for:"} ${lines}. Tap one to plan it, or tell me where you have in mind.`.slice(0, 700);
+    return { message, suggestions: ideas.map((i) => i.request) };
+  } catch {
+    return null;
+  }
 }

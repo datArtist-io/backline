@@ -71,6 +71,9 @@ export type KindSpec = {
 const LODGING_NAME = /\b(hotel|resort|club\s*&\s*spa|lodge|inn|hostel|guest ?house|suites|villas?|apartments?|bungalows?|b&b|boutique hotel|intercontinental|ihg|hilton|marriott|sheraton|radisson|hyatt|novotel|ibis|four seasons|ritz[- ]carlton|westin|holiday inn|best western|pullman|sofitel|kempinski|m[oö]venpick|fairmont|sheraton|swiss[oô]tel|le m[eé]ridien)\b/i;
 /** Names that are a hotel's restaurant or a real sight, kept even with "hotel" or "resort" in them. */
 const NOT_JUST_LODGING = /\b(restaurant|grill|kitchen|bistro|caf[eé]|eatery|bar|dining|rooftop|museum|park|gallery|market|monument|tower|shrine|fort|tour|spice farm)\b/i;
+/** Somewhere to eat, not a thing to do: kept out of "things to do" so a day isn't two dinners and a lunch. */
+const EATERY_NAME = /\b(restaurant|ristorante|trattoria|brasserie|bistro|steak ?house|grill|eatery|diner|kitchen|caf[eé]|coffee|bakery|pizzeria|sushi|ramen|taqueria|canteen|buka|suya spot)\b/i;
+const SIGHT_NAME = /\b(museum|park|gallery|market|monument|tower|shrine|temple|fort|castle|palace|garden|beach|zoo|aquarium|theatre|theater|tour|cruise|farm|centre|center|reserve|forest|waterfront|square|cathedral|church|mosque)\b/i;
 
 export const KINDS: Record<PlaceKind, KindSpec> = {
   stay: { label: "hotel", plural: "hotels", qlooTag: "hotel", tagMatch: /hotel|lodging/i, nameWords: /hotel|suites|resort|inn\b|lodge|apartment|guest ?house|hostel/i, nearKm: 5, cityKm: 10 },
@@ -341,6 +344,7 @@ export async function searchNear(ctx: SkillContext, s: NearSearch): Promise<Near
     .filter((p) => p.distanceKm == null || p.distanceKm <= s.radiusKm * 1.25)
     // A hotel or resort isn't a restaurant or a thing to do (Qloo and the map tag many of them as both).
     .filter((p) => s.kind === "stay" || s.kind === "venue" || !LODGING_NAME.test(p.name) || NOT_JUST_LODGING.test(p.name))
+    .filter((p) => s.kind !== "activity" || !EATERY_NAME.test(p.name) || SIGHT_NAME.test(p.name))
     .map((p) => scorePlace(p, { priceTier: s.priceTier, dietary: s.kind === "dine" ? s.dietary : undefined, tasteBased: s.signals.length + (s.tagSignals?.length ?? 0) > 0, nearBonus: s.nearBonus, query: s.query, tasteLabel: s.tasteLabel }))
     .sort((a, b) => b.fit - a.fit)
     .slice(0, take);
