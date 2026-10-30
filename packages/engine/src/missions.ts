@@ -330,7 +330,7 @@ const NOT_PLACE = /^(?:plan|book|reserve|go|get|be|do|have|make|see|find|the|a|a
 export function guessLocation(text: string): string | null {
   // "to" only counts as a place for travel ("trip to Lagos"), not for goals ("a deal to grow").
   const preps = /\b(trip|travel\w*|visit\w*|fly\w*|going|go|headed|heading)\b/i.test(text) ? "in|across|around|through|to" : "in|across|around|through";
-  const re = new RegExp(`\\b(?:${preps})\\s+([\\p{L}][\\p{L}\\p{M} ,.'’-]{1,60}?)(?=[.?!;]|,\\s+(?:and|then|so|but|i)\\b|$|\\s+(?:on|at|by|from|for|with|and|via|like|inspired|close|near|next|this|today|tomorrow|tonight|soon|in \\d|the \\d|\\d)\\b)`, "giu");
+  const re = new RegExp(`\\b(?:${preps})\\s+([\\p{L}][\\p{L}\\p{M} ,.'’-]{1,60}?)(?=[.?!;]|,\\s+(?:and|then|so|but|i)\\b|$|\\s+(?:on|at|by|from|for|with|and|via|like|inspired|close|near|next|this|today|tomorrow|tonight|soon|in \\d|the \\d|\\d|(?:in\\s+)?(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*(?:\\s+\\d+)?|(?:early|mid|late)[\\s-])\\b)`, "giu");
   for (const m of text.matchAll(re)) {
     const cand = m[1].trim().replace(/,$/, "");
     if (!NOT_PLACE.test(cand) && cand.split(/\s+/).length <= 4) return cand;
@@ -437,7 +437,7 @@ export function splitVersus(text: string): [string, string] | null {
   return a && b ? [a, b] : null;
 }
 
-const pinned = (t: TripRequest | null, text: string, today?: string) => (t ? pinStatedDates(t, text, today) : null);
+const pinned = (t: TripRequest | null, text: string, today?: string, dayFirst?: boolean) => (t ? pinStatedDates(t, text, today, { dayFirst }) : null);
 
 /** Greetings and tests: answered with what Backline does, never run as a mission. */
 const SMALL_TALK = /^(?:hi|hello|hey|hiya|yo|sup|howdy|good (?:morning|afternoon|evening)|how are you|what'?s up|thanks?|thank you|test(?:ing)?|ok(?:ay)?|cool|nice|help|\?)(?:\s+(?:there|backline|again))?[\s!.?]*$/i;
@@ -617,7 +617,7 @@ export function tripAck(t: TripRequest): string {
 export async function planGoal(
   llm: LlmClient | null,
   rawGoal: string,
-  hints: { artist?: string; location?: string; mission?: MissionType; profile?: Profile; today?: string; documents?: DocumentText[] } = {},
+  hints: { artist?: string; location?: string; mission?: MissionType; profile?: Profile; today?: string; documents?: DocumentText[]; /** "05/06" is 5 June (most places) or May 6 (the US). */ dayFirst?: boolean } = {},
   signal?: AbortSignal
 ): Promise<Plan> {
   const goal = rawGoal.normalize("NFC").replace(/[\u0000-\u0009\u000b-\u001f\u007f]/g, " ").replace(/[ \t]+/g, " ").trim().slice(0, 2000);
@@ -687,7 +687,7 @@ export async function planGoal(
         reply: out.reply?.trim() || null,
         suggestions: (out.suggestions ?? []).filter((x) => typeof x === "string" && x.trim()),
         // The dates and length are pinned to what they typed ("7 days", "Nov 14 to 16"), whatever the model chose.
-        trip: out.mission === "plan" ? pinned(normalizeTrip(onCalendar(groundTrip(withStatedLikes(out.trip ?? null, goal), statedText, { near: true }), statedText, hints.today), out.location?.trim() || plan.location, hints.profile, hints.today), goal, hints.today) : null,
+        trip: out.mission === "plan" ? pinned(normalizeTrip(onCalendar(groundTrip(withStatedLikes(out.trip ?? null, goal), statedText, { near: true }), statedText, hints.today), out.location?.trim() || plan.location, hints.profile, hints.today), goal, hints.today, hints.dayFirst) : null,
         goal,
         method: "model",
         fallbackReason: null,

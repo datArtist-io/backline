@@ -3,6 +3,7 @@
 import { z } from "zod";
 import type { Profile, TripRequest } from "./types";
 import { normalizeLocation } from "./location";
+import { addDays, readTime, readWhen } from "./when";
 
 // Models slip: "2" for 2, "per night" for per_night, ["activity"] for ["activities"], "£" for GBP.
 // One slip used to fail the whole answer and drop the plan to keywords, so every field is forgiving:
@@ -445,24 +446,7 @@ export function dayDate(text: string, today: string): string | null {
 
 /** "at 8pm", "8:30 pm", "20:00", "at 8" (evening meals) → "20:00". Null when no time is asked for. Pure. */
 export function askedTime(text: string): string | null {
-  const t = text.toLowerCase();
-  const pad = (h: number, m: number) => `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
-  const ampm = t.match(/\b(\d{1,2})(?:[:.](\d{2}))?\s*(am|pm|a\.m\.|p\.m\.)/);
-  if (ampm) {
-    let h = Number(ampm[1]) % 12;
-    if (ampm[3].startsWith("p")) h += 12;
-    const m = Number(ampm[2] ?? 0);
-    return h < 24 && m < 60 ? pad(h, m) : null;
-  }
-  const h24 = t.match(/\b([01]?\d|2[0-3])[:h]([0-5]\d)\b/);
-  if (h24) return pad(Number(h24[1]), Number(h24[2]));
-  if (t.includes("noon")) return "12:00";
-  const bare = t.match(/\bat (\d{1,2})\b(?!\s*(?:people|guests|of|th|st|nd|rd|%))/);
-  if (bare && /\b(dinner|supper|drinks|tonight|evening)\b/.test(t)) {
-    const h = Number(bare[1]);
-    if (h >= 1 && h <= 11) return pad(h + 12, 0);
-  }
-  return null;
+  return readTime(text);
 }
 
 const MEAL_WORD = /\b(breakfast|brunch|lunch|dinner|supper|drinks|table)\b/;
@@ -552,7 +536,7 @@ const count = (w: string) => (/^\d/.test(w) ? Number(w) : (COUNT[w] ?? NaN));
 export function statedNights(text: string): number | null {
   const t = ` ${text.toLowerCase().replace(/\s+/g, " ")} `;
   // "Dinner for 4 tonight": one evening, no hotel.
-  if (LOCAL_ONLY.test(t) && !NEEDS_STAY.test(t) && /\b(tonight|today|this evening|this afternoon|tomorrow (?:night|evening))\b/.test(t)) return 0;
+  if (LOCAL_ONLY.test(t) && !NEEDS_STAY.test(t)) return 0;
   if (/(?<![\w]-)\bday[- ]trip\b|\bfor the day\b|\bsame[- ]day\b|\b(?:one|1|a|single)[- ]day (?:in|at|out|trip|visit|tour)\b|\bfor (?:one|a|1) day\b|\bspend (?:a|one|the) day\b/.test(t)) return 0;
   const notWhen = "(?<!\\bin )(?<!\\bwithin )(?<!\\bevery )";
   const n = t.match(new RegExp(`${notWhen}\\b${COUNT_RX}[\\s-]+nights?\\b`));
@@ -572,33 +556,39 @@ export function statedNights(text: string): number | null {
   return null;
 }
 
-const addDays = (iso: string, n: number) => new Date(Date.parse(`${iso}T12:00:00Z`) + n * 864e5).toISOString().slice(0, 10);
 
 /**
  * The plan's dates exactly as asked: an explicit range ("Nov 14 to 16") is pinned as given, and a
  * stated length ("7 days", "3 nights", "a day trip") sets the end from the start, whatever the model
  * or a default chose. A day trip drops the hotel. Pure.
  */
-export function pinStatedDates(trip: TripRequest, text: string, today = new Date().toISOString().slice(0, 10)): TripRequest {
-  const range = dateRangeIn(text, today);
-  if (range) {
-    if (trip.startDate === range.startDate && trip.endDate === range.endDate) return trip;
-    return { ...trip, ...range, assumptions: trip.assumptions.filter((a) => !/2-night stay|long weekend|No dates/i.test(a)) };
-  }
+export function pinStatedDates(trip: TripRequest, text: string, today = new Date().toISOString().slice(0, 10), opts: { dayFirst?: boolean } = {}): TripRequest {
+  const when = readWhen(text, today, opts);
   const nights = statedNights(text);
-  if (nights == null || !trip.startDate) return trip;
-  const endDate = addDays(trip.startDate, nights);
-  const defaulted = trip.assumptions.some((a) => /long weekend|No dates/i.test(a));
-  const assumptions = trip.assumptions.filter((a) => !/2-night stay|long weekend|No dates/i.test(a));
-  const day = new Date(`${trip.startDate}T12:00:00Z`).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" });
+  if (!when.start && nights == null) return when.notes.length ? { ...trip, assumptions: [...trip.assumptions, ...when.notes] } : trip;
+  const gap = (a: string, b: string) => Math.round((Date.parse(`${b}T12:00:00Z`) - Date.parse(`${a}T12:00:00Z`)) / 864e5);
+  const start = when.start ?? trip.startDate;
+  if (!start) return trip;
+  // The end: a range they wrote, else their stated length, else the length already planned (or two nights).
+  let end = when.end ?? (nights != null ? addDays(start, nights) : null);
+  const keptLength = trip.startDate && trip.endDate ? Math.max(0, gap(trip.startDate, trip.endDate)) : 2;
+  if (!end) end = addDays(start, keptLength);
+  const stated = Boolean(when.end || nights != null);
+  const defaulted = !when.start && trip.assumptions.some((a) => /long weekend|No dates/i.test(a));
+  const assumptions = trip.assumptions.filter((a) => !/long weekend|No dates|No start date/i.test(a) && !(stated && /2-night stay/i.test(a)));
+  if (!when.start && !stated) return trip;
+  if (when.start && !stated && !assumptions.some((a) => /night stay/i.test(a))) assumptions.push(`You didn't say how long, so I planned ${keptLength} night${keptLength === 1 ? "" : "s"}. Tell me if it's longer`);
+  const day = new Date(`${start}T12:00:00Z`).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" });
   if (defaulted) assumptions.push(`No start date given, so it starts ${day}. Tell me your dates to change it`);
-  if (nights === 0) {
+  assumptions.push(...when.notes);
+  const nightsNow = gap(start, end);
+  if (nightsNow === 0) {
     const meal = LOCAL_ONLY.test(text);
     const needs = trip.needs.filter((n) => n !== "stay");
     // A day out is more than a meal, unless a meal is all they asked for.
     if (!meal && !needs.includes("activities")) needs.push("activities");
-    return { ...trip, endDate: trip.startDate, needs: needs.length ? needs : ["dine"], assumptions: [...assumptions, meal ? "Just the one outing, so no hotel" : "A day trip, so no hotel"] };
+    return { ...trip, startDate: start, endDate: start, needs: needs.length ? needs : ["dine"], assumptions: [...assumptions, meal ? "Just the one outing, so no hotel" : "A day trip, so no hotel"] };
   }
   const needs = trip.needs.includes("stay") ? trip.needs : (["stay", ...trip.needs] as TripRequest["needs"]);
-  return { ...trip, endDate, needs, assumptions };
+  return { ...trip, startDate: start, endDate: end, needs, assumptions };
 }
