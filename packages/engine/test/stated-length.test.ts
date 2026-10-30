@@ -41,3 +41,16 @@ describe("trip length from the prompt", () => {
     expect(t.needs).toContain("activities");
   });
 });
+
+import { templatePlan, tripDates } from "../src/skills/trip";
+import { normalizeTrip } from "../src/trip-request";
+describe("long trips", () => {
+  it("plans all 14 days of a 14-day trip", async () => {
+    const t = (await planGoal(null, "plan a 14 days trip to Waterloo, Canada", { today: TODAY })).trip!;
+    const dates = tripDates(t.startDate, t.endDate);
+    expect(dates).toHaveLength(14);
+    const trip = normalizeTrip({ destination: "Waterloo", startDate: dates[0], endDate: dates[13] }, null, {}, TODAY)!;
+    const place = (id: string, kind: string) => ({ id, name: id, kind, lat: 43.46, lon: -80.52, address: null, rating: 4.5, priceLevel: 2, why: [], sources: [], source: "osm", fit: 1 }) as never;
+    expect(templatePlan(trip, [place("s1", "stay")], [place("d1", "dine")], [], dates, { activities: [place("a1", "activity")] }).days).toHaveLength(14);
+  });
+});

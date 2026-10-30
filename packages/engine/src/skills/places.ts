@@ -68,7 +68,7 @@ export type KindSpec = {
   cityKm: number;
 };
 
-const LODGING_NAME = /\b(hotel|resort|lodge|inn|hostel|guest ?house|suites|villas?|apartments?|bungalows?|b&b|boutique hotel|intercontinental|ihg|hilton|marriott|sheraton|radisson|hyatt|novotel|ibis|four seasons|ritz[- ]carlton|westin|holiday inn|best western|pullman|sofitel|kempinski|m[oö]venpick|fairmont|sheraton|swiss[oô]tel|le m[eé]ridien)\b/i;
+const LODGING_NAME = /\b(hotel|resort|club\s*&\s*spa|lodge|inn|hostel|guest ?house|suites|villas?|apartments?|bungalows?|b&b|boutique hotel|intercontinental|ihg|hilton|marriott|sheraton|radisson|hyatt|novotel|ibis|four seasons|ritz[- ]carlton|westin|holiday inn|best western|pullman|sofitel|kempinski|m[oö]venpick|fairmont|sheraton|swiss[oô]tel|le m[eé]ridien)\b/i;
 /** Names that are a hotel's restaurant or a real sight, kept even with "hotel" or "resort" in them. */
 const NOT_JUST_LODGING = /\b(restaurant|grill|kitchen|bistro|caf[eé]|eatery|bar|dining|rooftop|museum|park|gallery|market|monument|tower|shrine|fort|tour|spice farm)\b/i;
 

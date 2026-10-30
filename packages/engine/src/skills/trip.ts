@@ -67,8 +67,8 @@ const planModel = z.object({
         date: z.string().nullable().optional(),
         label: z.string(),
         items: z
-          .array(z.object({ time: z.string(), title: z.string(), placeId: z.string().nullable().optional(), note: z.string().nullable().optional() }))
-          .min(1),
+          .array(z.object({ time: z.string().catch(""), title: z.string(), placeId: z.string().nullable().optional().catch(null), note: z.string().nullable().optional().catch(null) }))
+          .default([]),
       })
     )
     .min(1),
@@ -76,14 +76,14 @@ const planModel = z.object({
   tips: z.array(z.string()).default([]),
 });
 
-/** Every date from start to end inclusive, capped at 10 days. Pure. */
+/** Every date from start to end inclusive, capped at 31 days. Pure. */
 export function tripDates(start: string | null, end: string | null): string[] {
   if (!start) return [];
   const s = new Date(`${start}T00:00:00Z`);
   const e = end ? new Date(`${end}T00:00:00Z`) : s;
   if (Number.isNaN(s.getTime()) || Number.isNaN(e.getTime()) || e < s) return [start];
   const out: string[] = [];
-  for (const d = new Date(s); d <= e && out.length < 10; d.setUTCDate(d.getUTCDate() + 1)) out.push(d.toISOString().slice(0, 10));
+  for (const d = new Date(s); d <= e && out.length < 31; d.setUTCDate(d.getUTCDate() + 1)) out.push(d.toISOString().slice(0, 10));
   return out;
 }
 
@@ -142,7 +142,8 @@ export const tripPlan: Skill<BriefInput, TripPlanOutput> = {
   title: "Writing the plan",
   dependsOn: ["trip.agent"],
   optionalDeps: ["trip.taste", "trip.flights"],
-  timeoutMs: 60_000,
+  // A 14-day plan is a long piece of writing: room for it, and for the fast model to retry.
+  timeoutMs: 180_000,
   output: planOutput,
   async run(ctx, input, deps) {
     const r = await writePlan(ctx, input, deps);
@@ -175,20 +176,23 @@ async function writePlan(ctx: Parameters<Skill<BriefInput, TripPlanOutput>["run"
     const tiers: ("default" | "fast")[] = ctx.llm && typeof ctx.llm.modelFor === "function" && ctx.llm.modelFor("fast") !== ctx.llm.modelFor("default") ? ["default", "fast"] : ["default"];
 
     for (const tier of ctx.llm ? tiers : []) {
-      if (tier === "fast" && Date.now() - started > 35000) break;
+      if (tier === "fast" && Date.now() - started > 35000 + 4000 * dates.length) break;
       try {
+        // Every day gets its own detailed plan, so the room to write grows with the trip.
+        const dayCount = Math.max(1, dates.length);
         const out = await ctx.llm!.json({
           tier,
           schema: planModel,
-          maxTokens: 2600,
+          maxTokens: Math.min(16000, 1600 + 520 * dayCount),
           temperature: 0.4,
-          timeoutMs: tier === "default" ? 45000 : 25000,
+          timeoutMs: Math.min(150_000, (tier === "default" ? 40_000 : 25_000) + 5_000 * dayCount),
           signal: ctx.signal,
           purpose: "plan",
           system: [
             "You are a meticulous travel and event planner who books everything for your client. Write a detailed, realistic plan they can follow hour by hour.",
             "Use only the places and stops listed. Put their id (S1, D2, p1…) in placeId. Activities without a listed place get placeId null. Never invent prices, phone numbers or bookings.",
             "Pick one hotel (stayId) and, if they're hosting an event, one venue (venueId), from the list. Prefer the agent's picks.",
+            dates.length ? `Write exactly ${dates.length} day${dates.length === 1 ? "" : "s"}: one for each date listed, in order, every one fully planned (no "free day" placeholders, no "same as day 2"). Spread the places across the days and vary them.` : "",
             'Give each day a short label. Times like "09:00". Account for travel time between places (distances are given) and local realities like traffic and opening hours. Include check-in and check-out, and the journey in and out if they said how they travel.',
             "If they're attending an event at a stop, put it in the plan at its time (use the research notes) with that stop's id. If a stop is a station or airport, use it for the arrival and departure items.",
             "Every item at a listed place or stop must carry its id: each day's route is drawn on a map from them.",
@@ -251,7 +255,7 @@ async function writePlan(ctx: Parameters<Skill<BriefInput, TripPlanOutput>["run"
         }
         for (const st of a.stops) names.set(st.id.toLowerCase(), st.name);
         const words = (t: string) => nameRefs(t, names);
-        const days = out.days.slice(0, 10).map((d, i) => ({
+        const days = out.days.slice(0, Math.max(dates.length, 1)).map((d, i) => ({
           date: d.date && /^\d{4}-\d{2}-\d{2}$/.test(d.date) ? d.date : (dates[i] ?? null),
           label: words(d.label).slice(0, 80),
           items: d.items.slice(0, 12).map((it) => ({
@@ -261,6 +265,17 @@ async function writePlan(ctx: Parameters<Skill<BriefInput, TripPlanOutput>["run"
             note: it.note ? words(it.note).slice(0, 240) : null,
           })),
         }));
+        // A model that stopped short still leaves every date planned: the missing days come from the template.
+        if (dates.length > days.length || days.some((d) => d.items.length === 0)) {
+          const filler = templatePlan(trip, stays, dines, venues, dates, { stops: a.stops, picks: a.picks, city: cityLabel(a), activities });
+          days.forEach((d, i) => {
+            if (!d.items.length && filler.days[i]) d.items = filler.days[i].items;
+          });
+          for (let i = days.length; i < dates.length; i++) {
+            const d = filler.days[i];
+            if (d) days.push({ date: dates[i], label: d.label, items: d.items });
+          }
+        }
         // Swaps they asked for stand, whatever the model wrote; removed places never appear.
         if (edits) {
           for (const d of days) {
@@ -366,7 +381,7 @@ export function templatePlan(
   dates: string[],
   extra: { stops?: Stop[]; picks?: TripAgentOutput["picks"]; city?: string; activities?: Place[] } = {}
 ): TripPlanOutput {
-  const n = Math.max(1, Math.min(dates.length || 2, 7));
+  const n = Math.max(1, Math.min(dates.length || 2, 31));
   const stops = extra.stops ?? [];
   const landmark = stops.find((s) => s.kind === "landmark") ?? null;
   const arrival = stops.find(isArrivalStop) ?? null;
