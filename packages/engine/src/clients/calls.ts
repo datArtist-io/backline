@@ -16,6 +16,8 @@ export type CallRequest = {
 export type CallOutcome = "live" | "talked" | "no_answer" | "busy" | "voicemail" | "no_audio" | "failed";
 export type CallStatus = {
   id: string;
+  /** Who placed it (the account id saved on the call), so a status is only shown to them. */
+  owner?: string | null;
   status: string;
   ended: boolean;
   summary: string | null;
@@ -162,8 +164,10 @@ export class VapiCaller implements CallPlacer {
     const transcript = ((artifact.transcript ?? (d.transcript as string | undefined)) || null)?.slice(0, 6000) ?? null;
     const endedReason = (d.endedReason as string | undefined) ?? null;
     const outcome = callOutcome(status, endedReason, transcript);
+    const meta = ((d.assistant as Record<string, unknown> | undefined)?.metadata ?? {}) as { owner?: string | null };
     return {
       id,
+      owner: meta.owner ?? null,
       status,
       outcome,
       retryable: ["no_audio", "no_answer", "busy", "failed"].includes(outcome),

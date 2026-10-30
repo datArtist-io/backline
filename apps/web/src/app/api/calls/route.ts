@@ -11,6 +11,17 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const rateLimited = rateLimiter(12);
+
+const demoNumbers = new Map<string, { day: string; nums: Set<string> }>();
+function demoNumberAllowed(userId: string, to: string): boolean {
+  const day = new Date().toISOString().slice(0, 10);
+  const e = demoNumbers.get(userId);
+  const cur = e && e.day === day ? e : { day, nums: new Set<string>() };
+  if (!cur.nums.has(to) && cur.nums.size >= 2) return false;
+  cur.nums.add(to);
+  demoNumbers.set(userId, cur);
+  return true;
+}
 const body = z.object({
   placeName: z.string().min(1).max(120),
   opening: z.string().min(1).max(400),
@@ -36,6 +47,8 @@ export async function POST(req: Request) {
   const saved = ctx.callsLive ? null : await loadAccount(session).then((a) => a.profile.phone ?? null).catch(() => null);
   const target = ctx.callsLive ? toE164(b.to ?? null, cc) : toE164(saved ?? b.phone ?? null, cc);
   if (!target) return Response.json({ error: ctx.callsLive ? "That place has no phone number." : "Add your phone number for the demo call." }, { status: 400 });
+  // Without a saved number, at most two different numbers a day, so this can't be used to ring strangers.
+  if (!ctx.callsLive && !saved && !demoNumberAllowed(session.user.id, target)) return Response.json({ error: "Save your phone number in Account to get demo calls." }, { status: 403 });
   if (!ctx.callsLive && !underDailyCap(session.user.id)) return Response.json({ error: "That's today's demo calls used up." }, { status: 429 });
   const client = b.client?.trim() || session.user.name || "my client";
   try {
