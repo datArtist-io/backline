@@ -158,7 +158,7 @@ export function saidIn(text: string, name: string): boolean {
   const fold = (x: string) => x.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
   const said = fold(text);
   return fold(name)
-    .split(/\s+/)
+    .split(/[^\p{L}\p{N}]+/u)
     .some((w) => w.length > 2 && !NAME_FILLER.has(w) && said.includes(w));
 }
 

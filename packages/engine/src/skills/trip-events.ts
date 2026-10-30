@@ -201,11 +201,12 @@ export const tripEvents: Skill<BriefInput, TripEventsOutput> = {
       return { data: { city, from, to, events: [], listings, gaps: [] }, evidence: listings.map((l) => webEvidence(sources.find((s) => s.url === l.url)!)), notes: [] };
     }
     const llm = ctx.llm;
+    let perSource = 700;
     const read = async (srcs: WebResult[]) => {
       const raw = await llm.json({
         tier: "default",
         schema: rawSchema,
-        maxTokens: 3000,
+        maxTokens: 2200,
         temperature: 0.1,
         timeoutMs: 40_000,
         signal: ctx.signal,
@@ -223,21 +224,29 @@ export const tripEvents: Skill<BriefInput, TripEventsOutput> = {
           languageRule(input),
           'Shape: {"events":[{"name":"…","kind":"concert","date":"2026-11-05","endDate":null,"time":"20:00","venue":"…","price":"from CA$45","why":"…","fit":0.9,"source":"w3"}]}',
         ].join("\n"),
-        user: [`City: ${city}`, `Dates: ${from} to ${to}`, "", quoteWeb(srcs)].join("\n"),
+        // Kept small: a free-tier model has a low tokens-per-minute limit, and a long prompt is refused outright.
+        user: [`City: ${city}`, `Dates: ${from} to ${to}`, "", quoteWeb(srcs.map((x) => ({ ...x, content: x.content.slice(0, perSource) })))].join("\n"),
       });
       return shapeEvents(rawSchema.parse(raw), srcs, from, to);
     };
     try {
-      let events = await read(sources);
+      let events = await read(sources.slice(0, 16)).catch((err) => {
+        ctx.log.warn("Events reading failed", { error: String(err).slice(0, 200) });
+        return [] as TripEvent[];
+      });
       // Search snippets often name a listing page without its dates (common outside big ticketing markets).
       // Then read the listing pages themselves, so the trip still gets real dated events.
       if (events.length < 4 && Date.now() - t0 < 45_000) {
         ctx.progress?.({ kind: "act", id: "ev.read", tool: "events", text: `Reading event listings for ${place}`, by: "autopilot" });
-        const pages = (await Promise.all([search(ctx, `${place} upcoming events ${when}`, 6000), search(ctx, `${place} concerts and shows ${when}`, 6000)])).flat();
+        const pages = (await Promise.all([search(ctx, `${place} upcoming events ${when}`, 4000), search(ctx, `${place} concerts and shows ${when}`, 4000)])).flat();
         const seenPage = new Set<string>();
-        const fresh = pages.filter((p) => (seenPage.has(p.url) ? false : (seenPage.add(p.url), true))).slice(0, 6);
+        const fresh = pages.filter((p) => (seenPage.has(p.url) ? false : (seenPage.add(p.url), true))).slice(0, 4);
         if (fresh.length) {
-          const more = await read(fresh).catch(() => [] as TripEvent[]);
+          perSource = 3500;
+          const more = await read(fresh).catch((err) => {
+            ctx.log.warn("Events listing pages failed", { error: String(err).slice(0, 200) });
+            return [] as TripEvent[];
+          });
           const all = new Map<string, TripEvent>();
           for (const e of [...events, ...more]) {
             const key = `${e.name.toLowerCase().replace(/[^a-z0-9]/g, "")}|${e.date}`;
