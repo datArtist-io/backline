@@ -877,7 +877,7 @@ function PlaceCard({ node, onClose, city, review = null, others = [] }: { node: 
       {p?.why?.length ? <ul className="eq-why">{p.why.slice(0, 4).map((w, i) => <li key={i}>{w}</li>)}</ul> : null}
       <dl className="eq-facts">
         <div><dt>Rating</dt><dd>{p?.rating != null ? `${p.rating.toFixed(1)} ★` : "Not rated"}</dd></div>
-        <div><dt>Price</dt><dd>{p?.priceNote ?? (p?.priceLevel ? "$".repeat(p.priceLevel) : "Not listed")}</dd></div>
+        <div><dt>Price</dt><dd>{p?.priceNote ?? (p?.priceLevel ? "$".repeat(Math.max(1, Math.min(4, Math.round(p.priceLevel)))) : "Not listed")}</dd></div>
         <div><dt>When</dt><dd>{node.visits.length ? node.visits.slice(0, 2).map((v) => `Day ${v.day + 1}, ${v.time}`).join(" · ") + (node.visits.length > 2 ? ` +${node.visits.length - 2}` : "") : "Any time"}</dd></div>
         <div><dt>Qloo rank</dt><dd>{node.rank ? `#${node.rank.n} of ${node.rank.of}` : "Not ranked"}</dd></div>
         {p?.address && <div className="wide"><dt>Address</dt><dd>{p.address}</dd></div>}
@@ -908,7 +908,7 @@ function PlaceCard({ node, onClose, city, review = null, others = [] }: { node: 
                 <li key={o.id}>
                   <button type="button" onClick={() => { review.onSwap(node.id, o.id); setSwapping(false); }}>
                     <b>{o.name}</b>
-                    <span>{o.affinity != null ? `${o.affinity.toFixed(3)} Qloo affinity` : o.place?.rating ? `${o.place.rating.toFixed(1)} ★` : "Found nearby"}{o.place?.priceLevel ? ` · ${"$".repeat(o.place.priceLevel)}` : ""}</span>
+                    <span>{o.affinity != null ? `${o.affinity.toFixed(3)} Qloo affinity` : o.place?.rating ? `${o.place.rating.toFixed(1)} ★` : "Found nearby"}{o.place?.priceLevel ? ` · ${"$".repeat(Math.max(1, Math.min(4, Math.round(o.place.priceLevel))))}` : ""}</span>
                   </button>
                 </li>
               ))}

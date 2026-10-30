@@ -27,15 +27,29 @@ export default function Preferences({ open, onClose, onSaved }: { open: boolean;
   const { me, ready } = useMe();
   const signedIn = Boolean(me);
 
+  // The parent passes a new onClose on every render; keep the latest in a ref so the dialog doesn't
+  // reload (overwriting what's being typed) and steal focus each time the trip updates.
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
   useEffect(() => {
     if (!open || !ready) return;
-    loadDetails(signedIn).then(setP);
+    let live = true;
+    loadDetails(signedIn)
+      .then((d) => live && setP(d))
+      .catch(() => live && setMsg("Couldn't load your details. Check your connection."));
     setMsg(null);
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    const t = setTimeout(() => panel.current?.focus(), 30);
+    return () => {
+      live = false;
+      clearTimeout(t);
+    };
+  }, [open, ready, signedIn]);
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && closeRef.current();
     window.addEventListener("keydown", onKey);
-    setTimeout(() => panel.current?.focus(), 30);
     return () => window.removeEventListener("keydown", onKey);
-  }, [open, onClose, ready, signedIn]);
+  }, [open]);
 
   if (!open) return null;
 

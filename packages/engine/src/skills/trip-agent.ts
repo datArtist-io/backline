@@ -17,7 +17,7 @@ import { webEvidence } from "../grounding";
 import { hotelScoreSchema, tierHotels, tierSchema } from "./hotel-tiers";
 import { distanceKm } from "../location";
 import { EngineError, UpstreamError } from "../errors";
-import { foldText } from "../util";
+import { foldText, withTimeout } from "../util";
 
 // ---------- shapes ----------
 
@@ -158,7 +158,8 @@ export function niceKinds(t: TripRequest): PlaceKind[] {
   const needed = neededKinds(t);
   const out: PlaceKind[] = [];
   if (needed.includes("stay") && !needed.includes("dine")) out.push("dine");
-  if (t.inspiredBy && !needed.includes("activity")) out.push("activity");
+  // A trip away is more than a bed and dinner: find things to do unless it's an event or a local outing.
+  if (!needed.includes("activity") && (t.inspiredBy || (!t.event && needed.includes("stay")))) out.push("activity");
   return out;
 }
 
@@ -338,6 +339,7 @@ function register(s: TripAgentState, p: Place): string {
         priceNote: prev.priceNote ?? p.priceNote,
         extra: prev.extra ?? p.extra,
         offer: prev.offer ?? p.offer,
+        rate: prev.rate ?? p.rate,
         sources: [...prev.sources, ...p.sources.filter((x) => !prev.sources.some((y) => y.url === x.url))].slice(0, 4),
       }
     : { ...p, kind };
@@ -700,6 +702,8 @@ export function tripTools(ctx: SkillContext, s: TripAgentState): AnyTool<TripAge
     args: '{"ids": ["s1", "s2"]}',
     schema: z.object({ ids: z.array(z.string().trim().min(1).max(80)).min(1).max(4) }),
     limit: 4,
+    // Four web searches in parallel and then a model read: 30 s (the default) regularly cut it off.
+    timeoutMs: 75_000,
     available: (st) => !st.webDown,
     label: (a, st) => {
       const names = a.ids.map((r) => st.places.get(resolveRef(st, r) ?? "")?.name).filter(Boolean) as string[];
@@ -721,7 +725,9 @@ export function tripTools(ctx: SkillContext, s: TripAgentState): AnyTool<TripAge
         throw err;
       }
       for (const p of updated) {
-        s.places.set(p.id, rescore(s, p));
+        // A live rate or offer found meanwhile (priceHotels runs alongside) must survive this write-back.
+        const cur = s.places.get(p.id);
+        s.places.set(p.id, rescore(s, { ...p, rate: cur?.rate ?? p.rate, offer: cur?.offer ?? p.offer }));
         s.checked.add(p.id);
       }
       const lines = updated.map(
@@ -1020,7 +1026,8 @@ async function direct(tool: AnyTool<TripAgentState> | undefined, args: Record<st
   emit({ kind: "act", id, tool: tool.name, text: label, by: "autopilot" });
   const t0 = Date.now();
   try {
-    const out = await tool.run(parsed.data, s, signal);
+    // Bounded, so one slow lookup can't run past the whole step's time limit and lose every pick.
+    const out = await withTimeout(tool.run(parsed.data, s, signal), Math.min(tool.timeoutMs ?? 30_000, 60_000), tool.name);
     emit({ kind: "saw", id, tool: tool.name, ok: true, text: out.summary, ms: Date.now() - t0, by: "autopilot" });
     return out;
   } catch (err) {

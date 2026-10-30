@@ -200,6 +200,8 @@ export const tripRoutes: Skill<BriefInput, TripRoutesOutput> = {
     let usedRoads = false;
     let anyDay = false;
     const uberBudget = { left: UBER_LOOKUPS };
+    let roadsOk = true;
+    const roadsUntil = Date.now() + 25_000;
     const days: TripRoutesOutput["days"] = [];
     for (const [i, d] of plan.days.entries()) {
       const stops = dayStops(d, i, plan.days.length, located, hotelId);
@@ -208,8 +210,10 @@ export const tripRoutes: Skill<BriefInput, TripRoutesOutput> = {
         continue;
       }
       anyDay = true;
-      const road = await roadRoute(ctx, stops);
+      // One slow or down routing server mustn't sink every day: after a miss, or 25 s in, estimate the rest.
+      const road = roadsOk && Date.now() < roadsUntil ? await roadRoute(ctx, stops) : null;
       if (road) usedRoads = true;
+      else roadsOk = false;
       const legs = await withLiveFares(ctx, withRides(road?.legs ?? estimateLegs(stops), stops, where), stops, where, uberBudget);
       // One currency per day: a day cannot add up fares quoted in two.
       const currency = legs.find((l) => l.ride)?.ride?.currency;

@@ -4,30 +4,58 @@ import { z } from "zod";
 import type { Profile, TripRequest } from "./types";
 import { normalizeLocation } from "./location";
 
-/** The loose shape a model extracts (planner or agent). Everything optional. */
+// Models slip: "2" for 2, "per night" for per_night, ["activity"] for ["activities"], "£" for GBP.
+// One slip used to fail the whole answer and drop the plan to keywords, so every field is forgiving:
+// a value that can't be read becomes null instead of failing the rest.
+const looseNum = z
+  .preprocess((v) => (typeof v === "string" ? (v.trim() ? Number(v.replace(/[,\s]/g, "").replace(/[^\d.-]/g, "")) : null) : v), z.number().finite().nullable().optional())
+  .catch(null);
+const looseStr = z.preprocess((v) => (typeof v === "number" ? String(v) : v), z.string().nullable().optional()).catch(null);
+const looseList = z.preprocess((v) => (typeof v === "string" ? [v] : v), z.array(z.string()).nullable().optional()).catch(null);
+const NEED_ALIASES: Record<string, "stay" | "dine" | "venue" | "activities"> = {
+  stay: "stay", hotel: "stay", hotels: "stay", accommodation: "stay", lodging: "stay", room: "stay",
+  dine: "dine", dining: "dine", food: "dine", restaurant: "dine", restaurants: "dine", eat: "dine", dinner: "dine", meals: "dine",
+  venue: "venue", venues: "venue", event: "venue",
+  activities: "activities", activity: "activities", things: "activities", sightseeing: "activities", experiences: "activities", tours: "activities",
+};
+const looseNeeds = z
+  .preprocess(
+    (v) => (Array.isArray(v) ? [...new Set(v.map((n) => NEED_ALIASES[String(n).trim().toLowerCase()]).filter(Boolean))] : null),
+    z.array(z.enum(["stay", "dine", "venue", "activities"])).nullable().optional()
+  )
+  .catch(null);
+const looseScope = z
+  .preprocess((v) => {
+    if (typeof v !== "string") return v;
+    const t = v.toLowerCase();
+    return /night/.test(t) ? "per_night" : /total|whole|overall|all/.test(t) ? "total" : null;
+  }, z.enum(["total", "per_night"]).nullable().optional())
+  .catch(null);
+
+/** The loose shape a model extracts (planner or agent). Everything optional and forgiving. */
 export const rawTripSchema = z.object({
-  destination: z.string().nullable().optional(),
-  startDate: z.string().nullable().optional(),
-  endDate: z.string().nullable().optional(),
-  adults: z.number().nullable().optional(),
-  rooms: z.number().nullable().optional(),
-  budgetAmount: z.number().nullable().optional(),
-  currency: z.string().nullable().optional(),
-  budgetScope: z.enum(["total", "per_night"]).nullable().optional(),
-  priceTier: z.number().nullable().optional(),
-  purpose: z.string().nullable().optional(),
-  eventType: z.string().nullable().optional(),
-  eventGuests: z.number().nullable().optional(),
-  eventDate: z.string().nullable().optional(),
-  needs: z.array(z.enum(["stay", "dine", "venue", "activities"])).nullable().optional(),
-  near: z.string().nullable().optional(),
-  travelMode: z.string().nullable().optional(),
-  origin: z.string().nullable().optional(),
-  selfArranged: z.array(z.string()).nullable().optional(),
+  destination: looseStr,
+  startDate: looseStr,
+  endDate: looseStr,
+  adults: looseNum,
+  rooms: looseNum,
+  budgetAmount: looseNum,
+  currency: looseStr,
+  budgetScope: looseScope,
+  priceTier: looseNum,
+  purpose: looseStr,
+  eventType: looseStr,
+  eventGuests: looseNum,
+  eventDate: looseStr,
+  needs: looseNeeds,
+  near: looseStr,
+  travelMode: looseStr,
+  origin: looseStr,
+  selfArranged: looseList,
   /** A celebrity or person whose taste the plan should follow. */
-  inspiredBy: z.string().nullable().optional(),
+  inspiredBy: looseStr,
   /** Things the user says they love in the request: artists, films, cuisines, genres. */
-  likes: z.array(z.string()).nullable().optional(),
+  likes: looseList,
 });
 export type RawTrip = z.infer<typeof rawTripSchema>;
 
@@ -53,7 +81,7 @@ export const tripRequestSchema = z.object({
 });
 
 export const CURRENCIES: [RegExp, string][] = [
-  [/nigeria|lagos|abuja|ibadan|port harcourt/i, "NGN"],
+  [/nigeria|lagos(?![^]*portugal)|abuja|ibadan|port harcourt/i, "NGN"],
   [/ghana|accra/i, "GHS"],
   [/kenya|nairobi/i, "KES"],
   [/south africa|johannesburg|cape town/i, "ZAR"],
@@ -80,7 +108,20 @@ export const CURRENCY_COUNTRY: Record<string, string> = {
 };
 
 const ISO = /^\d{4}-\d{2}-\d{2}$/;
-export const validDate = (d: string | null | undefined, today: string) => (d && ISO.test(d) && !Number.isNaN(Date.parse(d)) && d >= today ? d : null);
+
+const CURRENCY_SYMBOLS: Record<string, string> = { "£": "GBP", pound: "GBP", pounds: "GBP", "€": "EUR", euro: "EUR", euros: "EUR", $: "USD", dollar: "USD", dollars: "USD", "₦": "NGN", naira: "NGN", "¥": "JPY", yen: "JPY", "₹": "INR", "₵": "GHS", ksh: "KES" };
+/** A real calendar date on or after today. A past date the model put in the wrong year moves to next year. Pure. */
+export const validDate = (d: string | null | undefined, today: string): string | null => {
+  if (!d || !ISO.test(d)) return null;
+  const x = new Date(`${d}T12:00:00Z`);
+  // "2026-02-30" parses, but isn't a day: reject it rather than send it to hotels and airlines.
+  if (Number.isNaN(+x) || x.toISOString().slice(0, 10) !== d) return null;
+  if (d >= today) return d;
+  x.setUTCFullYear(x.getUTCFullYear() + 1);
+  const next = x.toISOString().slice(0, 10);
+  // Only a near miss (in December, "Jan 5" given as this January): never a date years back.
+  return next >= today && next.slice(5) === d.slice(5) && Date.parse(next) - Date.parse(today) < 330 * 864e5 ? next : null;
+};
 
 const NUMBER_WORDS = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen", "seventeen", "eighteen", "nineteen", "twenty"];
 
@@ -200,7 +241,10 @@ export function normalizeTrip(raw: RawTrip | null | undefined, fallbackDestinati
     assumptions.push("Assumed 1 traveller");
   }
   const rooms = raw?.rooms && raw.rooms > 0 ? Math.min(25, Math.round(raw.rooms)) : Math.max(1, Math.ceil(adults / 2));
-  const currency = (raw?.currency?.trim().toUpperCase().slice(0, 3) || profile.currency || CURRENCIES.find(([re]) => re.test(destination!))?.[1] || "USD").replace(/[^A-Z]/g, "") || "USD";
+  // "£" or "pounds" from the model is a currency too; only a real 3-letter code counts, then the profile, then the place.
+  const given = raw?.currency?.trim() ?? "";
+  const iso = (CURRENCY_SYMBOLS[given.toLowerCase()] ?? given.toUpperCase()).replace(/[^A-Z]/g, "").slice(0, 3);
+  const currency = (iso.length === 3 ? iso : "") || profile.currency || CURRENCIES.find(([re]) => re.test(destination!))?.[1] || "USD";
   let priceTier = raw?.priceTier && raw.priceTier >= 1 && raw.priceTier <= 4 ? Math.round(raw.priceTier) : null;
   if (!priceTier && profile.budgetStyle) priceTier = profile.budgetStyle === "budget" ? 1 : profile.budgetStyle === "mid" ? 2 : 4;
   if (!priceTier && !raw?.budgetAmount) {

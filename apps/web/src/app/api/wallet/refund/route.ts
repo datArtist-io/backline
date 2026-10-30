@@ -23,6 +23,11 @@ export async function POST(req: Request) {
   if (e.status === "void") return Response.json({ ok: true });
   if (typeof e.details?.title !== "string" || Date.now() - Date.parse(e.created_at) > 86_400_000)
     return Response.json({ error: "This payment can't be refunded here." }, { status: 409 });
-  await walletFor(s).refund(p.data.entryId);
+  try {
+    await walletFor(s).refund(p.data.entryId);
+  } catch (err) {
+    console.warn("[wallet/refund] failed", err instanceof Error ? err.message : err);
+    return Response.json({ error: "The refund didn't go through. Try again." }, { status: 502 });
+  }
   return Response.json({ ok: true });
 }

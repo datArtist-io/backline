@@ -19,7 +19,7 @@ type FareTable = { match: RegExp; provider: string; currency: string; base: numb
 /** Published ride rates by country or city. Extend as rates are confirmed. */
 const FARES: FareTable[] = [
   // Bolt Lagos, published June 2023 (Techloy). Prices have risen since: the high end allows for it.
-  { match: /\bNG\b|nigeria|lagos|abuja|ibadan|port harcourt/i, provider: "Bolt", currency: "NGN", base: 527, perKm: 130, perMin: 23, min: 800, asOf: "2023" },
+  { match: /\bNG\b|nigeria|lagos(?![^]*portugal)|abuja|ibadan|port harcourt/i, provider: "Bolt", currency: "NGN", base: 527, perKm: 130, perMin: 23, min: 800, asOf: "2023" },
   // Typical ride-hail rates elsewhere (UberX-class), so every trip can budget its rides. Labelled as
   // typical rates, never as a quote; Uber's own live estimate replaces them where it's connected.
   { match: /united kingdom|\bUK\b|england|scotland|london|manchester|edinburgh/i, provider: "Uber", currency: "GBP", base: 2.5, perKm: 1.25, perMin: 0.2, min: 6, asOf: "typical" },

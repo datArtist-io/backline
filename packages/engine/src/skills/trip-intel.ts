@@ -283,7 +283,8 @@ async function loadMoney(ctx: SkillContext, home: string | null, local: string |
   const j = await getJson<{ result?: string; time_last_update_utc?: string; rates?: Record<string, number> }>(`https://open.er-api.com/v6/latest/${home}`, ctx);
   const rate = j?.result === "success" ? j.rates?.[local] : undefined;
   if (!rate || !Number.isFinite(rate)) return none;
-  const nice = (x: number) => (x >= 100 ? Math.round(x) : round1(x));
+  // Three significant figures: one decimal turned 1.15 into 1.2 and 0.00057 into 0.
+  const nice = (x: number) => (x >= 100 ? Math.round(x) : Number(x.toPrecision(3)));
   return { local, home, rate: nice(rate), asOf: j?.time_last_update_utc ? new Date(j.time_last_update_utc).toISOString().slice(0, 10) : null, examples: [10, 50, 100].map((h) => ({ home: h, local: nice(h * rate) })) };
 }
 
@@ -302,15 +303,23 @@ const researchSchema = z.object({
     .default([]),
   emergency: z.object({ police: z.string().nullable().optional(), ambulance: z.string().nullable().optional(), fire: z.string().nullable().optional(), general: z.string().nullable().optional(), source: z.string().nullable().optional() }).nullable().optional(),
   phrases: z.array(z.object({ say: z.string(), means: z.string() })).default([]),
-  guides: z.array(z.object({ name: z.string(), kind: z.string(), why: z.string(), source: z.string() })).default([]),
+  guides: z.array(z.object({ name: z.string(), kind: z.string(), why: z.string(), source: z.string().nullable().optional() })).default([]),
 });
 
 async function search(ctx: SkillContext, q: string): Promise<WebResult[]> {
   if (!ctx.web) return [];
+  const ac = new AbortController();
+  const stop = () => ac.abort();
+  ctx.signal?.addEventListener("abort", stop);
   try {
-    return await withTimeout(ctx.web.search(q, { maxResults: 5, need: "facts", signal: ctx.signal }), 14000, "intel search");
-  } catch {
+    // Room for slower providers (Claude web search takes 15-40 s); the abort stops the losing request.
+    return await withTimeout(ctx.web.search(q, { maxResults: 5, need: "facts", signal: ac.signal }), 30_000, "intel search");
+  } catch (err) {
+    ac.abort();
+    ctx.log.warn("intel search failed", { error: String(err).slice(0, 160) });
     return [];
+  } finally {
+    ctx.signal?.removeEventListener("abort", stop);
   }
 }
 
@@ -408,7 +417,7 @@ export const tripIntel: Skill<BriefInput, TripIntelOutput> = {
   title: "Know before you go",
   dependsOn: ["trip.agent"],
   optionalDeps: ["trip.taste"],
-  timeoutMs: 70_000,
+  timeoutMs: 85_000,
   output: intelOutput,
   async run(ctx, input, deps) {
     const a = agentOf(deps);

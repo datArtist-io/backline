@@ -463,7 +463,7 @@ const actionsOutput = z.object({
 export type TripActionsOutput = z.infer<typeof actionsOutput>;
 
 const COUNTRY_CODES: [RegExp, string][] = [
-  [/nigeria|lagos|abuja|ibadan|port harcourt|kano/i, "234"],
+  [/nigeria|lagos(?![^]*portugal)|abuja|ibadan|port harcourt|kano/i, "234"],
   [/ghana|accra|kumasi/i, "233"],
   [/kenya|nairobi|mombasa/i, "254"],
   [/south africa|johannesburg|cape town|durban/i, "27"],

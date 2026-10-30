@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import type { ArtistResolveOutput, FansDemographicsOutput, FansDnaOutput, FansProfileOutput } from "@backline/engine";
 import type { Evidence, StepResult, StepState } from "@/lib/mission-stream";
+import { hostOf } from "@/lib/host";
 
 export function HeaderSkeleton({ name }: { name: string }) {
   return (
@@ -92,7 +93,7 @@ export function Receipts({ evidence }: { evidence: Evidence[] }) {
             )}
             {e.source === "web" && (
               <a href={e.url} target="_blank" rel="noopener noreferrer nofollow">
-                {e.title} <span className="muted">({new URL(e.url).hostname})</span>
+                {e.title} <span className="muted">({hostOf(e.url)})</span>
               </a>
             )}
             {e.source === "derived" && (

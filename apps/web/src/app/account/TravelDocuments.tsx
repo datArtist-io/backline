@@ -32,9 +32,16 @@ export default function TravelDocuments() {
     if (!f.gender) return setError("Choose the gender shown on your passport.");
     setBusy(true);
     setError(null);
-    const res = await fetch("/api/account/documents", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ passport: f, consent }) });
-    const j = (await res.json().catch(() => ({}))) as { passport?: Summary; error?: string };
-    setBusy(false);
+    let res: Response;
+    let j: { passport?: Summary; error?: string };
+    try {
+      res = await fetch("/api/account/documents", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ passport: f, consent }) });
+      j = (await res.json().catch(() => ({}))) as { passport?: Summary; error?: string };
+    } catch {
+      return setError("Network problem: your passport wasn't saved. Try again.");
+    } finally {
+      setBusy(false);
+    }
     if (!res.ok || !j.passport) return setError(j.error ?? "Your passport couldn't be saved.");
     setSaved(j.passport);
     setEditing(false);
@@ -43,8 +50,13 @@ export default function TravelDocuments() {
   }
 
   async function remove() {
+    const before = saved;
     setSaved(null);
-    await fetch("/api/account/documents", { method: "DELETE" });
+    const ok = await fetch("/api/account/documents", { method: "DELETE" }).then((r) => r.ok).catch(() => false);
+    if (!ok) {
+      setSaved(before);
+      setError("Your passport couldn't be removed. Try again.");
+    }
   }
 
   const set = (k: keyof Form) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setF({ ...f, [k]: e.target.value });

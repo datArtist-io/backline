@@ -43,7 +43,12 @@ export default function AccountView() {
   const [showAll, setShowAll] = useState(false);
 
   const load = useCallback(async () => {
-    const res = await fetch("/api/account", { cache: "no-store" });
+    let res: Response;
+    try {
+      res = await fetch("/api/account", { cache: "no-store" });
+    } catch {
+      return setError("Your account couldn't load. Check your connection and reload.");
+    }
     if (res.status === 401) return router.replace("/signin?next=/account");
     const j = await res.json().catch(() => ({}));
     if (!res.ok) return setError(j.error ?? "Your account couldn't load.");
@@ -64,19 +69,28 @@ export default function AccountView() {
     else setError("Your details couldn't be saved. Try again.");
   }
 
+  /** A delete that didn't go through: reload the real list and say so, instead of pretending it's gone. */
+  async function undoIfFailed(req: Promise<Response>) {
+    const ok = await req.then((r) => r.ok).catch(() => false);
+    if (!ok) {
+      setError("That couldn't be deleted. Try again.");
+      await load();
+    }
+  }
+
   async function forget(id: string) {
     setAcc((a) => (a ? { ...a, memories: a.memories.filter((m) => m.id !== id) } : a));
-    await fetch(`/api/account/memories?id=${encodeURIComponent(id)}`, { method: "DELETE" });
+    await undoIfFailed(fetch(`/api/account/memories?id=${encodeURIComponent(id)}`, { method: "DELETE" }));
   }
 
   async function removeTrip(id: string) {
     setAcc((a) => (a ? { ...a, trips: a.trips.filter((t) => t.id !== id) } : a));
-    await fetch(`/api/account/trips?id=${encodeURIComponent(id)}`, { method: "DELETE" });
+    await undoIfFailed(fetch(`/api/account/trips?id=${encodeURIComponent(id)}`, { method: "DELETE" }));
   }
 
   async function forgetSearch(id: string | "all") {
     setAcc((a) => (a ? { ...a, searches: id === "all" ? [] : a.searches.filter((x) => x.id !== id) } : a));
-    await fetch(`/api/account/searches?${id === "all" ? "all=1" : `id=${encodeURIComponent(id)}`}`, { method: "DELETE" });
+    await undoIfFailed(fetch(`/api/account/searches?${id === "all" ? "all=1" : `id=${encodeURIComponent(id)}`}`, { method: "DELETE" }));
   }
 
   const rerun = (q: Search) => router.push(`/mission?${new URLSearchParams({ goal: q.query, mode: q.mode ?? "auto" })}`);

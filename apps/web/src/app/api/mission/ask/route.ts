@@ -2,13 +2,14 @@
 import { z } from "zod";
 import { answerFollowUp, createContext } from "@backline/engine";
 import { getRun, isRunId } from "@/lib/run-store";
+import { openRun } from "@/lib/run-seal";
 import { clientIp, rateLimiter } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-const bodySchema = z.object({ runId: z.string(), question: z.string().trim().min(2, "Ask a question.").max(500, "Keep it under 500 characters.") });
+const bodySchema = z.object({ runId: z.string(), seal: z.string().max(3_000_000).optional(), question: z.string().trim().min(2, "Ask a question.").max(500, "Keep it under 500 characters.") });
 
 const rateLimited = rateLimiter(20);
 
@@ -25,7 +26,8 @@ export async function POST(req: Request) {
   } catch {
     return fail(400, "Check your question.");
   }
-  const run = isRunId(body.runId) ? getRun(body.runId) : null;
+  // This instance's copy, else the sealed copy the browser kept (any instance can open it).
+  const run = isRunId(body.runId) ? (getRun(body.runId) ?? openRun(body.seal, body.runId)) : null;
   if (!run) return fail(410, "This mission has expired. Run it again to ask follow-ups.");
 
   try {

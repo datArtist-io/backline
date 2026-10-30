@@ -43,6 +43,12 @@ export async function PUT(req: Request) {
 export async function DELETE() {
   const s = await getSession();
   if (!s) return Response.json({ error: "Sign in first." }, { status: 401 });
-  await deletePassport(s).catch((err) => console.error("[documents] delete failed", err instanceof Error ? err.message : err));
+  // Say so when it didn't work, so nothing looks deleted that isn't (a passport above all).
+  try {
+    await deletePassport(s);
+  } catch (err) {
+    console.error("[documents] delete failed", err instanceof Error ? err.message : err);
+    return Response.json({ error: "Your passport couldn't be deleted. Try again." }, { status: 502 });
+  }
   return Response.json({ ok: true });
 }

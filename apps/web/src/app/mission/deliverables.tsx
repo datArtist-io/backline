@@ -23,6 +23,7 @@ import type {
 import type { CheckpointRequest, StepResult } from "@/lib/mission-stream";
 import { copyText, downloadFile, mailtoHref, slug, toCsv } from "@/lib/actions";
 import { Notes, Receipts } from "./sections";
+import { hostOf } from "@/lib/host";
 
 type R<T> = StepResult & { data: T };
 
@@ -218,7 +219,7 @@ export function BrandMatchesSection({ result, research }: { result: R<BrandMatch
                           <li key={f.url + f.text}>
                             {f.text}{" "}
                             <a href={f.url} target="_blank" rel="noopener noreferrer nofollow" className="src">
-                              {new URL(f.url).hostname.replace(/^www\./, "")}
+                              {hostOf(f.url)}
                             </a>
                           </li>
                         ))}

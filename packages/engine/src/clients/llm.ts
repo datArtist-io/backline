@@ -26,7 +26,7 @@ export type JsonRequest<T> = {
   tier?: ModelTier;
   system: string;
   user: string;
-  schema: z.ZodType<T>;
+  schema: z.ZodType<T, z.ZodTypeDef, unknown>;
   maxTokens?: number;
   temperature?: number;
   signal?: AbortSignal;

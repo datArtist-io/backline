@@ -137,10 +137,18 @@ export function checkedDuration(mode: string, duration: string | null, km: numbe
 
 async function search(ctx: Parameters<NonNullable<Skill["run"]>>[0], q: string): Promise<WebResult[]> {
   if (!ctx.web) return [];
+  const ac = new AbortController();
+  const stop = () => ac.abort();
+  ctx.signal?.addEventListener("abort", stop);
   try {
-    return await withTimeout(ctx.web.search(q, { maxResults: 5, need: "facts", signal: ctx.signal }), 14000, "travel search");
-  } catch {
+    // Room for slower providers (Claude web search takes 15-40 s); the abort stops the losing request.
+    return await withTimeout(ctx.web.search(q, { maxResults: 5, need: "facts", signal: ac.signal }), 30_000, "travel search");
+  } catch (err) {
+    ac.abort();
+    ctx.log.warn("travel search failed", { error: String(err).slice(0, 160) });
     return [];
+  } finally {
+    ctx.signal?.removeEventListener("abort", stop);
   }
 }
 
@@ -150,7 +158,7 @@ export const tripTravel: Skill<BriefInput, TripTravelOutput> = {
   id: "trip.travel",
   title: "Working out how to get there",
   dependsOn: [],
-  timeoutMs: 55_000,
+  timeoutMs: 70_000,
   output: travelOutput,
   async run(ctx, input) {
     const t = input.trip;

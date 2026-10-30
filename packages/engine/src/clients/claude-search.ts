@@ -46,7 +46,8 @@ export type HotelRate = { perNight: number; currency: string; total: number | nu
 export function lastJson(text: string): Record<string, unknown> | null {
   const end = text.lastIndexOf("}");
   if (end < 0) return null;
-  for (let start = text.lastIndexOf("{", end); start >= 0; start = text.lastIndexOf("{", start - 1)) {
+  // lastIndexOf("{", -1) returns 0 again, so stop explicitly after position 0 (it used to loop forever).
+  for (let start = text.lastIndexOf("{", end); start >= 0; start = start === 0 ? -1 : text.lastIndexOf("{", start - 1)) {
     try {
       const v = JSON.parse(text.slice(start, end + 1));
       if (v && typeof v === "object" && !Array.isArray(v)) return v as Record<string, unknown>;
