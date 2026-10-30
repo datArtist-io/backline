@@ -83,6 +83,7 @@ npm run dev                                  # http://localhost:3000
 |---|---|
 | `QLOO_API_KEY`, `QLOO_API_URL` | Qloo hackathon API |
 | `LLM_API_KEY`, `LLM_BASE_URL`, `LLM_MODEL`, `LLM_MODEL_FAST`, `LLM_MODEL_STRONG` | Any OpenAI-compatible provider (Nebius Token Factory by default) |
+| `LLM2_*`, `LLM3_*` (`_API_KEY`, `_BASE_URL`, `_MODEL`, `_MODEL_FAST`) | Backup model providers. If the first one fails (no credit, bad key, rate limit, timeout) the next answers, and the failed one rests for a while |
 | `TAVILY_API_KEY` | Live web research |
 | `STT_API_KEY`, `STT_BASE_URL`, `STT_MODEL` | Speech-to-text for the voice prompt |
 | `TRAVEL_DOCS_KEY` | Encrypts saved passports (AES-256-GCM); `openssl rand -base64 32` |
