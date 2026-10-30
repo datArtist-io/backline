@@ -154,6 +154,53 @@ async function search(ctx: Parameters<NonNullable<Skill["run"]>>[0], q: string):
 
 const city = (x: string) => x.split(",")[0].trim().toLowerCase();
 
+/**
+ * When no model can read the fare pages: an honest estimate from the distance (labelled as one) with a
+ * link to compare live fares, plus the best route-planner pages found, so "getting there" is never blank. Pure.
+ */
+export function estimatedTravel(origin: string, destination: string, km: number | null, date: string | null, sources: WebResult[]): TravelOption[] {
+  const out: TravelOption[] = [];
+  const o = origin.split(",")[0].trim();
+  const d = destination.split(",")[0].trim();
+  const q = encodeURIComponent(`Flights from ${o} to ${d}${date ? ` on ${date}` : ""}`);
+  if (km == null || km >= 300) {
+    out.push({
+      mode: "flight",
+      title: `Fly ${o} → ${d}`,
+      duration: km ? checkedDuration("flight", null, km) : null,
+      priceMin: null,
+      priceMax: null,
+      currency: null,
+      note: "Flight time estimated from the distance. Compare live fares for your dates.",
+      url: `https://www.google.com/travel/flights?q=${q}`,
+      site: "google.com",
+      verified: false,
+      best: km == null || km >= 700,
+    });
+  }
+  if (km != null && km < 900) {
+    const h = km / 70;
+    out.push({
+      mode: "car",
+      title: `Drive ${o} → ${d}`,
+      duration: `about ${Math.max(1, Math.round(h))} h (estimate)`,
+      priceMin: null,
+      priceMax: null,
+      currency: null,
+      note: "Road time estimated from the distance; traffic and border crossings add more.",
+      url: `https://www.google.com/maps/dir/${encodeURIComponent(origin)}/${encodeURIComponent(destination)}`,
+      site: "google.com",
+      verified: false,
+      best: km < 700,
+    });
+  }
+  for (const s of sources.slice(0, 2)) {
+    const title = clean(s.title, 90);
+    if (title) out.push({ mode: "other", title, duration: null, priceMin: null, priceMax: null, currency: null, note: clean(s.content, 160) || null, url: s.url, site: hostOf(s.url), verified: true, best: false });
+  }
+  return out.slice(0, 4);
+}
+
 export const tripTravel: Skill<BriefInput, TripTravelOutput> = {
   id: "trip.travel",
   title: "Working out how to get there",
@@ -195,9 +242,13 @@ export const tripTravel: Skill<BriefInput, TripTravelOutput> = {
     ]);
     const seen = new Set<string>();
     const sources = [...routes, ...fares, ...sites, ...times].filter((r) => (seen.has(r.url) ? false : (seen.add(r.url), true))).slice(0, 16);
+    const fallback = () => {
+      const options = estimatedTravel(origin, t.destination!, km, t.startDate ?? null, sources);
+      return { data: { origin, destination: t.destination!, km, from, to, options, gaps: options.length ? [] : ["How to get there"] }, evidence: sources.slice(0, 2).map((s) => webEvidence(s)), notes: [] };
+    };
     if (!ctx.llm || sources.length === 0) {
-      ctx.progress?.({ kind: "saw", id: "tr.find", tool: "travel", ok: false, text: "No travel sources found", ms: Date.now() - t0, by: "autopilot" });
-      return { data: { origin, destination: t.destination, km, from, to, options: [], gaps: ["How to get there"] }, evidence: [], notes: [] };
+      ctx.progress?.({ kind: "saw", id: "tr.find", tool: "travel", ok: false, text: sources.length ? "Estimated from the distance" : "No travel sources found; estimated from the distance", ms: Date.now() - t0, by: "autopilot" });
+      return fallback();
     }
     try {
       const raw = await ctx.llm.json({
@@ -220,6 +271,7 @@ export const tripTravel: Skill<BriefInput, TripTravelOutput> = {
         user: [`Route: ${origin} to ${t.destination}`, t.startDate ? `Travel date: ${t.startDate}` : "", "", quoteWeb(sources)].filter(Boolean).join("\n"),
       });
       const shaped = shapeTravel(rawSchema.parse(raw), sources);
+      if (!shaped.options.length) return fallback();
       ctx.progress?.({ kind: "saw", id: "tr.find", tool: "travel", ok: shaped.options.length > 0, text: shaped.options.length ? `${shaped.options.length} ways to get there` : "No reliable options found", ms: Date.now() - t0, by: "autopilot" });
       return {
         data: { origin, destination: t.destination, km, from, to, options: shaped.options.map((o) => ({ ...o, duration: checkedDuration(o.mode, o.duration, km) })), gaps: shaped.options.length ? [] : ["How to get there"] },
@@ -228,7 +280,7 @@ export const tripTravel: Skill<BriefInput, TripTravelOutput> = {
       };
     } catch (err) {
       ctx.log.warn("Trip travel research failed", { error: String(err) });
-      return { data: { origin, destination: t.destination, km, from, to, options: [], gaps: ["How to get there"] }, evidence: [], notes: [] };
+      return fallback();
     }
   },
 };
