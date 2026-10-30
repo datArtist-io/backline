@@ -6,6 +6,7 @@ import type { BriefInput, Evidence, Skill } from "../types";
 import type { WebResult } from "../clients/web";
 import { UNTRUSTED_WEB_RULE, languageRule, quoteWeb, webEvidence } from "../grounding";
 import { withTimeout } from "../util";
+import { CURRENCIES } from "../trip-request";
 
 export const MODES = ["flight", "train", "bus", "car", "ferry", "other"] as const;
 export type TravelMode = (typeof MODES)[number];
@@ -131,7 +132,9 @@ export function checkedDuration(mode: string, duration: string | null, km: numbe
   const expect = km / 820 + 0.5;
   const said = duration ? hoursIn(duration) : null;
   if (said != null && said >= expect * 0.7 && said <= expect * 1.9) return duration;
-  const h = Math.floor(expect), mins = Math.round(((expect - h) * 60) / 15) * 15;
+  // Round the whole time to 15 minutes first, so 2 h 59 never shows as "2 h 60 min".
+  const total = Math.round((expect * 60) / 15) * 15;
+  const h = Math.floor(total / 60), mins = total % 60;
   return `about ${h} h${mins ? ` ${mins} min` : ""} (estimate)`;
 }
 
@@ -153,6 +156,18 @@ async function search(ctx: Parameters<NonNullable<Skill["run"]>>[0], q: string):
 }
 
 const city = (x: string) => x.split(",")[0].trim().toLowerCase();
+
+/** At most two options of a mode (the best and the cheapest priced), so three near-identical flights become one or two. Pure. */
+export function onePerMode(options: TravelOption[]): TravelOption[] {
+  const out: TravelOption[] = [];
+  for (const o of options) {
+    const same = out.filter((x) => x.mode === o.mode);
+    if (same.length >= 2) continue;
+    if (same.length === 1 && !(o.priceMin != null && (same[0].priceMin == null || o.priceMin < same[0].priceMin)) && !o.best) continue;
+    out.push(o);
+  }
+  return out;
+}
 
 /**
  * When no model can read the fare pages: an honest estimate from the distance (labelled as one) with a
@@ -215,6 +230,12 @@ export const tripTravel: Skill<BriefInput, TripTravelOutput> = {
     if (!origin || city(origin) === city(t.destination)) return none();
     ctx.progress?.({ kind: "act", id: "tr.find", tool: "travel", text: `Working out how to get from ${origin} to ${t.destination}`, by: "autopilot" });
     const t0 = Date.now();
+    // Currencies a fare can sensibly be quoted in for this traveller and route.
+    const allowed = new Set(
+      ["USD", "EUR", "GBP", t.budget?.currency, input.profile?.currency, ...[origin, t.destination].map((x) => CURRENCIES.find(([re]) => re.test(x))?.[1])]
+        .filter((c): c is string => Boolean(c))
+        .map((c) => c.toUpperCase())
+    );
     let km: number | null = null;
     let from: { lat: number; lon: number } | null = null;
     let to: { lat: number; lon: number } | null = null;
@@ -264,6 +285,7 @@ export const tripTravel: Skill<BriefInput, TripTravelOutput> = {
           "Use only the numbered sources. Include a mode ONLY if the sources show it exists on this route (a flight on a short road trip is almost never right; don't invent one). At most 4 options.",
           "For each: mode (flight|train|bus|car|ferry|other), a short title, the typical door-to-door or ride duration as the source says it, a price range in the currency the source uses (priceMin/priceMax per person, one way), a one-line practical note, and the source id (w1, w2…).",
           "Never guess a price. If no source gives one, set priceMin and priceMax to null. Mark exactly one option best: the one most travellers would choose for comfort and cost.",
+          `Only use prices quoted for this route in ${[...allowed].join(", ")}; a fare in another market's currency (a Mexican or Brazilian site) doesn't apply, so leave that price null. One option per mode unless they're really different (direct vs one stop).`,
           UNTRUSTED_WEB_RULE,
           languageRule(input),
           'Shape: {"options":[{"mode":"train","title":"…","duration":"…","priceMin":0,"priceMax":0,"currency":"USD","note":"…","source":"w2","best":true}]}',
@@ -271,6 +293,8 @@ export const tripTravel: Skill<BriefInput, TripTravelOutput> = {
         user: [`Route: ${origin} to ${t.destination}`, t.startDate ? `Travel date: ${t.startDate}` : "", "", quoteWeb(sources)].filter(Boolean).join("\n"),
       });
       const shaped = shapeTravel(rawSchema.parse(raw), sources);
+      // Prices in some other market's currency (MXN, BRL…) mean nothing to this traveller: keep the option, drop the price.
+      shaped.options = onePerMode(shaped.options.map((o) => (o.currency && !allowed.has(o.currency) ? { ...o, priceMin: null, priceMax: null, currency: null } : o)));
       if (!shaped.options.length) return fallback();
       ctx.progress?.({ kind: "saw", id: "tr.find", tool: "travel", ok: shaped.options.length > 0, text: shaped.options.length ? `${shaped.options.length} ways to get there` : "No reliable options found", ms: Date.now() - t0, by: "autopilot" });
       return {
