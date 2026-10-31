@@ -457,6 +457,21 @@ export function statedTier(t: TripRequest, text: string): TripRequest {
   return { ...t, priceTier: tier, assumptions };
 }
 
+/** "2 adults 2 kids", "with our children aged 5 and 8", "a baby": the children and their ages. Pure. */
+export function childrenIn(text: string): { ages: number[]; guessed: boolean } | null {
+  const t = text.toLowerCase();
+  const NUM: Record<string, number> = { a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6 };
+  const m = t.match(/\b(\d+|a|an|one|two|three|four|five|six)\s+(?:little\s+|young\s+)?(kids?|children|child|sons?|daughters?|bab(?:y|ies)|toddlers?|teens?|teenagers?)\b/);
+  const agesM = t.match(/\b(?:aged?|ages)\s+((?:\d{1,2}(?:\s*(?:,|and|&)\s*)?)+)/);
+  const ages = agesM ? (agesM[1].match(/\d{1,2}/g) ?? []).map(Number).filter((n) => n < 18) : [];
+  if (!m && !ages.length) return null;
+  const n = m ? (/^\d+$/.test(m[1]) ? +m[1] : NUM[m[1]] ?? 1) : ages.length;
+  if (!n || n > 8) return null;
+  const typical = m && /bab/.test(m[2]) ? 1 : m && /toddler/.test(m[2]) ? 2 : m && /teen/.test(m[2]) ? 14 : 8;
+  const out = Array.from({ length: n }, (_, i) => ages[i] ?? typical);
+  return { ages: out, guessed: ages.length < n };
+}
+
 /** The person left the place open on purpose. */
 const OPEN_PLACE = /\b(somewhere|anywhere|surprise me|where should (?:i|we) go|a (?:good |nice |new )?(?:destination|place|city|country) (?:with|for|that|where)|recommend (?:a|me a) (?:destination|place|city)|don'?t know where)\b/i;
 
@@ -734,10 +749,11 @@ export async function planGoal(
     // few fitting ideas to pick from instead of a trip to wherever a model (or their home city) landed on.
     if (plan.trip?.destination && !docs.length && !hints.location && !saidIn(goal, plan.trip.destination) && OPEN_PLACE.test(goal)) plan.trip = null;
     // Children: rooms are searched for the adults, so say how the children are handled.
-    const kids = goal.match(/\b(\d+|one|two|three|four|five|a)\s+(?:little\s+)?(kids?|children|child|bab(?:y|ies)|toddlers?|teens?|teenagers?)\b/i);
+    const kids = childrenIn(goal);
     if (plan.trip && kids) {
-      const n = /^\d+$/.test(kids[1]) ? +kids[1] : ({ a: 1, one: 1, two: 2, three: 3, four: 4, five: 5 } as Record<string, number>)[kids[1].toLowerCase()] ?? 1;
-      plan.trip.assumptions = [...plan.trip.assumptions, `Rooms are priced for ${plan.trip.adults} adult${plan.trip.adults === 1 ? "" : "s"}. Tell the hotel about the ${n === 1 ? "child" : `${n} children`} when you confirm, and check its policy for children`];
+      plan.trip.children = kids.ages;
+      const word = kids.ages.length === 1 ? "child" : `${kids.ages.length} children`;
+      plan.trip.assumptions = [...plan.trip.assumptions, kids.guessed ? `Rooms are priced for ${plan.trip.adults} adult${plan.trip.adults === 1 ? "" : "s"} and ${word}, taken as ${kids.ages.length === 1 ? "8 years old" : "8-year-olds"}. Tell me their ages if that's off` : `Rooms are priced for ${plan.trip.adults} adult${plan.trip.adults === 1 ? "" : "s"} and ${word} (${kids.ages.join(", ")})`];
     }
     // "Somewhere with good weather in December": the model chose the place, so say so.
     const dest = plan.trip?.destination?.split(",")[0]?.trim();

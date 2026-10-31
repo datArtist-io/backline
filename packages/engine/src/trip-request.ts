@@ -78,6 +78,8 @@ export const tripRequestSchema = z.object({
   selfArranged: z.array(z.string()),
   inspiredBy: z.string().nullable().optional(),
   likes: z.array(z.string()).optional(),
+  /** Children travelling, by age (rooms and rates are priced for them too). */
+  children: z.array(z.number()).optional(),
   assumptions: z.array(z.string()),
 });
 

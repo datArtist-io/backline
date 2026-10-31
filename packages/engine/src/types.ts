@@ -278,6 +278,8 @@ export type TripRequest = {
   inspiredBy?: string | null;
   /** Things they said they love in the request (artists, films, cuisines). Read as taste through Qloo. */
   likes?: string[];
+  /** Children travelling, by age. */
+  children?: number[];
   /** Things the agent assumed because the request didn't say. Shown to the user. */
   assumptions: string[];
 };

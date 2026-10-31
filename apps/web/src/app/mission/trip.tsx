@@ -524,7 +524,7 @@ export function ActionsCheckpoint({
         <header className="ck-head">
           {/* Always in reach: the header stays put while the list scrolls. */}
           {onLook && (
-            <button type="button" className="ck-x" onClick={onLook} aria-label="Close the payment slip">
+            <button type="button" className="ck-x" autoFocus onClick={onLook} aria-label="Close the payment slip">
               ×
             </button>
           )}

@@ -124,7 +124,7 @@ export class LiteApiProvider implements HotelProvider {
         checkout: q.checkout,
         currency: q.currency,
         guestNationality: q.guestNationality ?? "NG",
-        occupancies: Array.from({ length: Math.max(1, q.rooms) }, () => ({ adults: Math.max(1, Math.ceil(q.adults / Math.max(1, q.rooms))) })),
+        occupancies: Array.from({ length: Math.max(1, q.rooms) }, (_, i) => ({ adults: Math.max(1, Math.ceil(q.adults / Math.max(1, q.rooms))), ...(i === 0 && q.children?.length ? { children: q.children.map((age) => Math.max(0, Math.min(17, Math.round(age)))) } : {}) })),
         maxRatesPerHotel: 1,
         limit: q.limit ?? 30,
         timeout: 8,

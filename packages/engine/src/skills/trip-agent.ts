@@ -707,7 +707,7 @@ export function tripTools(ctx: SkillContext, s: TripAgentState): AnyTool<TripAge
       const live =
         a.kind === "stay" && ctx.hotels && t().startDate && t().endDate
           ? ctx.hotels
-              .search({ lat: anchor.lat, lon: anchor.lon, radiusKm: Math.max(radius, 10), checkin: t().startDate!, checkout: t().endDate!, adults: t().adults, rooms: t().rooms, currency: t().budget.currency, guestNationality: s.city?.countryCode ?? undefined, limit: 25, signal: ctx.signal })
+              .search({ lat: anchor.lat, lon: anchor.lon, radiusKm: Math.max(radius, 10), checkin: t().startDate!, checkout: t().endDate!, adults: t().adults, rooms: t().rooms, children: t().children, currency: t().budget.currency, guestNationality: s.city?.countryCode ?? undefined, limit: 25, signal: ctx.signal })
               .catch((err) => {
                 ctx.log.warn("Live hotel rates failed", { error: String(err) });
                 return [] as HotelOffer[];

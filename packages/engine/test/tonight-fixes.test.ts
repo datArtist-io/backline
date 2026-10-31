@@ -89,3 +89,13 @@ describe("holidays with a length", () => {
     expect(pinStatedDates(base, "a fortnight in Bali starting Dec 3", "2026-10-31")).toMatchObject({ startDate: "2026-12-03", endDate: "2026-12-16" });
   });
 });
+
+import { childrenIn } from "../src/missions";
+describe("children", () => {
+  it("reads how many and how old", () => {
+    expect(childrenIn("Family trip to Cape Town, 2 adults 2 kids")).toEqual({ ages: [8, 8], guessed: true });
+    expect(childrenIn("with our children aged 5 and 9")).toEqual({ ages: [5, 9], guessed: false });
+    expect(childrenIn("me, my wife and a baby")).toEqual({ ages: [1], guessed: true });
+    expect(childrenIn("3 days in Paris")).toBeNull();
+  });
+});
