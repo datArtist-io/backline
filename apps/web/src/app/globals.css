@@ -1444,7 +1444,7 @@ a { color: inherit; text-decoration: none; }
 .mode-tip::before { content: ""; position: absolute; top: -6px; left: 50%; width: 12px; height: 12px; translate: -50% 0; rotate: 45deg; border-radius: 3px 0 0 0; background: inherit; box-shadow: -1px -1px 0 rgba(16, 19, 43, 0.05); }
 .mode-tip b { font-size: 12px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: #5a3ee6; }
 @keyframes modetip { 0% { opacity: 0; transform: translateY(-6px) scale(0.97); } 7%, 82% { opacity: 1; transform: none; } 100% { opacity: 0; transform: translateY(-4px); } }
-.hero.is-launching .mode-tip { opacity: 0; }
+.hero.is-launching .mode-tip { display: none; }
 @media (prefers-reduced-motion: reduce) { .mode-tip { animation: modetip-still 4.8s linear both; } @keyframes modetip-still { 0%, 85% { opacity: 1; } 100% { opacity: 0; } } }
 /* Example chips wrap onto a second line instead of being cut off */
 .recent.try { flex-wrap: wrap; justify-content: center; overflow: visible; row-gap: 8px; max-width: min(640px, calc(100vw - 32px)); margin-inline: auto; }
@@ -1636,3 +1636,5 @@ a { color: inherit; text-decoration: none; }
 /* Preferences: the header (and its close button) stays at the top while the form scrolls. */
 .pref-head { position: sticky; top: calc(-1 * clamp(20px, 3vw, 28px)); z-index: 3; margin: calc(-1 * clamp(20px, 3vw, 28px)) calc(-1 * clamp(20px, 3vw, 28px)) 0; padding: clamp(14px, 2vw, 18px) clamp(20px, 3vw, 28px); background: rgba(255, 255, 255, 0.96); border-radius: var(--radius-xl) var(--radius-xl) 0 0; }
 .good-to-know { margin: 6px 0 0; padding-left: 18px; display: grid; gap: 3px; }
+/* Replies with a short list (destination ideas) keep their line breaks. */
+.agent-says { white-space: pre-line; }

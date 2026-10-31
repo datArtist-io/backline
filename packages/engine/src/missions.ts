@@ -837,7 +837,7 @@ export async function suggestDestinations(
         opts.origin ? `They travel from ${opts.origin}: prefer places reachable for their trip length (a weekend means a short trip from there).` : "Prefer places that suit the trip length they gave.",
         "Vary them (not three beach towns in one country). why is one short line on why it fits (the usual climate then, mood, what they asked for).",
         "You have no live forecast: never quote a forecast or exact temperatures. Say what the climate is usually like then (\"usually hot and dry in November\"). If they asked for warm, every place must really be warm then (no mild highland cities).",
-        "request is their own request rewritten with the destination named, keeping their length, dates, people, budget and tastes exactly, and adding no length or dates they didn't give, e.g. \"A relaxing weekend in Zanzibar, Tanzania, somewhere warm\". Under 140 characters.",
+        "request is their own request rewritten with the destination in place of the open words (drop \"somewhere warm\", \"surprise me\", \"a destination\"), keeping their length, dates, people, budget and tastes exactly, and adding no length or dates they didn't give, e.g. \"A relaxing weekend in Zanzibar, Tanzania\". Under 140 characters.",
         "message is one short friendly sentence introducing the three, saying what you judged by (e.g. the usual weather then), without naming the places. No question marks needed; they'll tap one.",
         'Shape: {"message":"…","ideas":[{"place":"Zanzibar, Tanzania","why":"…","request":"…"}]}',
       ].join("\n"),
@@ -848,9 +848,10 @@ export async function suggestDestinations(
       .filter((i) => i.place && i.request)
       .slice(0, 3);
     if (ideas.length < 2) return null;
-    const lines = ideas.map((i) => `${i.place}${i.why ? `: ${i.why}` : ""}`).join(". ");
-    const intro = (out.message ?? "").trim().replace(/[\s,;]+$/, "") || "A few places that fit what you asked for";
-    const message = `${/[.:!]$/.test(intro) ? intro : `${intro}:`} ${lines}. Tap one to plan it, or tell me where you have in mind.`.replace(/\.\./g, ".").slice(0, 700);
+    // One line per idea, so the reply reads as a short list, not a paragraph.
+    const lines = ideas.map((i) => `• ${i.place}${i.why ? `: ${i.why.replace(/\.$/, "")}` : ""}`).join("\n");
+    const intro = (out.message ?? "").trim().replace(/[\s,;:]+$/, "") || "A few places that fit what you asked for";
+    const message = `${/[.!]$/.test(intro) ? intro : `${intro}:`}\n${lines}\nTap one to plan it, or tell me where you have in mind.`.slice(0, 700);
     return { message, suggestions: ideas.map((i) => i.request) };
   } catch {
     return null;

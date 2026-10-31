@@ -75,6 +75,16 @@ export type ReviewApi = {
   onBook: () => void;
 };
 
+/** "Pachalik de Marrakech", "City of Westminster", "Greater London" → the name people use. Pure. */
+export function shortCity(name: string): string {
+  const latin = /\p{Script=Latin}/u.test(name) ? name.split(/\s+/).filter((w) => !/\p{L}/u.test(w) || /\p{Script=Latin}/u.test(w)).join(" ") : name;
+  return latin
+    .split(",")[0]
+    .replace(/^(?:greater|city of|metropolitan|pachalik (?:de |d')|prefecture (?:of|de) |pr[ée]fecture (?:de |d')|municipality of|municipio de|commune (?:de |d')|ville de|distrito de|comuna de|county of|arrondissement (?:de |d'))\s*/i, "")
+    .replace(/\s+(?:prefecture|municipality|province|county|metropolitan (?:area|municipality))$/i, "")
+    .trim();
+}
+
 export default function AdventureView({
   model,
   steps,
@@ -83,6 +93,7 @@ export default function AdventureView({
   onClassic,
   note,
   destination = null,
+  placeHint = null,
   origin = null,
   subtitle = null,
   fullscreen = false,
@@ -104,6 +115,8 @@ export default function AdventureView({
   onClassic?: () => void;
   note?: string;
   destination?: Spot | null;
+  /** The place read from the request at once ("4 days in Marrakech" → "Marrakech"), shown until the map knows it. */
+  placeHint?: string | null;
   origin?: Spot | null;
   subtitle?: string | null;
   fullscreen?: boolean;
@@ -213,6 +226,20 @@ export default function AdventureView({
   }, []);
 
   const routesRef = useRef<DayRoute[]>([]);
+  // The review card sits just above the dock, however tall the dock is (it grows with the day bar,
+  // the strip and the progress), so the two never overlap on any screen.
+  const rootRef = useRef<HTMLElement>(null);
+  const dockRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const dock = dockRef.current;
+    const root = rootRef.current;
+    if (!dock || !root || typeof ResizeObserver === "undefined") return;
+    const set = () => root.style.setProperty("--dock-h", `${Math.round(dock.getBoundingClientRect().height)}px`);
+    const ro = new ResizeObserver(set);
+    ro.observe(dock);
+    set();
+    return () => ro.disconnect();
+  }, []);
   const select = useCallback((id: string | null) => {
     setSelectedId(id);
     if (id) {
@@ -352,7 +379,7 @@ export default function AdventureView({
   const chapters = useMemo(() => CHAPTERS.filter((c) => steps.some((s) => s.id === c.id)).map((c) => ({ ...c, status: steps.find((s) => s.id === c.id)?.status ?? "pending" })), [steps]);
   const current = chapters.find((c) => c.status === "running") ?? chapters.find((c) => c.status === "pending") ?? null;
   const dest = destination ?? model?.destination ?? null;
-  const city = model?.city || dest?.name || null;
+  const city = model?.city || dest?.name || placeHint || null;
   const from = origin ?? model?.origin ?? null;
 
   // The journey in, with its cited fare and time when the research found them.
@@ -401,7 +428,7 @@ export default function AdventureView({
   const matchPct = model?.stats.match ?? null;
 
   return (
-    <section data-theme={theme} style={gradeVars(sky, hour)} className={`eq${fullscreen ? " is-full" : ""}${ready ? " is-ready" : ""}${play ? " is-flying" : ""}`} aria-label={city ? `Your trip to ${city}` : "Your trip"}>
+    <section ref={rootRef} data-theme={theme} style={gradeVars(sky, hour)} className={`eq${fullscreen ? " is-full" : ""}${ready ? " is-ready" : ""}${play ? " is-flying" : ""}`} aria-label={city ? `Your trip to ${city}` : "Your trip"}>
       <div className="eq-stage">
         {/* Deep space around the globe until you arrive in the city. */}
         {blobs && <Space active={!arrived} />}
@@ -465,7 +492,7 @@ export default function AdventureView({
             Backline
           </a>
           {city ? (
-            <h1 key={city}>{city.split(",")[0].replace(/^(Greater|City of|Metropolitan)\s+/i, "")}</h1>
+            <h1 key={shortCity(city)} className={shortCity(city).length > 18 ? "is-longer" : shortCity(city).length > 11 ? "is-long" : undefined} title={shortCity(city)}>{shortCity(city)}</h1>
           ) : (
             <h1 className="is-waiting">
               <span>Planning</span>
@@ -639,10 +666,21 @@ export default function AdventureView({
         {overlay && <div className="eq-overlay">{overlay}</div>}
 
         {/* bottom: the agent at work, then the days to fly */}
-        <div className="eq-dock">
+        <div className="eq-dock" ref={dockRef}>
           {scanning && (
             <div className="eq-mission" aria-live="polite">
-              <p className="eq-doing">{!chapters.length ? "Reading your request" : current ? (current.id === "trip.agent" && city ? `Scouting ${city.split(",")[0]} for places your taste points to` : current.doing) : "Finishing up"}</p>
+              <p className="eq-doing">{!chapters.length ? "Reading your request" : current ? (current.id === "trip.agent" && city ? `Scouting ${shortCity(city)} for places your taste points to` : current.doing) : "Finishing up"}</p>
+              {/* Same height before the steps are known, so the bar doesn't jump when they arrive. */}
+              {!chapters.length && (
+                <ol className="eq-chapters is-skeleton" aria-hidden="true">
+                  {Array.from({ length: 8 }, (_, i) => (
+                    <li key={i}>
+                      <i />
+                      <span>&nbsp;</span>
+                    </li>
+                  ))}
+                </ol>
+              )}
               {chapters.length > 0 && <ol className="eq-chapters">
                 {chapters.map((c) => (
                   <li key={c.id} className={`is-${c.status}`}>

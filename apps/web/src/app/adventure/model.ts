@@ -183,7 +183,9 @@ export function buildAdventure(src: AdventureSource): AdventureModel | null {
   if (!list.length) return null;
 
   // World frame: centred on the places (and the taste heat around them), scaled so they fill the map.
-  const heatRaw = taste?.heat ?? [];
+  // Heat far from the city (a regional heatmap) would pull the frame off it, so only nearby heat counts.
+  const city = a.where.city ?? null;
+  const heatRaw = (taste?.heat ?? []).filter((h) => !city || Math.hypot((h[0] - city.lat) * KM_PER_DEG_LAT, (h[1] - city.lon) * kmPerDegLon(city.lat)) <= 30);
   const lats = [...list.map((r) => r.lat), ...heatRaw.map((h) => h[0])];
   const lons = [...list.map((r) => r.lon), ...heatRaw.map((h) => h[1])];
   const lat0 = (Math.min(...lats) + Math.max(...lats)) / 2;
@@ -293,7 +295,9 @@ export function buildAdventure(src: AdventureSource): AdventureModel | null {
 /** Before the agent has found places: Qloo's taste on the map already, so the wait is never empty. Pure. */
 function tasteOnly(src: AdventureSource): AdventureModel | null {
   const taste = src.taste;
-  const heatRaw = taste?.heat ?? [];
+  // Only the heat around the city: Qloo's heatmap for a destination can spread across the region.
+  const d = src.destination ?? null;
+  const heatRaw = (taste?.heat ?? []).filter((h) => !d || Math.hypot((h[0] - d.lat) * KM_PER_DEG_LAT, (h[1] - d.lon) * kmPerDegLon(d.lat)) <= 30);
   if (!taste || !heatRaw.length) return null;
   const lats = heatRaw.map((h) => h[0]);
   const lons = heatRaw.map((h) => h[1]);

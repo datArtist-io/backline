@@ -33,6 +33,13 @@ const hostOf = (url: string) => {
   }
 };
 
+/** "Guéliz ⵜⴳⵍⵉⵣ گليز" → "Guéliz": map names often carry every local script; keep the one being read. Pure. */
+export function oneScript(name: string): string {
+  if (!/\p{Script=Latin}/u.test(name)) return name;
+  const kept = name.split(/\s+/).filter((w) => !/\p{L}/u.test(w) || /\p{Script=Latin}/u.test(w));
+  return kept.join(" ").replace(/\s*[-–,/]\s*$/, "").trim() || name;
+}
+
 export function tripChips(t: TripRequest, where?: TripAgentOutput["where"] | null): string[] {
   const place = where?.city ? [where.city.name, where.city.country].filter(Boolean).join(", ") : t.destination;
   const out = [place];
@@ -40,7 +47,7 @@ export function tripChips(t: TripRequest, where?: TripAgentOutput["where"] | nul
   out.push(`${t.adults} ${t.adults === 1 ? "person" : "people"}`);
   if (t.budget.amount) out.push(`${money(t.budget.amount, t.budget.currency)}${t.budget.scope === "per_night" ? " a night" : ""}`);
   if (t.event) out.push(`${t.event.type}${t.event.guests ? ` · ${t.event.guests} guests` : ""}`);
-  if (t.near) out.push(`Near ${where?.landmark?.name ?? t.near}`);
+  if (t.near) out.push(`Near ${oneScript(where?.landmark?.name ?? t.near)}`);
   if (t.travelMode) out.push(`By ${t.travelMode}${t.selfArranged.includes("transport") ? " (you're booking it)" : ""}`);
   if (t.inspiredBy) out.push(`Inspired by ${t.inspiredBy}`);
   return out.filter(Boolean);
