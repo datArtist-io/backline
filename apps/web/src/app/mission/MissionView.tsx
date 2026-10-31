@@ -370,6 +370,9 @@ export default function MissionView(props: { goal?: string; artist?: string; mis
   const agentOut = r<TripAgentOutput>("trip.agent")?.data;
   // Once the agent has corrected or completed the trip, show its version.
   const shownTrip = agentOut?.trip ?? planned?.plan.trip ?? null;
+  // What the agent decided for them and why ("Kenya is a whole country, so I based the trip in Nairobi",
+  // "You asked for affordable, so I chose…"): shown with the assumptions, never left in the data.
+  const goodToKnow = [...new Set([...(results["trip.agent"]?.notes ?? []), ...(results["trip.plan"]?.notes ?? [])].filter((n): n is string => typeof n === "string" && n.trim().length > 0))].slice(0, 6);
   const docNames = (docsRef.current ?? []).map((d) => d.name);
 
   const altHref = (name: string) => `/mission?${new URLSearchParams({ artist: name, ...(mission ? { m: mission } : {}), mode: autonomy, ...(planned?.plan.goal ? { goal: planned.plan.goal.replace(artistName, name) } : {}) })}`;
@@ -526,6 +529,11 @@ export default function MissionView(props: { goal?: string; artist?: string; mis
                   </div>
                 )}
                 {shownTrip && shownTrip.assumptions.length > 0 && <p className="assumed">I assumed: {shownTrip.assumptions.join(". ")}. Change anything by asking again.</p>}
+                {goodToKnow.length > 0 && (
+                  <ul className="assumed good-to-know">
+                    {goodToKnow.map((n) => <li key={n}>{n}</li>)}
+                  </ul>
+                )}
               </header>
               <TripView r={r} steps={steps} title={planned?.goal ?? ""} activity={[]} onEditTaste={() => setPrefsOpen(true)} book />
             </div>
