@@ -562,8 +562,8 @@ export function ActionsCheckpoint({
             ))}
           </div>
           {others.length > 0 && (
-            <details className="ck-also">
-              <summary>Also ready for you ({others.length})</summary>
+            <details className="ck-also" open={!priced.length}>
+              <summary>{priced.length ? "Also ready for you" : "Ready for you"} ({others.length})</summary>
               <ul>
                 {others.map((a) => (
                   <li key={a.id}>
@@ -576,7 +576,7 @@ export function ActionsCheckpoint({
               </ul>
             </details>
           )}
-          <button type="button" className="ck-toggle" onClick={() => setLook((v) => !v)} aria-expanded={look}>{look ? "Fewer details" : "Show details for each payment"}</button>
+          {priced.length > 0 && <button type="button" className="ck-toggle" onClick={() => setLook((v) => !v)} aria-expanded={look}>{look ? "Fewer details" : "Show details for each payment"}</button>}
           {needsDetails && (
             <div className="me">
               <p className="sub">Who I&rsquo;m booking for</p>

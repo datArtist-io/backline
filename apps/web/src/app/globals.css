@@ -1635,3 +1635,4 @@ a { color: inherit; text-decoration: none; }
 
 /* Preferences: the header (and its close button) stays at the top while the form scrolls. */
 .pref-head { position: sticky; top: calc(-1 * clamp(20px, 3vw, 28px)); z-index: 3; margin: calc(-1 * clamp(20px, 3vw, 28px)) calc(-1 * clamp(20px, 3vw, 28px)) 0; padding: clamp(14px, 2vw, 18px) clamp(20px, 3vw, 28px); background: rgba(255, 255, 255, 0.96); border-radius: var(--radius-xl) var(--radius-xl) 0 0; }
+.good-to-know { margin: 6px 0 0; padding-left: 18px; display: grid; gap: 3px; }

@@ -195,7 +195,7 @@ async function writePlan(ctx: Parameters<Skill<BriefInput, TripPlanOutput>["run"
             "Use only the places and stops listed. Put their id (S1, D2, p1…) in placeId. Activities without a listed place get placeId null. Never invent prices, phone numbers or bookings.",
             "Pick one hotel (stayId) and, if they're hosting an event, one venue (venueId), from the list. Prefer the agent's picks.",
             ds.length ? `Write exactly ${ds.length} day${ds.length === 1 ? "" : "s"}: one for each date listed, in order, every one fully planned (no "free day" placeholders, no "same as day 2"). Spread the places across the days and vary them.` : "",
-            part ? `This is a ${dates.length}-day trip (${dates[0]} to ${dates[dates.length - 1]}), written a week at a time. Write only days ${part.from + 1}-${part.from + ds.length} now.${part.from > 0 ? " Don't plan the arrival or check-in again: they're already there." : ""}${part.from + ds.length < dates.length ? " Don't plan the departure or check-out: the trip continues." : " End with check-out and the journey home."}${part.used.length ? ` Earlier weeks already used: ${part.used.join(", ")}. Prefer places not used yet; repeat a favourite only now and then.` : ""}` : "",
+            part ? `This is a ${dates.length}-day trip (${dates[0]} to ${dates[dates.length - 1]}), written a week at a time. Write only days ${part.from + 1}-${part.from + ds.length} now, and label each by what happens that day (no "final day", "farewell" or "cultural start" unless it really is the trip's first or last day).${part.from > 0 ? " Don't plan the arrival or check-in again: they're already there." : ""}${part.from + ds.length < dates.length ? " Don't plan the departure or check-out: the trip continues." : " End with check-out and the journey home."}${part.used.length ? ` Earlier weeks already used: ${part.used.join(", ")}. Prefer places not used yet; repeat a favourite only now and then.` : ""}` : "",
             'Give each day a short label. Times like "09:00". Account for travel time between places (distances are given) and local realities like traffic and opening hours. Include check-in and check-out, and the journey in and out if they said how they travel.',
             "If they're attending an event at a stop, put it in the plan at its time (use the research notes) with that stop's id. If a stop is a station or airport, use it for the arrival and departure items.",
             "Every item at a listed place or stop must carry its id: each day's route is drawn on a map from them.",
@@ -354,7 +354,8 @@ async function writePlan(ctx: Parameters<Skill<BriefInput, TripPlanOutput>["run"
           });
           for (let i = days.length; i < headDates.length; i++) {
             const d = filler.days[i];
-            if (d) days.push({ date: headDates[i], label: d.label, items: d.items });
+            // Marked as a draft, so the browser has the model write it properly a moment later.
+            if (d) days.push({ date: headDates[i], label: d.label, items: d.items, draft: true });
           }
         }
         // The rest of a long trip: whole weeks written in parallel while there's time, drafts after that.
@@ -421,7 +422,9 @@ async function writePlan(ctx: Parameters<Skill<BriefInput, TripPlanOutput>["run"
     }
     const tpl = templatePlan(trip, stays, dines, venues, dates, { stops: a.stops, picks: a.picks, city: cityLabel(a), activities });
     return {
-      data: { ...tpl, days: tpl.days.map((d, i) => (long && i >= WEEK ? { ...d, draft: true } : d)), fallbackReason },
+      // Every templated day is a draft: the browser asks the model to write them again (a busy or
+      // rate-limited model a minute ago usually answers now), so a trip never stays on the template.
+      data: { ...tpl, days: tpl.days.map((d) => ({ ...d, draft: true })), fallbackReason },
       evidence: [{ source: "derived", label: "Itinerary", basis: "Template plan from the places the agent found" }],
     };
 }
