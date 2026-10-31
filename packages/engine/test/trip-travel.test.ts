@@ -62,10 +62,10 @@ describe("tripTravel", () => {
     expect(r.data.options[0]).toMatchObject({ mode: "train", verified: true });
     expect(r.evidence.length).toBe(1);
   });
-  it("says so when there are no sources", async () => {
+  it("never leaves getting there blank, and never invents a fare", async () => {
     const ctx = { ...(base as object), osm: null, web: { search: async () => [] }, llm: { json: async () => ({}) } };
     const r = await tripTravel.run(ctx as never, { artist: "", trip: { destination: "Paris, France", origin: "London" } } as never, {});
-    expect(r.data.options).toEqual([]);
-    expect(r.data.gaps).toContain("How to get there");
+    expect(r.data.options[0]).toMatchObject({ mode: "flight", priceMin: null, priceMax: null });
+    expect(r.data.options[0].url).toMatch(/google\.com\/travel\/flights/);
   });
 });

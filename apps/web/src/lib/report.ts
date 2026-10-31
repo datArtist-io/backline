@@ -123,7 +123,8 @@ function tripReport(goal: string, results: Record<string, StepResult>): string {
       for (const b of plan.budget) out.push(`| ${mdEsc(b.item)} | ${b.amount != null ? money(b.amount, b.currency) : "To confirm"} | ${mdEsc(b.basis)} |`);
       const total = plan.budget.reduce((s, b) => s + (b.amount ?? 0), 0);
       const cur = plan.budget.find((b) => b.amount)?.currency;
-      if (total > 0 && cur) out.push(`| **Estimated total** | **${money(total, cur)}** | Final prices are confirmed when booking |`);
+      const open = plan.budget.filter((b) => b.amount == null);
+      if (total > 0 && cur) out.push(open.length ? `| **Priced so far** | **${money(total, cur)}** | Not including ${mdEsc(open.map((b) => b.item.toLowerCase()).join(", "))}, still to confirm |` : `| **Estimated total** | **${money(total, cur)}** | Final prices are confirmed when booking |`);
     }
     if (plan.tips.length) {
       h("Tips");

@@ -277,9 +277,10 @@ export function PlanSection({
               )}
               {total > 0 && currency && (
                 <tr className="total">
-                  <th scope="row">Estimated total</th>
+                  {/* With a line still "To confirm" (often the hotel), the sum is only part of the cost: say so. */}
+                  <th scope="row">{p.budget.some((b) => b.amount == null) ? "Priced so far" : "Estimated total"}</th>
                   <td>{money(total, currency)}</td>
-                  <td className="muted small">Estimates. Final prices are confirmed when booking.</td>
+                  <td className="muted small">{p.budget.some((b) => b.amount == null) ? `Not including ${p.budget.filter((b) => b.amount == null).map((b) => b.item.toLowerCase()).join(", ")}, still to confirm.` : "Estimates. Final prices are confirmed when booking."}</td>
                 </tr>
               )}
             </tbody>
