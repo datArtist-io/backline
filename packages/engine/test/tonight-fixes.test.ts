@@ -99,3 +99,14 @@ describe("children", () => {
     expect(childrenIn("3 days in Paris")).toBeNull();
   });
 });
+
+import { extractJson } from "../src/clients/llm";
+describe("model JSON slips", () => {
+  it("mends a missing comma between items and a trailing comma", () => {
+    const bad = '{"days":[{"label":"A","items":[{"time":"09:00","title":"x"}\n{"time":"10:00","title":"y"},]}]}';
+    expect(extractJson(bad)).toEqual({ days: [{ label: "A", items: [{ time: "09:00", title: "x" }, { time: "10:00", title: "y" }] }] });
+  });
+  it("leaves valid JSON and strings with brackets alone", () => {
+    expect(extractJson('{"note":"bring a hat }, really","n":[1,2]}')).toEqual({ note: "bring a hat }, really", n: [1, 2] });
+  });
+});
