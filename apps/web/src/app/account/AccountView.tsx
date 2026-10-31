@@ -166,9 +166,13 @@ export default function AccountView() {
             </p>
           </div>
         </div>
-        <button type="button" className="act" onClick={out}>
-          Sign out
-        </button>
+        <div className="account-acts">
+          <a className="act" href="/security">Security</a>
+          {/* Ends the session on every device, not just this one. */}
+          <button type="button" className="act" onClick={out} title="Signs you out on every device">
+            Sign out everywhere
+          </button>
+        </div>
       </section>
 
       <nav className="account-tabs" role="tablist" aria-label="Your account">
