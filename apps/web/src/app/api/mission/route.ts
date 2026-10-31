@@ -32,6 +32,7 @@ import { loadWallet, walletFor } from "@/lib/wallet";
 import { kycConfigured, kycFor } from "@/lib/kyc";
 import { saidOrigin } from "@/lib/origin";
 import { clientIp, rateLimiter } from "@/lib/rate-limit";
+import { recordRun } from "@/lib/ops";
 import { getSession } from "@/lib/session";
 import { supabaseConfig } from "@/lib/supabase";
 import { loadAccount, mergeProfile, recentBooking, rememberTastes, saveSearch, saveTripAndMemories } from "@/lib/account";
@@ -390,8 +391,10 @@ export async function POST(req: Request) {
           await saveTripAndMemories(session, plan.goal, plan.title ?? plan.trip?.destination ?? "Your trip", { ...seed, ...run.results }).catch((err) => console.warn("[mission] trip save failed", err instanceof Error ? err.message : err));
         sendDebug();
         send("mission.completed", { status: run.status, steps: run.steps, ms: run.ms, usage: ctx.usage.snapshot() });
+        recordRun({ goal: plan.goal ?? body.goal ?? "", status: run.status, ms: run.ms, planner: plan.method ?? null, failed: Object.entries(run.steps).filter(([, st]) => (st as { status?: string }).status === "failed").map(([id]) => id), signedIn: Boolean(session), country: req.headers.get("x-vercel-ip-country") });
       } catch (err) {
         console.error("[mission] run failed", err instanceof Error ? err.message : err);
+        recordRun({ goal: body.goal ?? "", status: "failed", ms: Date.now() - startedAt, planner: null, failed: ["mission"], signedIn: Boolean(session), country: req.headers.get("x-vercel-ip-country") });
         if (debug) logs.push({ level: "error", msg: "Mission failed", meta: { error: err instanceof Error ? err.message : String(err) }, at: Date.now() - startedAt });
         sendDebug();
         send("mission.error", { error: "The mission couldn't run. Try again." });
