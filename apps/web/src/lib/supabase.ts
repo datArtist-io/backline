@@ -82,21 +82,6 @@ export async function sendSignInLink(cfg: SupabaseConfig, email: string, redirec
   return res.ok;
 }
 
-/** Checks the code from the sign-in email (the same email carries a link and a code). Tokens or null. */
-export async function verifyEmailCode(cfg: SupabaseConfig, email: string, code: string): Promise<Tokens | null> {
-  const res = await fetch(`${cfg.url}/auth/v1/verify`, {
-    method: "POST",
-    headers: { apikey: cfg.anonKey, "Content-Type": "application/json" },
-    body: JSON.stringify({ type: "email", email, token: code }),
-    signal: AbortSignal.timeout(10000),
-    cache: "no-store",
-  }).catch(() => null);
-  if (!res?.ok) return null;
-  const j = (await res.json().catch(() => ({}))) as { access_token?: string; refresh_token?: string; expires_in?: number };
-  if (!j.access_token || !j.refresh_token) return null;
-  return { accessToken: j.access_token, refreshToken: j.refresh_token, expiresAt: Date.now() + (j.expires_in ?? 3600) * 1000 };
-}
-
 /** Ends the session on Supabase's side too. */
 export async function signOutEverywhere(cfg: SupabaseConfig, accessToken: string): Promise<void> {
   await fetch(`${cfg.url}/auth/v1/logout`, { method: "POST", headers: { apikey: cfg.anonKey, Authorization: `Bearer ${accessToken}` }, signal: AbortSignal.timeout(5000) }).catch(() => undefined);
