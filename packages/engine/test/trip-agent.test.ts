@@ -226,8 +226,9 @@ describe("covering what a good assistant would", () => {
   it("knows what's worth finding beyond the request", () => {
     const stayOnly = normalizeTrip({ destination: "lagos", needs: ["stay"], travelMode: "flight" }, "lagos", {}, TODAY)!;
     expect(neededKinds(stayOnly)).toEqual(["stay"]);
-    expect(niceKinds(stayOnly)).toEqual(["dine"]);
-    expect(niceKinds(tripFor())).toEqual([]);
+    // Somewhere to eat and something to do, so a stay-only trip still has days worth living.
+    expect(niceKinds(stayOnly)).toEqual(["dine", "activity"]);
+    expect(niceKinds(tripFor())).toEqual(["activity"]);
     expect(arrivalMode({ travelMode: "Train" })).toBe("train");
     expect(arrivalMode({ travelMode: "flight" })).toBe("flight");
     expect(arrivalMode({ travelMode: "car" })).toBeNull();

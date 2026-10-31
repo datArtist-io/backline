@@ -15,6 +15,8 @@ export type When = {
   start: string | null;
   /** Last day (YYYY-MM-DD), when the request fixes it. */
   end: string | null;
+  /** The end is a holiday's usual span (Christmas 24–26), not one they wrote: a stated length wins over it. */
+  soft?: boolean;
   /** Things worth telling the person about how the dates were read. */
   notes: string[];
 };
@@ -190,7 +192,7 @@ export function readWhen(text: string, today: string, opts: { dayFirst?: boolean
   if (dates.length) return done(dates[0].day, null);
   // 6. Holidays.
   const h = holiday(t, today);
-  if (h) return done(h.start, h.end);
+  if (h) return { ...done(h.start, h.end), soft: true };
   // 7. Relative days.
   if (/\bday after tomorrow\b/.test(t)) return done(addDays(today, 2), null);
   if (/\b(tonight|today|this evening|this afternoon|this morning|right now)\b/.test(t)) return done(today, null);

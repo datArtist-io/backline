@@ -8,7 +8,7 @@ import type { BriefInput, PlanEdits, Profile, Skill, SkillContext, SkillResult, 
 import { languageRule } from "../grounding";
 import { EngineError } from "../errors";
 import { mapLimit } from "../util";
-import { askedTime, dayDate, holdAskedTime } from "../trip-request";
+import { askedTime, dayDate, holdAskedTime, justAMeal } from "../trip-request";
 import { placeSchema, scorePlace, toPlace, type Place } from "./places";
 import { isArrivalStop, nameRefs, stayForBudget, type Stop, type TripAgentOutput } from "./trip-agent";
 import type { TripFlightsOutput } from "./flights";
@@ -168,6 +168,20 @@ export const tripPlan: Skill<BriefInput, TripPlanOutput> = {
   },
 };
 
+/**
+ * A day's label without "final", "farewell" or "start" when it isn't the trip's last or first day
+ * (weeks of a long trip are written separately, and each tends to end with a "final day"). Pure.
+ */
+export function dayLabel(label: string, index: number, total: number): string {
+  if (index < 0 || total < 2) return label;
+  let out = label;
+  if (index < total - 1) out = out.replace(/\b(?:final|last|farewell|goodbye|departure)\b(?:\s+day)?(?:\s+(?:vibes|highlights))?/gi, " ");
+  if (index > 0) out = out.replace(/\b(?:arrival|arrive|start|kick-?off|welcome)\b/gi, " ");
+  out = out.replace(/\s*[&,+-]\s*(?=$|[&,+-])/g, "").replace(/^\s*[&,+-]\s*/, "").replace(/\s+/g, " ").trim().replace(/^(?:and|&)\s+|\s+(?:and|&)$/gi, "").replace(/,$/, "").trim();
+  if (!out || /^(?:day|and|&)$/i.test(out)) return `Day ${index + 1}`;
+  return out.charAt(0).toUpperCase() + out.slice(1);
+}
+
 /** The plan itself, before the hotel availability check. */
 async function writePlan(ctx: Parameters<Skill<BriefInput, TripPlanOutput>["run"]>[0], input: BriefInput, deps: Record<string, SkillResult<unknown> | undefined>, only?: { weekFrom: number; used?: string[] }): Promise<SkillResult<TripPlanOutput>> {
     const a = agentOf(deps);
@@ -195,7 +209,7 @@ async function writePlan(ctx: Parameters<Skill<BriefInput, TripPlanOutput>["run"
             "Use only the places and stops listed. Put their id (S1, D2, p1…) in placeId. Activities without a listed place get placeId null. Never invent prices, phone numbers or bookings.",
             "Pick one hotel (stayId) and, if they're hosting an event, one venue (venueId), from the list. Prefer the agent's picks.",
             ds.length ? `Write exactly ${ds.length} day${ds.length === 1 ? "" : "s"}: one for each date listed, in order, every one fully planned (no "free day" placeholders, no "same as day 2"). Spread the places across the days and vary them.` : "",
-            part ? `This is a ${dates.length}-day trip (${dates[0]} to ${dates[dates.length - 1]}), written a week at a time. Write only days ${part.from + 1}-${part.from + ds.length} now, and label each by what happens that day (no "final day", "farewell" or "cultural start" unless it really is the trip's first or last day).${part.from > 0 ? " Don't plan the arrival or check-in again: they're already there." : ""}${part.from + ds.length < dates.length ? " Don't plan the departure or check-out: the trip continues." : " End with check-out and the journey home."}${part.used.length ? ` Earlier weeks already used: ${part.used.join(", ")}. Prefer places not used yet; repeat a favourite only now and then.` : ""}` : "",
+            part ? `This is a ${dates.length}-day trip (${dates[0]} to ${dates[dates.length - 1]}), written a week at a time. Write only days ${part.from + 1}-${part.from + ds.length} now, and label each by what happens that day (no "final day", "farewell" or "cultural start" unless it really is the trip's first or last day).${part.from > 0 ? " Don't plan the arrival or check-in again: they're already there." : ` The summary is for the whole ${dates.length}-day trip (say "your ${dates.length} days" or "your month", never "your week").`}${part.from + ds.length < dates.length ? " Don't plan the departure or check-out: the trip continues." : " End with check-out and the journey home."}${part.used.length ? ` Earlier weeks already used: ${part.used.join(", ")}. Prefer places not used yet; repeat a favourite only now and then.` : ""}` : "",
             'Give each day a short label. Times like "09:00". Account for travel time between places (distances are given) and local realities like traffic and opening hours. Include check-in and check-out, and the journey in and out if they said how they travel.',
             "If they're attending an event at a stop, put it in the plan at its time (use the research notes) with that stop's id. If a stop is a station or airport, use it for the arrival and departure items.",
             "Every item at a listed place or stop must carry its id: each day's route is drawn on a map from them.",
@@ -205,6 +219,10 @@ async function writePlan(ctx: Parameters<Skill<BriefInput, TripPlanOutput>["run"
             "Never say a show, concert, match or performance is on at a given time unless the research notes confirm it. Otherwise write it as \"See what's on at <place>\" and say to check the schedule.",
             "Don't invent arrival or departure times: if no flight or train is booked, say \"Arrive\" and leave the time to them in the note.",
             askedTime(input.request ?? "") ? `They asked for ${askedTime(input.request ?? "")}: put the meal or booking they named at exactly that time.` : "",
+            ds.length <= 1 && justAMeal(input.request ?? "")
+              ? "They asked for one meal and nothing else: the day is exactly that booking (at their time, or the usual time for that meal), with getting there and back. No other meals, snacks, sights or events."
+              : "",
+            `There are ${trip.adults} of them: any per-person cost or table is for ${trip.adults}.`,
             "Ids go only in placeId, stayId and venueId. In the summary, titles, notes and tips use names, never ids.",
             'Write the summary to the traveller as "you" (for example "Your days center on…"). Never call them "the client" or "the user".',
             "budget: line items with an estimated amount in the trip's currency only where listed rates, price notes or levels justify it; otherwise amount null. basis says how you estimated. Skip anything the user handles themselves.",
@@ -274,7 +292,7 @@ async function writePlan(ctx: Parameters<Skill<BriefInput, TripPlanOutput>["run"
     const shapeDays = (raw: { date?: string | null; label: string; items: { time: string; title: string; placeId?: string | null; note?: string | null }[] }[], ds: string[]): PlanDay[] =>
       raw.slice(0, Math.max(ds.length, 1)).map((d, i) => ({
         date: ds[i] ?? (d.date && /^\d{4}-\d{2}-\d{2}$/.test(d.date) ? d.date : null),
-        label: words(d.label).slice(0, 80),
+        label: dayLabel(words(d.label), dates.indexOf(ds[i] ?? ""), dates.length).slice(0, 80),
         items: d.items.slice(0, 12).map((it) => ({ time: it.time.slice(0, 12), title: words(it.title).slice(0, 120), placeId: resolve(it.placeId), note: it.note ? words(it.note).slice(0, 240) : null })),
       }));
     /** One week of a long trip, written by the model; days it skips or leaves empty come from the template. */
@@ -1026,7 +1044,8 @@ export const tripActions: Skill<BriefInput, TripActionsOutput> = {
     const evs = (deps["trip.events"]?.data as TripEventsOutput | undefined)?.events ?? [];
     const planText = planData.days.flatMap((d) => d.items.map((it) => `${it.title} ${it.note ?? ""}`)).join(" \n ").toLowerCase();
     const inPlan = evs.filter((e) => planText.includes(e.name.toLowerCase().slice(0, 24)));
-    const tickets: Omit<TripAction, "id">[] = (inPlan.length ? inPlan : evs.filter((e) => e.fit >= 0.7).slice(0, 4)).slice(0, 8).map((e) => ({
+    // Only events that made it into the plan: the rest stay in "What's on" to browse, not on the slip.
+    const tickets: Omit<TripAction, "id">[] = inPlan.slice(0, 8).map((e) => ({
       kind: "planned",
       channel: "link",
       title: `Get tickets: ${e.name}, ${fmtDate(e.date)}${e.time ? ` at ${e.time}` : ""}`,

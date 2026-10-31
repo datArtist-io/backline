@@ -338,6 +338,7 @@ export function guessLocation(text: string): string | null {
     let cand = m[1].trim().replace(/,$/, "").replace(/^(?:visit|visiting|explore|exploring|see)\s+/i, "");
     const inner = cand.match(/\b(?:in|to)\s+([\p{L}][\p{L}\p{M} .'’-]*)$/iu);
     if (inner) cand = inner[1].trim();
+    if (/^(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\b|^(?:mon|tues?|wed(?:nes)?|thu(?:rs)?|fri|sat(?:ur)?|sun)(?:day)?\b|^(?:spring|summer|autumn|fall|winter|christmas|easter)\b/i.test(cand)) continue;
     if (!NOT_PLACE.test(cand) && cand.split(/\s+/).length <= 4) return cand;
   }
   return null;
@@ -456,10 +457,13 @@ export function statedTier(t: TripRequest, text: string): TripRequest {
   return { ...t, priceTier: tier, assumptions };
 }
 
+/** The person left the place open on purpose. */
+const OPEN_PLACE = /\b(somewhere|anywhere|surprise me|where should (?:i|we) go|a (?:good |nice |new )?(?:destination|place|city|country) (?:with|for|that|where)|recommend (?:a|me a) (?:destination|place|city)|don'?t know where)\b/i;
+
 /** Greetings and tests: answered with what Backline does, never run as a mission. */
 const SMALL_TALK = /^(?:hi|hello|hey|hiya|yo|sup|howdy|good (?:morning|afternoon|evening)|how are you|what'?s up|thanks?|thank you|test(?:ing)?|ok(?:ay)?|cool|nice|help|\?)(?:\s+(?:there|backline|again))?[\s!.?]*$/i;
 
-export function keywordPlan(text: string): Plan {
+export function keywordPlan(text: string, today = new Date().toISOString().slice(0, 10), dayFirst?: boolean): Plan {
   if (SMALL_TALK.test(text.trim())) {
     return {
       mission: "plan",
@@ -518,7 +522,7 @@ export function keywordPlan(text: string): Plan {
         ? pinned(normalizeTrip(
             {
               destination: location,
-              ...(dateRangeIn(text) ?? { startDate: guessDate(text) ?? dayDate(text, new Date().toISOString().slice(0, 10)) }),
+              ...(dateRangeIn(text, today) ?? { startDate: guessDate(text, today) ?? dayDate(text, today) }),
               origin: originIn(text),
               adults: adultsIn(text),
               ...(() => {
@@ -532,8 +536,10 @@ export function keywordPlan(text: string): Plan {
               inspiredBy: inspiredByIn(text),
               likes: likesIn(text),
             },
-            location
-          ), text)
+            location,
+            {},
+            today
+          ), text, today, dayFirst)
         : null,
     method: "keywords",
   };
@@ -639,7 +645,10 @@ export async function planGoal(
 ): Promise<Plan> {
   const goal = rawGoal.normalize("NFC").replace(/[\u0000-\u0009\u000b-\u001f\u007f]/g, " ").replace(/[ \t]+/g, " ").trim().slice(0, 2000);
   const docs = hints.documents ?? [];
-  let plan = keywordPlan(goal);
+  let plan = keywordPlan(goal, hints.today, hints.dayFirst);
+  // "hi", "thanks", "test": answered with what Backline does, whatever a model would make of it
+  // (one read "hi" as a music brief and asked who the artist was).
+  if (SMALL_TALK.test(goal.trim()) && !docs.length && !hints.mission) return plan;
   // A document with a vague request ("plan this for me") is almost always something to plan.
   if (docs.length > 0 && plan.mission === "brief" && !hints.mission) {
     plan.mission = "plan";
@@ -721,6 +730,15 @@ export async function planGoal(
   if (plan.mission === "plan") {
     plan.artist = null;
     if (!plan.trip) plan.trip = normalizeTrip({ destination: hints.location ?? plan.location }, hints.location ?? plan.location, hints.profile, hints.today);
+    // "Somewhere warm", "surprise me", "where should I go": no place named on purpose, so they get a
+    // few fitting ideas to pick from instead of a trip to wherever a model (or their home city) landed on.
+    if (plan.trip?.destination && !docs.length && !hints.location && !saidIn(goal, plan.trip.destination) && OPEN_PLACE.test(goal)) plan.trip = null;
+    // Children: rooms are searched for the adults, so say how the children are handled.
+    const kids = goal.match(/\b(\d+|one|two|three|four|five|a)\s+(?:little\s+)?(kids?|children|child|bab(?:y|ies)|toddlers?|teens?|teenagers?)\b/i);
+    if (plan.trip && kids) {
+      const n = /^\d+$/.test(kids[1]) ? +kids[1] : ({ a: 1, one: 1, two: 2, three: 3, four: 4, five: 5 } as Record<string, number>)[kids[1].toLowerCase()] ?? 1;
+      plan.trip.assumptions = [...plan.trip.assumptions, `Rooms are priced for ${plan.trip.adults} adult${plan.trip.adults === 1 ? "" : "s"}. Tell the hotel about the ${n === 1 ? "child" : `${n} children`} when you confirm, and check its policy for children`];
+    }
     // "Somewhere with good weather in December": the model chose the place, so say so.
     const dest = plan.trip?.destination?.split(",")[0]?.trim();
     if (plan.trip && dest && !hints.documents?.length && !hints.location && !saidIn(goal, plan.trip.destination))

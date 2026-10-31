@@ -481,6 +481,11 @@ export function holdAskedTime<D extends { date: string | null; items: { time: st
 const LOCAL_ONLY = /\b(dinner|lunch|brunch|breakfast|table|drinks|supper|reservation)\b/i;
 const NEEDS_STAY = /\b(hotel|stay|night|nights|trip|weekend|holiday|vacation|getaway|accommodation|airbnb|room)\b/i;
 
+/** "Dinner for 2 on Saturday at 8pm": one meal is all they asked for, not a day out. Pure. */
+export function justAMeal(text: string): boolean {
+  return LOCAL_ONLY.test(text) && !NEEDS_STAY.test(text) && !/\b(things to do|activities|explore|tours?|sightseeing|day out|plan (?:my|our|the) day|events?|concerts?|shows?|museums?|galler(?:y|ies)|parks?|beach|visit|see|walk|cinema|movie|club|party|and then|after(?:wards)?|before)\b/i.test(text);
+}
+
 /**
  * A meal or table in the person's own city is an outing, not a trip: one day, no hotel. Returns the
  * trip unchanged otherwise. Pure.
@@ -493,7 +498,8 @@ export function localOuting(trip: TripRequest, text: string, home: string | null
     ...trip,
     endDate: trip.startDate,
     needs: trip.needs.filter((n) => n !== "stay").length ? trip.needs.filter((n) => n !== "stay") : ["dine"],
-    assumptions: [...trip.assumptions.filter((a) => !/night stay/i.test(a)), "It's in your own city, so no hotel: just the evening"],
+    // One line says it all: no "no hotel" twice, and no "travelling from" for a night out at home.
+    assumptions: [...trip.assumptions.filter((a) => !/night stay|one outing|travelling from|from your connection/i.test(a)), "It's in your own city, so no hotel: just the evening"],
   };
 }
 
@@ -545,6 +551,8 @@ export function statedNights(text: string): number | null {
   const w = t.match(new RegExp(`${notWhen}\\b${COUNT_RX}[\\s-]+weeks?\\b(?! (?:from now|later|ago|before|after|time))`));
   if (w && !/\b(?:next|this|last) week\b/.test(w[0])) return Math.min(MAX_NIGHTS, 7 * count(w[1]) - 1);
   if (/\bweek-?long\b/.test(t)) return 6;
+  const fn = t.match(new RegExp(`\\b(?:a|one|1|two|2|three|3)\\s+fortnights?\\b`));
+  if (fn) return Math.min(MAX_NIGHTS, 14 * (/(two|2)\s/.test(fn[0]) ? 2 : /(three|3)\s/.test(fn[0]) ? 3 : 1) - 1);
   // Months and years, for long stays: "6 months", "a year", "half a year", "2 years".
   if (/\bhalf (?:a )?year\b/.test(t)) return 181;
   const mo = t.match(new RegExp(`${notWhen}\\b${COUNT_RX}[\\s-]+months?\\b(?! (?:from now|later|ago|before|after|time))`));
@@ -570,7 +578,9 @@ export function pinStatedDates(trip: TripRequest, text: string, today = new Date
   const start = when.start ?? trip.startDate;
   if (!start) return trip;
   // The end: a range they wrote, else their stated length, else the length already planned (or two nights).
-  let end = when.end ?? (nights != null ? addDays(start, nights) : null);
+  // A named day or holiday ("New Year's Eve", "Christmas") with a length ("3 nights") starts there and runs on.
+  const oneDay = when.end != null && (when.end === when.start || when.soft);
+  let end = (oneDay && nights != null && nights > 0 ? null : when.end) ?? (nights != null ? addDays(start, nights) : null);
   const keptLength = trip.startDate && trip.endDate ? Math.max(0, gap(trip.startDate, trip.endDate)) : 2;
   if (!end) end = addDays(start, keptLength);
   const stated = Boolean(when.end || nights != null);
