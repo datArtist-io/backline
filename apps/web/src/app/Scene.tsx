@@ -139,8 +139,10 @@ function Blob({
   const aspect = useThree((st) => st.size.width / Math.max(1, st.size.height));
   const tall = aspect < 0.8;
   const k = tall ? 0.6 : 1;
-  const px = tall ? position[0] * 0.22 : position[0];
-  const py = tall ? (scale > 1 ? -0.7 : position[1] * 0.8 + 0.5) : position[1];
+  // The two small forms sit at the screen's edges in the gap between the headline and the prompt,
+  // half off-screen, so they never pass behind the words (they used to drift across "We do the rest").
+  const px = tall ? (scale > 1 ? position[0] * 0.22 : Math.sign(position[0]) * 1.5) : position[0];
+  const py = tall ? (scale > 1 ? -0.7 : position[0] < 0 ? 0.15 : -0.25) : position[1];
   const smooth = useRef({ amp: 0 });
   // Float clock.
   const spring = useRef({ t: seed * 10 });
