@@ -1638,3 +1638,17 @@ a { color: inherit; text-decoration: none; }
 .good-to-know { margin: 6px 0 0; padding-left: 18px; display: grid; gap: 3px; }
 /* Replies with a short list (destination ideas) keep their line breaks. */
 .agent-says { white-space: pre-line; }
+
+/* Security page */
+.sec-group { margin-top: 26px; }
+.sec-list { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 10px; }
+.sec-list li { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 12px; align-items: start; padding: 14px 16px; border-radius: 18px; background: rgba(255, 255, 255, 0.7); box-shadow: 0 0 0 1px rgba(16, 19, 43, 0.06), 0 10px 30px -18px rgba(16, 19, 43, 0.3); }
+.sec-list b { display: block; font-size: 15px; color: var(--ink); }
+.sec-list p { margin: 3px 0 0; font-size: 14px; line-height: 1.5; }
+.sec-tick { width: 22px; height: 22px; margin-top: 1px; border-radius: 50%; background: linear-gradient(135deg, #5a3ee6, #b0369a); position: relative; }
+.sec-tick::after { content: ""; position: absolute; left: 7px; top: 4px; width: 5px; height: 10px; border: solid #fff; border-width: 0 2px 2px 0; transform: rotate(45deg); }
+.footer a { color: inherit; }
+.ck-secure { display: flex; align-items: center; gap: 8px; margin: 10px 0 0; font-size: 12.5px; color: var(--ink-soft, #5b5f77); }
+.ck-secure svg { flex: none; color: #2e9d6a; }
+.ck-secure a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
+.account-acts { display: flex; gap: 8px; flex-wrap: wrap; }

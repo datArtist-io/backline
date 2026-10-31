@@ -597,6 +597,10 @@ export function ActionsCheckpoint({
             </div>
           )}
         </div>
+        <p className="ck-secure">
+          <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M8 1.5 2.5 3.6v4c0 3.3 2.3 5.9 5.5 6.9 3.2-1 5.5-3.6 5.5-6.9v-4L8 1.5Zm-1 9.3L4.6 8.4l1-1L7 8.8l3.4-3.4 1 1L7 10.8Z" fill="currentColor"/></svg>
+          <span>Nothing is charged until you approve. Payments are held and only taken once the booking is confirmed. <a href="/security" target="_blank" rel="noreferrer">How it's protected</a></span>
+        </p>
         <footer className="cp-foot ck-foot">
           <button type="button" className="ck-look" onClick={() => (onLook ? onLook() : setLook((v) => !v))}>Take a look first</button>
           <button type="button" className="go" disabled={busy || picked.length === 0 || missing || Boolean(short)} onClick={() => onConfirm(picked, { ...profile, ...me })}>

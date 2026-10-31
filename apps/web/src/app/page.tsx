@@ -103,7 +103,7 @@ export default function Landing() {
 
       <footer className="footer">
         <Logo size={20} />
-        <span>Taste data by Qloo · Maps © OpenStreetMap</span>
+        <span>Taste data by Qloo · Maps © OpenStreetMap · <Link href="/security">Security</Link> · <Link href="/privacy">Privacy</Link></span>
       </footer>
     </>
   );
