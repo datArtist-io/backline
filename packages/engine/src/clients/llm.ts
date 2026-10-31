@@ -68,7 +68,26 @@ export function extractJson(text: string): unknown {
   const close = open === "{" ? "}" : "]";
   const end = cleaned.lastIndexOf(close);
   if (end <= start) throw new Error("Unterminated JSON in model output");
-  return JSON.parse(cleaned.slice(start, end + 1));
+  const body = cleaned.slice(start, end + 1);
+  try {
+    return JSON.parse(body);
+  } catch (err) {
+    // Models drop a comma between items or leave one before a bracket now and then: mend those, once.
+    try {
+      return JSON.parse(repairJson(body));
+    } catch {
+      throw err;
+    }
+  }
+}
+
+/** Mends the slips models make in long JSON: missing commas between items, trailing commas. Pure. */
+export function repairJson(s: string): string {
+  return s
+    .replace(/,\s*([}\]])/g, "$1")
+    .replace(/([}\]"]|\d|true|false|null)(\s*\n\s*)(["{\[])/g, "$1,$2$3")
+    .replace(/}\s*{/g, "},{")
+    .replace(/]\s*\[/g, "],[");
 }
 
 const MODEL_MISSING = /model[\s\S]{0,80}(not found|does not exist|doesn't exist|unknown|invalid|not supported|unavailable)|(no such|unknown) model/i;
@@ -234,7 +253,8 @@ export class LlmClient {
     let thinkOff = false;
     // Cut off mid-thought or mid-answer: give it more room once and, if it thinks by default, ask it not to.
     const roomier = () => {
-      maxTokens = Math.min(4096, Math.round(maxTokens * 2));
+      // More room, never less (a long plan already asks for more than 4,096).
+      maxTokens = Math.max(maxTokens, Math.min(16_000, Math.round(maxTokens * 2)));
       thinkOff = THINKS_BY_DEFAULT.test(this.modelFor(tier));
     };
     for (let attempt = 0; attempt < 2; attempt++) {
