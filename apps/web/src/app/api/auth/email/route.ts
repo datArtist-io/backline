@@ -11,7 +11,7 @@ const rateLimited = rateLimiter(5, 10 * 60_000);
 const bodySchema = z.object({ email: z.string().trim().toLowerCase().max(254).regex(EMAIL_RE) });
 
 export async function POST(req: Request) {
-  if (rateLimited(clientIp(req))) return Response.json({ error: "Too many codes sent. Try again in a few minutes." }, { status: 429 });
+  if (rateLimited(clientIp(req))) return Response.json({ error: "Too many links sent. Try again in a few minutes." }, { status: 429 });
   const cfg = supabaseConfig();
   if (!cfg) return Response.json({ error: "Email sign-in isn't set up yet." }, { status: 503 });
   const parsed = bodySchema.safeParse(await req.json().catch(() => ({})));
