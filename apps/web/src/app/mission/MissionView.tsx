@@ -1055,6 +1055,7 @@ function TripGame({
       intelPending={intelStep?.status === "running" || intelStep?.status === "pending"}
       onClassic={onClassic}
       destination={destination}
+      placeHint={trip?.destination?.split(",")[0] ?? placeIn(goal)}
       origin={origin}
       subtitle={subtitle}
       overlay={overlay}

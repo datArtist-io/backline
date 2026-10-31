@@ -801,9 +801,18 @@ export default function Earth(props: EarthProps) {
     const map = mapRef.current;
     const model = live.current.model;
     if (!map || !model) return;
-    const pts = model.nodes.filter((n) => n.picked);
-    const use: { lat: number; lon: number }[] = pts.length >= 2 ? pts : model.nodes.length ? model.nodes : model.heat.filter((h) => h.w > 0.3);
-    if (!use.length) return;
+    // Frame the city, not the country: Qloo's heat can cover a whole region (Marrakech's ran to the
+    // Atlantic), so only what's within reach of the city counts, and with nothing placed yet the
+    // camera simply settles over the centre.
+    const pin = live.current.destination ?? model.destination ?? null;
+    const c = { name: "", lat: pin?.lat ?? model.center.lat, lon: pin?.lon ?? model.center.lon };
+    const near = <T extends { lat: number; lon: number }>(xs: T[], km: number) => xs.filter((x) => kmBetween(c, { name: "", lat: x.lat, lon: x.lon }) <= km);
+    const pts = near(model.nodes.filter((n) => n.picked), 60);
+    const use: { lat: number; lon: number }[] = pts.length >= 2 ? pts : model.nodes.length ? near(model.nodes, 60) : near(model.heat.filter((h) => h.w > 0.3), 25);
+    if (use.length < 2) {
+      map.flyTo({ center: [c.lon, c.lat], zoom: 11.2, pitch: 52, bearing: -16, duration: live.current.reduced ? 0 : duration, curve: 1.35, essential: true });
+      return;
+    }
     const b = new maplibregl.LngLatBounds();
     for (const n of use) b.extend([n.lon, n.lat]);
     const cam = map.cameraForBounds(b, { padding: padding(), maxZoom: 15.2 });

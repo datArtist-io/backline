@@ -514,7 +514,8 @@ export function tripTools(ctx: SkillContext, s: TripAgentState): AnyTool<TripAge
     async run(a) {
       // Numbers and hosting must come from what the user said or attached, never from guesses.
       const stated = [s.input.request ?? "", ...(s.input.documents ?? []).map((d) => d.text.slice(0, 20000))].join("\n");
-      const updated = updateTrip(t(), groundTrip(a, stated) ?? a, s.input.profile ?? {}, s.today);
+      // A place to be near must be one they named or attached too (the model picked "Guéliz" by itself).
+      const updated = updateTrip(t(), groundTrip(a, stated, { near: true }) ?? a, s.input.profile ?? {}, s.today);
       // The model may "correct" the dates; the length and dates they typed always win.
       const next = updated ? pinStatedDates(updated, s.input.request ?? "", s.today) : null;
       if (!next) throw new EngineError("Trip without destination", "That would leave the trip without a destination.");

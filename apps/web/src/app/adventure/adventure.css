@@ -1198,3 +1198,17 @@ button:hover .ki-stop .ki-plane, .eq-card:hover .ki-stop .ki-plane { animation: 
 /* While the plane flies in, the route label steps aside, then fades back after touch-down. */
 .eq-journey-pin { transition: opacity .6s ease; }
 .is-flying .eq-journey-pin { opacity: 0; }
+
+/* Before the steps are known: placeholder dots in the same spot, so nothing jumps when they arrive. */
+.eq-chapters.is-skeleton li { opacity: 0.35; }
+.eq-chapters.is-skeleton i { animation: eqbreathe 1.6s ease-in-out infinite; }
+
+/* The city name stays on one line (the taste card sits below the header at a fixed height). */
+.eq-head h1:not(.is-waiting) { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-bottom: 0.08em; }
+.eq-head h1.is-long { font-size: clamp(34px, 4.6vw, 66px); }
+.eq-head h1.is-longer { font-size: clamp(28px, 3.4vw, 50px); }
+
+/* The review card rides just above the dock, whatever its height. */
+.eq .eq-review { bottom: calc(var(--dock-h, 90px) + 22px + 12px); }
+@media (max-width: 860px) { .eq .eq-review { bottom: calc(var(--dock-h, 150px) + 10px + 10px); } }
+@media (max-width: 860px) { .eq .eq-stopcard { bottom: calc(var(--dock-h, 150px) + 20px); } }
