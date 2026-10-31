@@ -182,6 +182,73 @@ export function dayLabel(label: string, index: number, total: number): string {
   return out.charAt(0).toUpperCase() + out.slice(1);
 }
 
+type Spot = { lat: number; lon: number };
+const toMin = (t: string) => {
+  const m = t.match(/^(\d{1,2}):(\d{2})/);
+  return m ? +m[1] * 60 + +m[2] : null;
+};
+const toTime = (n: number) => `${String(Math.floor(n / 60)).padStart(2, "0")}:${String(n % 60).padStart(2, "0")}`;
+/** Roughly how long an item takes, from what it is. Minutes. Pure. */
+export function itemMinutes(title: string): number {
+  const t = title.toLowerCase();
+  // "Travel to the hotel", "Taxi to Soho": the trip itself, counted as the travel to the next stop.
+  if (/^(?:travel|ride|taxi|uber|bolt|drive|transfer|head|walk|return|go back|back)\b/.test(t)) return 0;
+  if (/check[- ]?out|depart|head to the airport|to the airport|leave for/.test(t)) return 20;
+  if (/check[- ]?in|drop (?:off )?(?:your )?(?:bags|luggage)|freshen/.test(t)) return 30;
+  if (/arriv|land(?:s|ing)?\b/.test(t)) return 60; // immigration, bags, finding the ride
+  if (/breakfast/.test(t)) return 45;
+  if (/coffee|ice[- ]?cream|dessert|snack|treat|tea\b|drinks?\b|cocktail/.test(t)) return 40;
+  if (/lunch|brunch/.test(t)) return 75;
+  if (/dinner|supper/.test(t)) return 90;
+  if (/concert|show|festival|match|game|performance|theatre|theater|safari|tour|hike|cruise|excursion|park|museum|gallery|market/.test(t)) return 120;
+  if (/rest|relax|nap|free time|leisure/.test(t)) return 60;
+  return 60;
+}
+/** Door-to-door minutes between two points in a city: a walk under ~1.2 km, else a ride with a pickup. Pure. */
+export function travelMinutes(a: Spot, b: Spot): number {
+  const r = Math.PI / 180;
+  const x = (b.lon - a.lon) * r * Math.cos(((a.lat + b.lat) / 2) * r);
+  const y = (b.lat - a.lat) * r;
+  const km = Math.sqrt(x * x + y * y) * 6371 * 1.35; // roads aren't straight
+  if (km < 1.2) return Math.round((km / 4.8) * 60);
+  return Math.round((km / (km > 15 ? 38 : 22)) * 60 + 8);
+}
+/**
+ * Pushes items later when the one before (plus getting there) can't be done by then: the model writes
+ * "13:45 travel to hotel, 14:00 check in" for a 45-minute ride. Only ever later, never past 23:45,
+ * and a time the person asked for stays put. Pure.
+ */
+export function retimeDays<D extends { items: { time: string; title: string; placeId: string | null }[] }>(days: D[], where: (id: string) => Spot | null, locked: string | null = null): D[] {
+  return days.map((d) => {
+    let prevEnd: number | null = null;
+    let prev: Spot | null = null;
+    let changed = false;
+    const items = d.items.map((it) => {
+      const at = toMin(it.time);
+      const here = it.placeId ? where(it.placeId) : null;
+      if (at == null) {
+        if (here) prev = here;
+        return it;
+      }
+      let start = at;
+      if (prevEnd != null && !(locked && it.time === locked)) {
+        const earliest = prevEnd + (prev && here ? travelMinutes(prev, here) : 0);
+        if (start < earliest) {
+          const moved = Math.ceil(earliest / 15) * 15;
+          if (moved <= 23 * 60 + 45) {
+            start = moved;
+            changed = true;
+          }
+        }
+      }
+      prevEnd = start + itemMinutes(it.title);
+      if (here) prev = here;
+      return start === at ? it : { ...it, time: toTime(start) };
+    });
+    return changed ? { ...d, items } : d;
+  });
+}
+
 /** The plan itself, before the hotel availability check. */
 async function writePlan(ctx: Parameters<Skill<BriefInput, TripPlanOutput>["run"]>[0], input: BriefInput, deps: Record<string, SkillResult<unknown> | undefined>, only?: { weekFrom: number; used?: string[] }): Promise<SkillResult<TripPlanOutput>> {
     const a = agentOf(deps);
@@ -197,6 +264,10 @@ async function writePlan(ctx: Parameters<Skill<BriefInput, TripPlanOutput>["run"
     const dines = keep(a.dines);
     const venues = keep(a.venues);
     const activities = keep(a.activities);
+    const spots = new Map<string, Spot>();
+    for (const p of [...a.stays, ...a.dines, ...a.venues, ...a.activities]) if (p.lat != null && p.lon != null) spots.set(p.id, { lat: p.lat, lon: p.lon });
+    for (const st of a.stops) spots.set(st.id, { lat: st.lat, lon: st.lon });
+    const spotOf = (id: string) => spots.get(id) ?? null;
     const dates = tripDates(trip.startDate, trip.endDate);
     const profile = input.profile ?? {};
     const { toRef, toId } = planRefs(a);
@@ -310,7 +381,7 @@ async function writePlan(ctx: Parameters<Skill<BriefInput, TripPlanOutput>["run"
         system: systemFor(ds, { from, used: usedNames }),
         user: userFor(ds),
       });
-      const shaped = shapeDays(out.days, ds);
+      const shaped = retimeDays(shapeDays(out.days, ds), spotOf, askedTime(input.request ?? ""));
       const filler = templatePlan(trip, stays, dines, venues, dates, { stops: a.stops, picks: a.picks, city: cityLabel(a), activities });
       return ds.map((date, i) => {
         const d = shaped[i];
@@ -412,7 +483,8 @@ async function writePlan(ctx: Parameters<Skill<BriefInput, TripPlanOutput>["run"
         }
         // The time they asked for ("dinner at 8pm") stands, whatever the model wrote.
         const held = holdAskedTime(days, input.request ?? "", (id) => dines.some((p) => p.id === id), dayDate(input.request ?? "", input.today ?? new Date().toISOString().slice(0, 10)));
-        days.splice(0, days.length, ...held);
+        // Then make the day doable: every item after the last one plus the trip between them.
+        days.splice(0, days.length, ...retimeDays(held, spotOf, askedTime(input.request ?? "")));
         const stayId = resolve(out.stayId);
         const venueId = resolve(out.venueId);
         return {

@@ -11,7 +11,7 @@ import type { Shared } from "./World";
 import type { Spot } from "./Earth";
 import { GOOGLE_KEY } from "./Earth";
 import { skyKind, type Sky } from "./world";
-import { KIND_COLOR, KIND_LABEL, KIND_NOUN, hoursOf, type AdventureModel, type NodeKind, type QuestNode } from "./model";
+import { KIND_COLOR, KIND_LABEL, KIND_NOUN, hoursOf, type AdventureModel, type DayRoute, type NodeKind, type QuestNode } from "./model";
 import Codex from "./Codex";
 import Space from "./Space";
 import "./adventure.css";
@@ -212,11 +212,20 @@ export default function AdventureView({
     window.setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 3800);
   }, []);
 
+  const routesRef = useRef<DayRoute[]>([]);
   const select = useCallback((id: string | null) => {
     setSelectedId(id);
     if (id) {
       setPlay(false);
       shared.current.follow = false;
+      // Picked on the map while another day is showing: switch to the day it's on, so the plan and
+      // the map show the same thing (a place on no day, like an unpicked option, leaves the day alone).
+      setActiveDay((cur) => {
+        if (typeof cur !== "number") return cur;
+        const rs = routesRef.current;
+        if (rs.find((r) => r.day === cur)?.stops.some((x) => x.nodeId === id)) return cur;
+        return rs.find((r) => r.stops.some((x) => x.nodeId === id))?.day ?? cur;
+      });
     }
   }, []);
   useEffect(() => {
@@ -236,6 +245,7 @@ export default function AdventureView({
   }, []);
 
   const routes = useMemo(() => model?.routes ?? [], [model]);
+  routesRef.current = routes;
   const day = typeof activeDay === "number" ? routes.find((r) => r.day === activeDay) ?? null : null;
 
   const start = useCallback(() => {
@@ -716,26 +726,26 @@ export default function AdventureView({
         </div>
 
         {sheet === "guide" && (
-          <div className="eq-sheet dark" role="dialog" aria-label="Field guide">
-            <button type="button" className="eq-x" onClick={() => setSheet(null)} aria-label="Close field guide">×</button>
+          <div className="eq-sheet dark" role="dialog" aria-modal="true" aria-label="Field guide">
+            <button type="button" className="eq-x" autoFocus onClick={() => setSheet(null)} aria-label="Close field guide">×</button>
             <Codex intel={model?.intel ?? null} travel={model?.travel ?? null} events={model?.events ?? null} pending={intelPending} />
           </div>
         )}
         {sheet === "wallet" && wallet && (
-          <div className="eq-sheet live eq-sheet-wallet" role="dialog" aria-label="Backline Wallet">
-            <button type="button" className="eq-x" onClick={() => setSheet(null)} aria-label="Close wallet">×</button>
+          <div className="eq-sheet live eq-sheet-wallet" role="dialog" aria-modal="true" aria-label="Backline Wallet">
+            <button type="button" className="eq-x" autoFocus onClick={() => setSheet(null)} aria-label="Close wallet">×</button>
             {wallet}
           </div>
         )}
         {sheet === "live" && live && (
-          <div className="eq-sheet live" role="dialog" aria-label="Your bookings">
-            <button type="button" className="eq-x" onClick={() => setSheet(null)} aria-label="Close bookings">×</button>
+          <div className="eq-sheet live" role="dialog" aria-modal="true" aria-label="Your bookings">
+            <button type="button" className="eq-x" autoFocus onClick={() => setSheet(null)} aria-label="Close bookings">×</button>
             {live}
           </div>
         )}
         {sheet === "book" && book && (
-          <div className="eq-sheet paper" role="dialog" aria-label={bookLabel}>
-            <button type="button" className="eq-x" onClick={() => setSheet(null)} aria-label={`Close ${bookLabel}`}>×</button>
+          <div className="eq-sheet paper" role="dialog" aria-modal="true" aria-label={bookLabel}>
+            <button type="button" className="eq-x" autoFocus onClick={() => setSheet(null)} aria-label={`Close ${bookLabel}`}>×</button>
             {book}
           </div>
         )}

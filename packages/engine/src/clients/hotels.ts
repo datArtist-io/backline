@@ -34,6 +34,8 @@ export type HotelSearch = {
   checkout: string;
   adults: number;
   rooms: number;
+  /** Children's ages; they share the first room. */
+  children?: number[];
   currency: string;
   /** ISO country code of the guest, which some rates depend on. */
   guestNationality?: string;
