@@ -4,10 +4,11 @@
 
 ### The 3D city
 - **Photoreal without Google billing:** the same Google Photorealistic 3D Tiles can now come through Cesium ion (`NEXT_PUBLIC_CESIUM_ION_TOKEN`). Google is tried first, then ion; a refused source hands over to the next, and with none left the satellite map stays. Credits name Google and Cesium ion.
+- **Busy, not broken:** Google limits how many new 3D Tiles sessions Cesium ion's shared account can open per minute (429). That refusal is now waited out and retried (12 s, 25 s, 45 s) with the satellite city showing meanwhile, instead of giving up on Photoreal for the visit.
 - **Pins stand on the real city:** with Photoreal on, every pin, taste column and route point is measured against the 3D tiles (a ray down onto the surface), so nothing floats or sinks in hilly cities. Heights are re-measured as tiles sharpen and when the look changes.
 - **Never a blank globe:** if the satellite imagery can't be reached, the map switches to the painted style and Satellite leaves the View menu.
 - Approach inspired by [God's Eye View](https://github.com/bilawalsidhu/gods-eye-view) (MIT), which loads the same tiles through Cesium ion; Backline keeps its own MapLibre map.
-- Tests: the photoreal source order and credit line (web 38).
+- Tests: the photoreal source order, credit line and busy retry (web 39).
 
 ## 2026-10-30 to 2026-10-31
 

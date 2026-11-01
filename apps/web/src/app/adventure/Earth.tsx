@@ -630,10 +630,12 @@ export default function Earth(props: EarthProps) {
       // Cesium ion. A source that's refused hands over to the next; with none left, the satellite map stays.
       if (PHOTO_CONFIGURED) {
         import("./photoreal")
-          .then(({ PhotorealLayer, photoSources }) => {
+          .then(({ PhotorealLayer, photoSources, isBusy, BUSY_RETRY_S }) => {
             const sources = photoSources(GOOGLE_KEY, ION_TOKEN);
-            const tryNext = () => {
-              const source = sources.shift();
+            let busyTries = 0;
+            const tryNext = (retry?: (typeof sources)[number]) => {
+              const source = retry ?? sources.shift();
+              if (!retry) busyTries = 0;
               if (!mapRef.current) return;
               if (!source) {
                 applyLook();
@@ -643,7 +645,7 @@ export default function Earth(props: EarthProps) {
               const pr: InstanceType<typeof PhotorealLayer> = new PhotorealLayer(
                 source,
                 (t) => setCredit(t),
-                () => {
+                (error) => {
                   if (photoRef.current !== pr) return;
                   photoRef.current = null;
                   layer.photo = null;
@@ -652,6 +654,15 @@ export default function Earth(props: EarthProps) {
                     if (map.getLayer(pr.id)) map.removeLayer(pr.id);
                   } catch {
                     /* already gone with the map */
+                  }
+                  applyLook();
+                  // Busy (Google's per-minute session limit): the satellite city shows meanwhile, then the
+                  // same source is tried again. Anything else hands over to the next source.
+                  if (isBusy(error) && busyTries < BUSY_RETRY_S.length) {
+                    const wait = BUSY_RETRY_S[busyTries++];
+                    console.warn(`Photoreal tiles busy at ${source.kind}, trying again in ${wait} s`);
+                    window.setTimeout(() => tryNext(source), wait * 1000);
+                    return;
                   }
                   console.warn(`Photoreal tiles refused by ${source.kind}${sources.length ? ", trying the next source" : ""}`);
                   tryNext();
