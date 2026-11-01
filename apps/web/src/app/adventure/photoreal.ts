@@ -19,7 +19,7 @@ const mercY = (lat: number) => deg(Math.log(Math.tan(Math.PI / 4 + rad(lat) / 2)
 const ENU_TO_LOCAL = new THREE.Matrix4().set(1, 0, 0, 0, 0, 0, 1, 0, 0, -1, 0, 0, 0, 0, 0, 1);
 
 import { ION_GOOGLE_ASSET, photoCredit, type PhotoSource } from "./photo-sources";
-export { BUSY_RETRY_S, isBusy, photoSources } from "./photo-sources";
+export { photoSources } from "./photo-sources";
 
 export class PhotorealLayer implements CustomLayerInterface {
   id = "photoreal";
@@ -39,7 +39,7 @@ export class PhotorealLayer implements CustomLayerInterface {
   private enu = new THREE.Matrix4();
   private ray = new THREE.Raycaster();
 
-  constructor(private source: PhotoSource, private onCredit: (text: string) => void, private onFail?: (error: unknown) => void, private onGround?: () => void) {
+  constructor(private source: PhotoSource, private onCredit: (text: string) => void, private onFail?: () => void, private onGround?: () => void) {
     this.holder.matrixAutoUpdate = false;
     this.scene.add(this.holder);
   }
@@ -62,8 +62,8 @@ export class PhotorealLayer implements CustomLayerInterface {
     const redraw = () => this.map.triggerRepaint();
     // The root tileset failing means the key isn't usable (billing not active, API off, wrong site):
     // hand back to the satellite map rather than leave an empty city.
-    tiles.addEventListener("load-error", (e: { tile: unknown; error?: unknown }) => {
-      if (!e.tile) this.onFail?.(e.error);
+    tiles.addEventListener("load-error", (e: { tile: unknown }) => {
+      if (!e.tile) this.onFail?.();
     });
     tiles.addEventListener("load-model", redraw);
     tiles.addEventListener("tiles-load-end", () => {

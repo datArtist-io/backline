@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { BUSY_RETRY_S, ION_GOOGLE_ASSET, isBusy, photoCredit, photoSources } from "../src/app/adventure/photo-sources";
+import { ION_GOOGLE_ASSET, photoCredit, photoSources } from "../src/app/adventure/photo-sources";
 
 describe("photoreal sources", () => {
   it("tries Google first, then Cesium ion", () => {
@@ -20,13 +20,5 @@ describe("photoreal sources", () => {
   });
   it("loads Google's Photorealistic 3D Tiles asset on ion", () => {
     expect(ION_GOOGLE_ASSET).toBe(2275207);
-  });
-  it("waits and retries when Google's per-minute session limit is hit, but not for a refused key", () => {
-    expect(isBusy(new Error("GoogleCloudAuth: Failed to load data with error code 429"))).toBe(true);
-    expect(isBusy("Quota exceeded for quota metric '3D Tiles root requests' RESOURCE_EXHAUSTED")).toBe(true);
-    expect(isBusy(new Error("GoogleCloudAuth: Failed to load data with error code 404"))).toBe(false);
-    expect(isBusy(new Error("CesiumIonAuthPlugin: Failed to load data with error code 401"))).toBe(false);
-    expect(isBusy(undefined)).toBe(false);
-    expect(BUSY_RETRY_S.reduce((a, b) => a + b, 0)).toBeLessThanOrEqual(120);
   });
 });
