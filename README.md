@@ -72,7 +72,7 @@ npm run dev                                  # http://localhost:3000
 | Command | What it does |
 |---|---|
 | `npm run dev` | Start the web app |
-| `npm test` | Engine and web unit tests (synthetic data, no network): 302 + 33 |
+| `npm test` | Engine and web unit tests (synthetic data, no network): 409 + 33 |
 | `npm run typecheck` | Type-check every workspace |
 | `npm run check` | Verify API keys and Qloo capabilities |
 | `npm run check:locations` | Venue coverage across 24 locations worldwide |
@@ -93,6 +93,7 @@ npm run dev                                  # http://localhost:3000
 | `LITEAPI_API_KEY` | Live hotel rates, booking and payment (a `sand_` key simulates payment) |
 | `RESEND_API_KEY`, `ACTIONS_FROM_EMAIL` | Emails the agent sends for you (plans, confirmations, restaurant requests); sender must be on a domain verified in Resend |
 | `VAPI_API_KEY`, `VAPI_PHONE_NUMBER_ID`, `VAPI_MODEL` | Outbound AI phone calls through Vapi (imported Telnyx number). Without them the agent writes the call script for you |
+| `VAPI_WEBHOOK_SECRET` | Shared secret Vapi sends with every webhook; requests without it are refused |
 | `NEXT_PUBLIC_VAPI_PUBLIC_KEY` | Vapi public key (a UUID, from Vapi's dashboard) for talking to Backline in the browser |
 | `NEXT_PUBLIC_BACKLINE_PHONE` | Optional: the number shown for Call Backline (otherwise read from Vapi) |
 | `DEMO_CALLS_PER_DAY` | Daily cap on home-page demo calls (default 60) |
@@ -103,6 +104,9 @@ npm run dev                                  # http://localhost:3000
 | `NEXT_PUBLIC_GOOGLE_MAPS_KEY` | Optional Photoreal mode: Google Photorealistic 3D Tiles (Map Tiles API), restricted by website |
 | `UBER_CLIENT_ID`, `UBER_CLIENT_SECRET`, `UBER_SCOPE`, `UBER_ENV` | Optional live Uber price estimates. Used only when `UBER_ENV=production`; otherwise ride fares come from published rates |
 | `NEXT_PUBLIC_MAP_TILES`, `NEXT_PUBLIC_MAP_ATTRIBUTION` | Optional keyed map tile provider (OpenStreetMap by default) |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Optional: Google sign-in on Backline's own address instead of the Supabase project's |
+| `SUPABASE_SECRET_KEY` | Server-only Supabase key for usage totals in the monitor |
+| `ADMIN_EMAILS` | Accounts that can open the private monitor at `/ops` (comma-separated) |
 | `SUPABASE_URL` | Same project URL, read on the server |
 | `NEXT_PUBLIC_SITE_URL`, `NEXT_PUBLIC_CONTACT_EMAIL` | Public site URL and privacy contact |
 

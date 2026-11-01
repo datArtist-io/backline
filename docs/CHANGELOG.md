@@ -1,5 +1,38 @@
 # Changelog
 
+## 2026-10-30 to 2026-10-31
+
+### Plans that match what was asked
+- Trips of any length: up to three years of dates, planned day by day. The first week is written with the summary, budget and tips; further weeks are written in parallel and the rest a week at a time (`/api/mission/week`).
+- Dates and times read on the calendar (`when.ts`): explicit dates and ranges in any format, today/tonight/tomorrow, weekdays, weekends, "in 3 weeks", early/mid/late months, holidays (Easter computed), and times like "half past 7". Wrong weekdays are flagged; ambiguous dates are read day first (month first in the US), and said.
+- The stated length and dates are pinned on every plan and update. A day trip or one evening has no hotel; "Dinner for 2 on Saturday at 8pm" plans that one dinner.
+- "Affordable" and "luxury" set the price level, and the hotel booked must fit it. Children are read with their ages and sent to the hotel search.
+- "Somewhere warm" or "surprise me" offers three fitting destinations to tap. A country trip is based in its main city, and the trip book says so.
+- Every day is checked for timing: each item starts after the one before ends plus the journey between them.
+- Different restaurants for each meal; hotels and resorts stay out of restaurants and things to do; the trip never moves to where the person travels from.
+
+### What's on
+- Events, concerts and festivals during the trip, found in listings for the exact dates, ranked by Qloo taste fit and scheduled into the plan; only good fits at known venues in the city itself. Ticket links on the payment slip; a What's on tab in the field guide.
+
+### Reliability
+- Backup AI providers (`LLM2_*`, `LLM3_*`) take over when the first is out of credit, refused or timing out.
+- Health check at `/api/health`; a private monitor at `/ops` for accounts in `ADMIN_EMAILS` (services, settings, usage, recent missions, masked warnings).
+- The planner forgives small model slips and mends broken JSON before giving up; template days are rewritten when the model is free again.
+- Research timeouts with real aborts; one slow routing server no longer fails every route; error boundaries and honest failure states with Try again.
+
+### The way in
+- One continuous flight: the globe opens over the viewer's own region, turns home and flies once; the camera rides with the plane, pulls back at cruise and closes in on approach, with a contrail and pulses on take-off and touch-down.
+- Seamless loading: the city title from the first frame, a steady progress bar, the map framed on the city, nothing overlapping on phones.
+
+### Security and sign-in
+- A cross-site request guard, stronger headers, a security page, and protection shown at payment.
+- Demo calls only ring your own number; the Vapi webhook checks a secret; the site checker is IPv6-safe; call status only for its owner.
+- Google sign-in names Backline's own site (`GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`); sign-in by email link.
+- Wallet fails closed when unreachable; held money is released on errors.
+
+### Tests
+- 409 engine tests and 33 web tests pass.
+
 ## 2026-10-28
 
 ### Talk to Backline (voice)
