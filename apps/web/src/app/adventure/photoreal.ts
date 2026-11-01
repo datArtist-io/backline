@@ -1,14 +1,11 @@
 // Google's Photorealistic 3D Tiles (the data behind Google Earth) inside the MapLibre map: real
 // buildings, roofs, trees and terrain, textured from aerial photography. Rendered by three.js through
 // a MapLibre custom layer that shares the map's camera, so pins and routes stay on top of the real city.
-// The same tiles come either straight from Google (NEXT_PUBLIC_GOOGLE_MAPS_KEY, Map Tiles API, metered)
-// or through Cesium ion (NEXT_PUBLIC_CESIUM_ION_TOKEN, asset 2275207; the free Community plan is for
-// personal, non-commercial use with monthly limits). Google is tried first, then ion.
+// Needs NEXT_PUBLIC_GOOGLE_MAPS_KEY with the Map Tiles API enabled.
 import * as THREE from "three";
 import type { CustomLayerInterface, Map as MlMap } from "maplibre-gl";
 import { TilesRenderer, WGS84_ELLIPSOID } from "3d-tiles-renderer";
 import { GLTFExtensionsPlugin, GoogleCloudAuthPlugin, TileCompressionPlugin, TilesFadePlugin, UnloadTilesPlugin } from "3d-tiles-renderer/plugins";
-import { CesiumIonAuthPlugin } from "3d-tiles-renderer/core/plugins";
 import { DRACOLoader } from "three/examples/jsm/loaders/DRACOLoader.js";
 
 const rad = (d: number) => (d * Math.PI) / 180;
@@ -17,9 +14,6 @@ const mercY = (lat: number) => deg(Math.log(Math.tan(Math.PI / 4 + rad(lat) / 2)
 
 // Our scene's axes: x east, y up, z south. The ellipsoid's local frame is x east, y north, z up.
 const ENU_TO_LOCAL = new THREE.Matrix4().set(1, 0, 0, 0, 0, 0, 1, 0, 0, -1, 0, 0, 0, 0, 0, 1);
-
-import { ION_GOOGLE_ASSET, photoCredit, type PhotoSource } from "./photo-sources";
-export { photoSources } from "./photo-sources";
 
 export class PhotorealLayer implements CustomLayerInterface {
   id = "photoreal";
@@ -39,7 +33,7 @@ export class PhotorealLayer implements CustomLayerInterface {
   private enu = new THREE.Matrix4();
   private ray = new THREE.Raycaster();
 
-  constructor(private source: PhotoSource, private onCredit: (text: string) => void, private onFail?: () => void, private onGround?: () => void) {
+  constructor(private key: string, private onCredit: (text: string) => void, private onFail?: () => void) {
     this.holder.matrixAutoUpdate = false;
     this.scene.add(this.holder);
   }
@@ -52,8 +46,7 @@ export class PhotorealLayer implements CustomLayerInterface {
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     const draco = new DRACOLoader().setDecoderPath("https://www.gstatic.com/draco/versioned/decoders/1.5.7/");
     const tiles = new TilesRenderer();
-    if (this.source.kind === "google") tiles.registerPlugin(new GoogleCloudAuthPlugin({ apiToken: this.source.key, autoRefreshToken: true }));
-    else tiles.registerPlugin(new CesiumIonAuthPlugin({ apiToken: this.source.token, assetId: String(ION_GOOGLE_ASSET), autoRefreshToken: true }));
+    tiles.registerPlugin(new GoogleCloudAuthPlugin({ apiToken: this.key, autoRefreshToken: true }));
     tiles.registerPlugin(new GLTFExtensionsPlugin({ dracoLoader: draco }));
     tiles.registerPlugin(new TileCompressionPlugin());
     tiles.registerPlugin(new UnloadTilesPlugin());
@@ -69,32 +62,10 @@ export class PhotorealLayer implements CustomLayerInterface {
     tiles.addEventListener("tiles-load-end", () => {
       redraw();
       const credits = tiles.getAttributions().filter((a) => a.type === "string").map((a) => String(a.value)).join("; ");
-      this.onCredit(photoCredit(this.source.kind, credits));
+      this.onCredit(credits ? `Google · ${credits}` : "Google");
     });
     this.tiles = tiles;
     this.holder.add(tiles.group);
-  }
-
-  private down = new THREE.Raycaster();
-  private probe = new THREE.Vector3();
-  private normal = new THREE.Vector3();
-
-  /**
-   * Height of the real surface (roofs, trees, streets) at a place, metres above the ellipsoid, or null
-   * while the tiles there haven't loaded. Measured the way the tiles are drawn, so pins can stand on them.
-   */
-  heightAt(lat: number, lon: number): number | null {
-    if (!this.tiles || !this.enabled) return null;
-    const top = 9000;
-    WGS84_ELLIPSOID.getCartographicToPosition(rad(lat), rad(lon), top, this.probe);
-    WGS84_ELLIPSOID.getCartographicToNormal(rad(lat), rad(lon), this.normal);
-    const world = this.tiles.group.matrixWorld;
-    this.probe.applyMatrix4(world);
-    this.normal.transformDirection(world).negate();
-    this.down.set(this.probe, this.normal);
-    this.down.far = top + 600;
-    const hit = this.down.intersectObject(this.tiles.group, true)[0];
-    return hit ? top - hit.distance : null;
   }
 
   onRemove() {
@@ -142,11 +113,7 @@ export class PhotorealLayer implements CustomLayerInterface {
       this.lastProbe = now;
       this.ray.set(new THREE.Vector3(0, 9000, 0), new THREE.Vector3(0, -1, 0));
       const hit = this.ray.intersectObject(this.tiles.group, true)[0];
-      if (hit) {
-        this.groundOffset += hit.point.y;
-        // The real ground moved by more than a metre: things standing on it follow.
-        if (Math.abs(hit.point.y) > 1) this.onGround?.();
-      }
+      if (hit) this.groundOffset += hit.point.y;
     }
 
     const model = map.transform.getMatrixForModel([c.lng, c.lat], 0);

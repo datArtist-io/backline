@@ -45,8 +45,6 @@ export type EarthProps = {
   onReady: () => void;
   /** Google's photoreal tiles were refused (key not active yet): the look falls back to satellite. */
   onPhotoFail?: () => void;
-  /** The satellite imagery can't be reached: the look falls back to the painted map, never a blank globe. */
-  onSatFail?: () => void;
 };
 
 // Keyless defaults. Imagery and vector tiles can be swapped for a keyed provider with these env vars.
@@ -72,10 +70,6 @@ const pageKey = () => (typeof window === "undefined" ? "" : `${window.location.p
 const GLYPHS = process.env.NEXT_PUBLIC_MAP_GLYPHS || "https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf";
 /** Google Map Tiles API key: turns on Photoreal (Google Earth's 3D city models). */
 export const GOOGLE_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY || "";
-/** Cesium ion token: the same photoreal city without Google billing (personal, non-commercial plan). */
-export const ION_TOKEN = process.env.NEXT_PUBLIC_CESIUM_ION_TOKEN || "";
-/** Whether this deployment can try the photoreal city at all. */
-export const PHOTO_CONFIGURED = Boolean(GOOGLE_KEY.trim() || ION_TOKEN.trim());
 const DEM = process.env.NEXT_PUBLIC_TERRAIN_TILES ?? "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png";
 
 const GOLD = "#f2cf7a";
@@ -334,19 +328,13 @@ class Scene3D implements CustomLayerInterface {
     const key = `${lat.toFixed(5)},${lon.toFixed(5)}`;
     let e = this.elev.get(key);
     if (e == null) {
-      // A place whose photoreal tiles haven't loaded yet is measured again next time, not remembered.
-      const measured = this.photo?.enabled ? this.photo.heightAt(lat, lon) : null;
-      e = measured ?? this.ground(lat, lon);
-      if (!this.photo?.enabled || measured != null) this.elev.set(key, e);
+      e = this.ground(lat, lon);
+      this.elev.set(key, e);
     }
     return e;
   }
 
-  /** The photoreal city, when it's showing: pins then stand on its real roofs and streets. */
-  photo: { enabled: boolean; groundOffset: number; heightAt(lat: number, lon: number): number | null } | null = null;
-
   ground(lat: number, lon: number): number {
-    if (this.photo?.enabled) return this.photo.heightAt(lat, lon) ?? this.photo.groundOffset;
     try {
       return this.map?.queryTerrainElevation?.([lon, lat]) ?? 0;
     } catch {
@@ -413,8 +401,7 @@ class Scene3D implements CustomLayerInterface {
   placeAll(refresh = false) {
     if (!this.map) return;
     if (refresh) this.elev.clear();
-    // With the photoreal city on, the scene's zero is the real ground the tiles were lowered by.
-    this.base = this.photo?.enabled ? this.photo.groundOffset : this.ground(this.center.lat, this.center.lon);
+    this.base = this.ground(this.center.lat, this.center.lon);
     for (const b of this.beacons.values()) b.group.position.copy(this.local(b.lat, b.lon));
     if (this.taste) {
       const mtx = new THREE.Matrix4();
@@ -510,8 +497,6 @@ export default function Earth(props: EarthProps) {
   const mapRef = useRef<MlMap | null>(null);
   const layerRef = useRef<Scene3D | null>(null);
   const photoRef = useRef<{ enabled: boolean } | null>(null);
-  /** Satellite tiles failing with none ever loaded: draw the painted map instead of an empty globe. */
-  const satDown = useRef(false);
   const journeyRef = useRef<Marker | null>(null);
   // The plane that flies the arc on the way in.
   const planeRef = useRef<Marker | null>(null);
@@ -572,21 +557,6 @@ export default function Earth(props: EarthProps) {
       if ((e.originalEvent.target as HTMLElement)?.closest?.(".eq-pin")) return;
       live.current.onSelect(null);
     });
-    // Satellite imagery is a free service that can go down: after repeated failures with nothing loaded,
-    // switch to the painted map (its own tiles, its own server) rather than show an empty planet.
-    let satLoaded = false;
-    let satErrors = 0;
-    map.on("data", (e) => {
-      if ((e as { sourceId?: string; tile?: unknown }).sourceId === "sat" && (e as { tile?: unknown }).tile) satLoaded = true;
-    });
-    map.on("error", (e) => {
-      if ((e as { sourceId?: string }).sourceId !== "sat" || satLoaded || satDown.current) return;
-      if (++satErrors < 8) return;
-      satDown.current = true;
-      console.warn("Satellite imagery unreachable: showing the painted map");
-      applyLook();
-      live.current.onSatFail?.();
-    });
     map.on("load", () => {
       s.loaded = true;
       map.addSource("arc", { type: "geojson", data: fc([]), lineMetrics: true });
@@ -626,44 +596,25 @@ export default function Earth(props: EarthProps) {
       } catch {
         /* the satellite globe is enough on its own */
       }
-      // Google Earth's photorealistic city, loaded only when a key or token is set: Google first, then
-      // Cesium ion. A source that's refused hands over to the next; with none left, the satellite map stays.
-      if (PHOTO_CONFIGURED) {
+      // Google Earth's photorealistic city, loaded only when a key is set.
+      if (GOOGLE_KEY) {
         import("./photoreal")
-          .then(({ PhotorealLayer, photoSources }) => {
-            const sources = photoSources(GOOGLE_KEY, ION_TOKEN);
-            const tryNext = () => {
-              const source = sources.shift();
-              if (!mapRef.current) return;
-              if (!source) {
-                applyLook();
-                live.current.onPhotoFail?.();
-                return;
+          .then(({ PhotorealLayer }) => {
+            if (!mapRef.current) return;
+            const pr = new PhotorealLayer(GOOGLE_KEY, (t) => setCredit(t), () => {
+              if (photoRef.current !== pr) return;
+              photoRef.current = null;
+              try {
+                if (map.getLayer(pr.id)) map.removeLayer(pr.id);
+              } catch {
+                /* already gone with the map */
               }
-              const pr: InstanceType<typeof PhotorealLayer> = new PhotorealLayer(
-                source,
-                (t) => setCredit(t),
-                () => {
-                  if (photoRef.current !== pr) return;
-                  photoRef.current = null;
-                  layer.photo = null;
-                  layer.placeAll(true);
-                  try {
-                    if (map.getLayer(pr.id)) map.removeLayer(pr.id);
-                  } catch {
-                    /* already gone with the map */
-                  }
-                  console.warn(`Photoreal tiles refused by ${source.kind}${sources.length ? ", trying the next source" : ""}`);
-                  tryNext();
-                },
-                () => layer.placeAll(),
-              );
-              photoRef.current = pr;
-              layer.photo = pr;
-              map.addLayer(pr, "heat");
               applyLook();
-            };
-            tryNext();
+              live.current.onPhotoFail?.();
+            });
+            photoRef.current = pr;
+            map.addLayer(pr, "heat");
+            applyLook();
           })
           .catch((err) => console.warn("Photoreal tiles unavailable", err));
       }
@@ -806,15 +757,11 @@ export default function Earth(props: EarthProps) {
     const p = live.current;
     if (!map || !layer || !state.current.loaded) return;
     const photo = p.look === "photoreal" && Boolean(photoRef.current);
-    const real = !satDown.current && (p.look === "real" || (p.look === "photoreal" && !photo));
+    const real = p.look === "real" || (p.look === "photoreal" && !photo);
     for (const l of GAME_LAYERS) if (map.getLayer(l.id)) map.setLayoutProperty(l.id, "visibility", real || photo ? "none" : "visible");
     for (const l of REAL_LAYERS) if (map.getLayer(l.id)) map.setLayoutProperty(l.id, "visibility", real ? "visible" : "none");
     map.setLayoutProperty("sat", "visibility", real || photo ? "visible" : "none");
-    if (photoRef.current && photoRef.current.enabled !== photo) {
-      photoRef.current.enabled = photo;
-      // Pins move between the satellite ground and the photoreal roofs and streets.
-      layer.placeAll(true);
-    }
+    if (photoRef.current) photoRef.current.enabled = photo;
     // Google's tiles carry their own terrain; MapLibre's would lift the satellite through them.
     try {
       if (photo && map.getTerrain()) map.setTerrain(null);

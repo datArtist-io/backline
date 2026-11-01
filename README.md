@@ -40,7 +40,7 @@ The rules that keep it honest are written down as a specification: **[docs/SYSTE
 | Hotel booking (LiteAPI), flights (Duffel) | **Real APIs, sandbox** | References shown as Backline references when the provider returns a placeholder |
 | Identity verification (Persona) | **Real flow** when keys are set | Paid bookings wait for a verified traveller |
 | Emails to businesses (Resend) | **Real** when signed in | Within per-mission limits |
-| 3D city | Satellite + terrain + 3D buildings; **Photoreal (Google 3D Tiles)** with a Google key or a free Cesium ion token | Falls back to satellite, then the painted map, so the globe is never blank |
+| 3D city | Satellite + terrain + 3D buildings; **Photoreal (Google 3D Tiles)** when a key is set | |
 
 ## The expedition
 
@@ -72,7 +72,7 @@ npm run dev                                  # http://localhost:3000
 | Command | What it does |
 |---|---|
 | `npm run dev` | Start the web app |
-| `npm test` | Engine and web unit tests (synthetic data, no network): 409 + 38 |
+| `npm test` | Engine and web unit tests (synthetic data, no network): 409 + 33 |
 | `npm run typecheck` | Type-check every workspace |
 | `npm run check` | Verify API keys and Qloo capabilities |
 | `npm run check:locations` | Venue coverage across 24 locations worldwide |
@@ -101,8 +101,7 @@ npm run dev                                  # http://localhost:3000
 | `PERSONA_API_KEY`, `NEXT_PUBLIC_PERSONA_TEMPLATE_ID`, `NEXT_PUBLIC_PERSONA_ENVIRONMENT_ID` | Identity checks with Persona; paid bookings wait for a verified traveller |
 | `RUN_SEAL_KEY` | Seals the approved plan so approval runs exactly what was shown (falls back to the Supabase secret) |
 | `CALLS_LIVE` | `1` lets AI calls reach real businesses. Off by default: without it and without a demo line, no business is ever dialled |
-| `NEXT_PUBLIC_GOOGLE_MAPS_KEY` | Optional Photoreal mode: Google Photorealistic 3D Tiles (Map Tiles API, metered), restricted by website |
-| `NEXT_PUBLIC_CESIUM_ION_TOKEN` | Optional Photoreal mode without Google billing: the same tiles through Cesium ion (asset 2275207). The free Community plan is for personal, non-commercial use with monthly limits. Use a token with only `assets:read` and restrict it to your site's URL in ion. Tried after the Google key |
+| `NEXT_PUBLIC_GOOGLE_MAPS_KEY` | Optional Photoreal mode: Google Photorealistic 3D Tiles (Map Tiles API), restricted by website |
 | `UBER_CLIENT_ID`, `UBER_CLIENT_SECRET`, `UBER_SCOPE`, `UBER_ENV` | Optional live Uber price estimates. Used only when `UBER_ENV=production`; otherwise ride fares come from published rates |
 | `NEXT_PUBLIC_MAP_TILES`, `NEXT_PUBLIC_MAP_ATTRIBUTION` | Optional keyed map tile provider (OpenStreetMap by default) |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Optional: Google sign-in on Backline's own address instead of the Supabase project's |
@@ -129,7 +128,7 @@ npm run dev                                  # http://localhost:3000
 ## Credits and data
 
 - Taste data by [Qloo](https://qloo.com).
-- Maps © [OpenStreetMap](https://www.openstreetmap.org/copyright) contributors via OpenFreeMap; satellite imagery © Esri, Maxar, Earthstar Geographics; terrain from AWS Terrain Tiles; Photoreal 3D © Google, served directly or through Cesium ion (when enabled); routing by OSRM; geocoding by Nominatim and Photon.
+- Maps © [OpenStreetMap](https://www.openstreetmap.org/copyright) contributors via OpenFreeMap; satellite imagery © Esri, Maxar, Earthstar Geographics; terrain from AWS Terrain Tiles; Photoreal 3D © Google (when enabled); routing by OSRM; geocoding by Nominatim and Photon.
 - Travel text from Wikivoyage and Wikipedia (CC BY-SA) when used as a fallback.
 - Ride fares are estimates from published rates; final fares are set by the ride app.
 - Qloo API responses are never stored in this repository; tests use synthetic data.

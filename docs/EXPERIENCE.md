@@ -28,8 +28,7 @@ The trip interface (`apps/web/src/app/adventure/*`). It replaces a feed of agent
 
 - **MapLibre GL 5** globe projection; Esri World Imagery; AWS Terrain Tiles with hillshade; OpenFreeMap vector data for roads, place names and 3D buildings (OSM `render_height`, `colour`).
 - **Three.js custom layer** sharing MapLibre's camera and depth buffer: beacons (additive shader beams), Qloo taste columns (instanced hex prisms), a traveller with a light trail, trees grown from OSM parks and woods (deterministic per polygon), clouds, rain and snow from the forecast, hemisphere and sun lights from the hour.
-- **Photoreal (optional):** Google Photorealistic 3D Tiles through `3d-tiles-renderer` as a second custom layer, from Google directly or through Cesium ion (tried in that order; a refused source hands over to the next). Draco glTF; tiles fade in; the ground under the camera is probed, and every pin, taste column and route point is measured against the real surface (a ray down onto the tiles), so they stand on roofs and streets in hilly cities too.
-- **Never a blank globe:** if the satellite imagery can't be reached (repeated tile errors, nothing loaded), the map switches to the painted style and Satellite leaves the View menu.
+- **Photoreal (optional):** Google Photorealistic 3D Tiles through `3d-tiles-renderer` as a second custom layer; Draco glTF; tiles fade in; the ground under the camera is probed so pins sit on the real surface.
 - **Accuracy of placement:** a mercator-exact local frame re-anchored under the camera (`SYSTEM.md §4.3`).
 - **Performance:** redraws at full rate only while something moves; 15 fps otherwise; device pixel ratio capped at 1.5; tiles preconnected and not cancelled while flying.
 

@@ -9,7 +9,7 @@ import type { StepProgress } from "@backline/engine";
 import { Vector3 } from "three";
 import type { Shared } from "./World";
 import type { Spot } from "./Earth";
-import { PHOTO_CONFIGURED } from "./Earth";
+import { GOOGLE_KEY } from "./Earth";
 import { skyKind, type Sky } from "./world";
 import { KIND_COLOR, KIND_LABEL, KIND_NOUN, hoursOf, type AdventureModel, type DayRoute, type NodeKind, type QuestNode } from "./model";
 import Codex from "./Codex";
@@ -461,11 +461,7 @@ export default function AdventureView({
               onReady={() => setReady(true)}
               onPhotoFail={() => {
                 photoOk = false;
-                setLook((l) => (l === "photoreal" ? (satOk ? "real" : "painted") : l));
-              }}
-              onSatFail={() => {
-                satOk = false;
-                setLook((l) => (l === "real" ? "painted" : l));
+                setLook((l) => (l === "photoreal" ? "real" : l));
               }}
             />
           )}
@@ -823,11 +819,9 @@ function useCountUp(target: number | null, run: boolean): number | null {
 }
 
 type Look = "photoreal" | "real" | "painted";
-/** Photoreal is offered only while its tiles actually load (a key can exist before billing or the plan is live). */
-let photoOk = PHOTO_CONFIGURED;
-/** Satellite is offered while its imagery can be reached. */
-let satOk = true;
-const looks = (): Look[] => [...(photoOk ? (["photoreal"] as Look[]) : []), ...(satOk ? (["real"] as Look[]) : []), "painted"];
+/** Photoreal is offered only while Google's tiles actually load (the key can exist before billing is live). */
+let photoOk = Boolean(GOOGLE_KEY);
+const looks = (): Look[] => (photoOk ? ["photoreal", "real", "painted"] : ["real", "painted"]);
 const nextLook = (l: Look): Look => looks()[(looks().indexOf(l) + 1) % looks().length];
 const LOOK_LABEL: Record<Look, string> = { photoreal: "Photoreal 3D", real: "Satellite", painted: "Painted map" };
 
