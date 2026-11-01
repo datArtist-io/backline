@@ -837,7 +837,7 @@ export default function Earth(props: EarthProps) {
     const lat = p.model?.center.lat ?? p.destination?.lat ?? 20;
     const { kind, hour } = p.weather;
     const night = dusk(kind, hour, lat);
-    map.setPaintProperty("space", "background-color", real || photo ? "#0b1a2e" : LAND);
+    map.setPaintProperty("space", "background-color", real ? "#0b1a2e" : LAND);
     map.setPaintProperty("sat", "raster-brightness-max", 1 - night * 0.85);
     map.setPaintProperty("sat", "raster-saturation", 0.12 - night * 0.4);
     try {
