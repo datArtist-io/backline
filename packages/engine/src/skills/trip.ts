@@ -726,10 +726,14 @@ export function bookingLink(hotel: string, city: string, trip: TripRequest): str
 }
 
 /** Search links for the kind of stay they want, with their dates and guests. Pure. */
-export function stayStyleLinks(trip: TripRequest): { title: string; site: string; url: string; recommended: boolean }[] {
+export function stayStyleLinks(trip: TripRequest, tasteArea: string | null = null): { title: string; site: string; url: string; recommended: boolean }[] {
   const style = trip.stayStyle;
   if (!trip.needs.includes("stay") || !style || style === "hotel" || style === "boutique" || style === "resort") return [];
-  const city = trip.destination;
+  // Qloo leads here too: the search opens where their taste peaks (or by the landmark they named), not
+  // across the whole city.
+  const area = (trip.near || tasteArea)?.replace(/[<>"]/g, "").trim().slice(0, 60) || null;
+  const city = area && !trip.destination.toLowerCase().includes(area.toLowerCase()) ? `${area}, ${trip.destination}` : trip.destination;
+  const where = area ? ` in ${area}` : "";
   const kids = trip.children?.length ?? 0;
   const dates = trip.startDate && trip.endDate ? " for your dates" : "";
   if (style === "home" || style === "mixed") {
@@ -743,15 +747,15 @@ export function stayStyleLinks(trip: TripRequest): { title: string; site: string
     if (trip.startDate) v.set("startDate", trip.startDate);
     if (trip.endDate) v.set("endDate", trip.endDate);
     return [
-      { title: `Browse whole homes on Airbnb${dates}`, site: "Airbnb", url: `https://www.airbnb.com/s/${encodeURIComponent(city)}/homes?${a}`, recommended: style === "home" },
-      { title: `Browse holiday homes on Vrbo${dates}`, site: "Vrbo", url: `https://www.vrbo.com/search?${v}`, recommended: false },
+      { title: `Browse whole homes${where} on Airbnb${dates}`, site: "Airbnb", url: `https://www.airbnb.com/s/${encodeURIComponent(city)}/homes?${a}`, recommended: style === "home" },
+      { title: `Browse holiday homes${where} on Vrbo${dates}`, site: "Vrbo", url: `https://www.vrbo.com/search?${v}`, recommended: false },
     ];
   }
   // Booking.com's own filters: 203 hostels, 208 bed and breakfasts, 216 guest houses.
   const q = new URLSearchParams({ ss: city, group_adults: String(trip.adults), no_rooms: String(trip.rooms), group_children: String(kids), nflt: style === "hostel" ? "ht_id=203" : "ht_id=208;ht_id=216" });
   if (trip.startDate) q.set("checkin", trip.startDate);
   if (trip.endDate) q.set("checkout", trip.endDate);
-  return [{ title: `Browse ${style === "hostel" ? "hostels" : "guest houses and B&Bs"} on Booking.com${dates}`, site: "Booking.com", url: `https://www.booking.com/searchresults.html?${q}`, recommended: true }];
+  return [{ title: `Browse ${style === "hostel" ? "hostels" : "guest houses and B&Bs"}${where} on Booking.com${dates}`, site: "Booking.com", url: `https://www.booking.com/searchresults.html?${q}`, recommended: true }];
 }
 
 export const mapsLink = (p: Place) =>
@@ -776,7 +780,9 @@ export function buildActions(
   plan: TripPlanOutput,
   places: { stays: Place[]; dines: Place[]; venues: Place[] },
   profile: Profile,
-  can: { email: boolean; calls: boolean; hotels?: boolean; demo?: boolean }
+  can: { email: boolean; calls: boolean; hotels?: boolean; demo?: boolean },
+  /** Where Qloo says their taste peaks, for searches that open elsewhere (Airbnb, Vrbo). */
+  tasteArea: string | null = null
 ): TripAction[] {
   const who = profile.name?.trim() || null;
   const sign = who ?? "[Your name]";
@@ -854,7 +860,7 @@ export function buildActions(
 
   // Stays beyond hotels: whole homes book on Airbnb and Vrbo, hostels and B&Bs on Booking.com, each
   // opened with the dates and guests filled in, so the user picks the home themselves.
-  for (const l of stayStyleLinks(trip)) add({ kind: "book_stay", channel: "link", title: l.title, placeId: null, placeName: l.site, url: l.url, mode: "you", recommended: l.recommended });
+  for (const l of stayStyleLinks(trip, tasteArea)) add({ kind: "book_stay", channel: "link", title: l.title, placeId: null, placeName: l.site, url: l.url, mode: "you", recommended: l.recommended });
 
   const venue = places.venues.find((p) => p.id === plan.venueId) ?? places.venues[0];
   if (venue && trip.event) {
@@ -1134,7 +1140,8 @@ export const tripActions: Skill<BriefInput, TripActionsOutput> = {
       deps["trip.plan"].data as TripPlanOutput,
       { stays: a.stays, dines: a.dines, venues: a.venues },
       input.profile ?? {},
-      { email: Boolean(ctx.email), calls: Boolean(ctx.calls), hotels: Boolean(ctx.hotels), demo: Boolean(ctx.calls) && !ctx.callsLive }
+      { email: Boolean(ctx.email), calls: Boolean(ctx.calls), hotels: Boolean(ctx.hotels), demo: Boolean(ctx.calls) && !ctx.callsLive },
+      a.where.zone?.name ?? null
     );
     // The whole round trip, in order: getting there and back, rides on the ground, then the stays and tables.
     const pay = Boolean(ctx.wallet) && !ctx.signedOut;

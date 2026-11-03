@@ -16,6 +16,7 @@
 - Groups of 4 or more and stays of a week or longer look at whole homes alongside hotels, and say so.
 - A home stays a home: a hotel with a bookable rate never replaces the Airbnb-style pick.
 - Search finds that kind too (Qloo's own tag for it, plus apartments, hostels, guest houses and chalets from OpenStreetMap) and ranks it first by taste; big hotel chains sink for someone who wants a home.
+- Qloo leads the links too: they open in the neighbourhood where Qloo says the taste peaks (or by the landmark they named), not across the whole city.
 - Whole homes open Airbnb (entire homes only) and Vrbo with the dates and guests filled in; hostels and B&Bs open Booking.com filtered to them. Airbnb has no public booking API, so these are links the person books themselves.
 - Tests: reading, inferring, ranking and links (engine 416).
 

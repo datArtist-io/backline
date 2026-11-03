@@ -55,6 +55,10 @@ describe("kinds of stay", () => {
     expect(links[0].url).toContain("adults=3");
     expect(stayStyleLinks({ ...base, stayStyle: "hostel" } as never)[0].url).toContain("ht_id%3D203");
     expect(stayStyleLinks({ ...base, stayStyle: "hotel" } as never)).toEqual([]);
+    // Opened where Qloo says their taste peaks.
+    const qloo = stayStyleLinks({ ...base, stayStyle: "home" } as never, "Trastevere");
+    expect(qloo[0].title).toBe("Browse whole homes in Trastevere on Airbnb for your dates");
+    expect(decodeURIComponent(qloo[0].url)).toContain("/s/Trastevere, Rome, Italy/homes");
   });
 });
 

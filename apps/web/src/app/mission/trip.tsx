@@ -650,7 +650,12 @@ export function ActionsCheckpoint({
   const others = actions.filter((a) => !priced.includes(a) && !homes.includes(a));
   const homeLine = homes.length ? (
     <p className="ck-homes">
-      <span>{homes.some((a) => /airbnb|vrbo/i.test(a.placeName ?? "")) ? "Rather pick a whole home?" : "Rather pick your own?"}</span>
+      <span>{(() => {
+        // The area Qloo picked for their taste, carried in the link's title ("…homes in Trastevere on Airbnb").
+        const area = homes[0].title.match(/ in (.+?) on /)?.[1];
+        const what = homes.some((a) => /airbnb|vrbo/i.test(a.placeName ?? "")) ? "a whole home" : "your own";
+        return area ? `Rather pick ${what} in ${area}, where your taste peaks?` : `Rather pick ${what}?`;
+      })()}</span>
       {homes.map((a) => (
         <a key={a.id} href={a.url!} target="_blank" rel="noopener noreferrer" title={a.title}>
           {a.placeName} <span aria-hidden="true">↗</span>
