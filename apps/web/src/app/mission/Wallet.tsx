@@ -3,6 +3,7 @@
 // over, switch the currency, add any amount, filter the activity, and open any payment for its receipt.
 import { useCallback, useEffect, useMemo, useState } from "react";
 import "../adventure/adventure.css";
+import { CURRENCIES, onCurrencyChange, setDisplayCurrency } from "@/lib/currency";
 
 type Entry = { id: string; kind: "topup" | "payment"; status: "credited" | "held" | "paid" | "void"; amount_minor: number; original_amount: number | null; original_currency: string | null; label: string; ref: string | null; details?: Record<string, unknown>; created_at: string };
 type W = { ready: boolean; balance: number; entries: Entry[]; currency: string; perUsd: number; rates?: Record<string, number> };
@@ -12,7 +13,6 @@ const moneyIn = (w: Pick<W, "currency" | "perUsd">) => (cents: number) =>
   new Intl.NumberFormat("en", { style: "currency", currency: w.currency, currencyDisplay: "narrowSymbol", maximumFractionDigits: w.perUsd > 50 ? 0 : 2 }).format((cents / 100) * w.perUsd);
 export const walletMoney = (w: Pick<W, "currency" | "perUsd">) => moneyIn(w);
 const STATUS: Record<Entry["status"], string> = { credited: "Added", held: "On hold", paid: "Paid", void: "Refunded" };
-const CURRENCIES = ["NGN", "USD", "EUR", "GBP", "GHS", "KES", "ZAR", "CAD", "AED", "JPY", "INR", "AUD"];
 const FILTERS = [
   { id: "all", label: "All" },
   { id: "paid", label: "Payments" },
@@ -76,6 +76,15 @@ export function useWallet() {
   useEffect(() => {
     load();
   }, [load]);
+  // One currency choice for the whole page: the top bar and the wallet's own switch stay in step.
+  useEffect(
+    () =>
+      onCurrencyChange((c) => {
+        chosenCurrency = c;
+        void load(c);
+      }),
+    [load]
+  );
   return { w, err, load, setW };
 }
 
@@ -120,15 +129,7 @@ export default function WalletPanel() {
       setBusy(null);
     }
   };
-  const switchTo = (c: string) => {
-    chosenCurrency = c;
-    try {
-      localStorage.setItem("backline.walletCurrency", c);
-    } catch {
-      /* this visit only */
-    }
-    load(c);
-  };
+  const switchTo = (c: string) => setDisplayCurrency(c);
 
   if (err && !w) return <p className="wl-note">{err}</p>;
   if (!w) return <div className="wl-card is-loading" aria-busy="true" />;

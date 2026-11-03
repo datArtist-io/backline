@@ -70,6 +70,7 @@ import BookingsLive, { type Reach } from "./BookingsLive";
 import { readTrip, saveTrip } from "@/lib/trip-snapshot";
 import WalletPanel from "./Wallet";
 import ModeSwitch from "../ModeSwitch";
+import { useDisplayCurrency } from "@/lib/currency";
 import { ArtistHeader, DemographicsSection, DnaSection, HeaderSkeleton, Placeholder, ProfileSection } from "./sections";
 import {
   BrandMatchesSection,
@@ -91,6 +92,8 @@ type Autonomy = "check" | "auto";
 const LABELS: Record<MissionType, string> = { plan: "Plan and book", brand_deal: "Brand deal", tour: "Tour", grow: "Growth", content: "Content", compare: "Compare", brief: "Full strategy" };
 
 export default function MissionView(props: { goal?: string; artist?: string; mission?: MissionType; autonomy: Autonomy; docs?: string; debug?: boolean }) {
+  // Every price on the page is shown in the chosen currency; changing it re-renders them all.
+  useDisplayCurrency();
   const [autonomy, setAutonomy] = useState<Autonomy>(props.autonomy);
   const [debugInfo, setDebugInfo] = useState<MissionDebug | null>(null);
   const [planned, setPlanned] = useState<Planned | null>(null);

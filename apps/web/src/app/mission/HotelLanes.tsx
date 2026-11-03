@@ -5,17 +5,12 @@
 import { useState } from "react";
 import type { HotelScore, HotelTier, Place, TierId } from "@backline/engine";
 import { TasteMatch } from "./Taste";
+import { formatMoney } from "@/lib/currency";
 
 export const LANE_COLOR: Record<TierId, string> = { premium: "#8b5cf6", closest: "#f97316", value: "#10b981", cheapest: "#3b82f6" };
 const LANE_ICON: Record<TierId, string> = { premium: "★", closest: "◎", value: "◆", cheapest: "↓" };
 
-const money = (n: number, currency: string) => {
-  try {
-    return new Intl.NumberFormat("en", { style: "currency", currency, currencyDisplay: "narrowSymbol", maximumFractionDigits: 0 }).format(n);
-  } catch {
-    return `${Math.round(n).toLocaleString("en")} ${currency}`;
-  }
-};
+const money = (n: number, currency: string) => formatMoney(n, currency);
 
 const Icon = ({ d }: { d: string }) => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">

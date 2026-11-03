@@ -6,18 +6,13 @@ import type { Session } from "./session";
 export type WalletEntry = { id: string; kind: "topup" | "payment"; status: "credited" | "held" | "paid" | "void"; amount_minor: number; original_amount: number | null; original_currency: string | null; label: string; ref: string | null; details: Record<string, unknown>; created_at: string };
 export type Wallet = { ready: boolean; balance: number; entries: WalletEntry[]; currency: string; perUsd: number; rates: Record<string, number> };
 
-/** The currency people pay in, by country (from their connection) when they haven't chosen one. */
-const COUNTRY_CURRENCY: Record<string, string> = {
-  NG: "NGN", GH: "GHS", KE: "KES", ZA: "ZAR", EG: "EGP", MA: "MAD", US: "USD", CA: "CAD", MX: "MXN", BR: "BRL", AR: "ARS",
-  GB: "GBP", IE: "EUR", FR: "EUR", DE: "EUR", ES: "EUR", IT: "EUR", PT: "EUR", NL: "EUR", BE: "EUR", AT: "EUR", GR: "EUR", FI: "EUR",
-  CH: "CHF", SE: "SEK", NO: "NOK", DK: "DKK", PL: "PLN", TR: "TRY", AE: "AED", SA: "SAR", QA: "QAR", IL: "ILS",
-  IN: "INR", PK: "PKR", BD: "BDT", CN: "CNY", JP: "JPY", KR: "KRW", SG: "SGD", MY: "MYR", ID: "IDR", TH: "THB", PH: "PHP", VN: "VND",
-  AU: "AUD", NZ: "NZD",
-};
-export function localCurrency(chosen: string | null | undefined, country: string | null | undefined): string {
+/**
+ * The currency people pay in: the one they chose, else US dollars, which everyone can read. (Where
+ * someone connects from no longer decides it; they can switch in the top bar or their wallet.)
+ */
+export function localCurrency(chosen: string | null | undefined, _country?: string | null): string {
   const c = chosen?.trim().toUpperCase();
-  if (c && /^[A-Z]{3}$/.test(c)) return c;
-  return COUNTRY_CURRENCY[(country ?? "").toUpperCase()] ?? "USD";
+  return c && /^[A-Z]{3}$/.test(c) ? c : "USD";
 }
 
 const rpc = <T>(s: Session, fn: string, body: Record<string, unknown> = {}) => rest<T>(s.cfg, s.accessToken, `rpc/${fn}`, { method: "POST", body });
@@ -51,7 +46,7 @@ export const topUp = (s: Session, cents: number) => rpc<number>(s, "wallet_topup
 
 let fx: { at: number; usd: Record<string, number> } | null = null;
 /** Units of each currency per US dollar (open.er-api.com, cached for 6 hours). */
-async function usdRates(): Promise<Record<string, number> | null> {
+export async function usdRates(): Promise<Record<string, number> | null> {
   if (fx && Date.now() - fx.at < 6 * 3600_000) return fx.usd;
   try {
     // Shared across server instances by the platform's data cache, so a cold instance doesn't wait on it.

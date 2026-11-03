@@ -30,16 +30,11 @@ import type {
 import type { Evidence, StepResult } from "./mission-stream";
 import { BRAND } from "./brand";
 import { hostOf } from "./host";
+import { formatMoney } from "@/lib/currency";
 
 const get = <T,>(r: Record<string, StepResult>, id: string) => r[id]?.data as T | undefined;
 
-const money = (n: number, currency: string) => {
-  try {
-    return new Intl.NumberFormat("en", { style: "currency", currency, maximumFractionDigits: 0 }).format(n);
-  } catch {
-    return `${n.toLocaleString("en")} ${currency}`;
-  }
-};
+const money = (n: number, currency: string) => formatMoney(n, currency, { symbol: false });
 const day = (d: string | null) => (d ? new Date(`${d}T12:00:00Z`).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: "UTC" }) : null);
 const mins = (m: number) => (m >= 60 ? `${Math.floor(m / 60)} h${m % 60 ? ` ${m % 60} min` : ""}` : `${m} min`);
 const mdEsc = (s: string) => s.replace(/([\\`*_[\]<>|])/g, "\\$1");

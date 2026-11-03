@@ -1212,3 +1212,9 @@ button:hover .ki-stop .ki-plane, .eq-card:hover .ki-stop .ki-plane { animation: 
 .eq .eq-review { bottom: calc(var(--dock-h, 90px) + 22px + 12px); }
 @media (max-width: 860px) { .eq .eq-review { bottom: calc(var(--dock-h, 150px) + 10px + 10px); } }
 @media (max-width: 860px) { .eq .eq-stopcard { bottom: calc(var(--dock-h, 150px) + 20px); } }
+
+/* Currency pill in the top bar: as compact as the doors beside it. */
+.eq-doors .eq-cur { position: relative; display: inline-flex; align-items: center; border-radius: 999px; }
+.eq-cur select { appearance: none; -webkit-appearance: none; font: inherit; font-size: 14px; font-weight: 600; color: var(--ink); background: transparent; border: 0; padding: 9px 28px 9px 14px; border-radius: 999px; cursor: pointer; }
+.eq-cur select:focus-visible { outline: 2px solid rgba(123, 92, 255, 0.6); outline-offset: 2px; }
+.eq-cur-caret { position: absolute; right: 12px; font-size: 10px; opacity: 0.6; pointer-events: none; }

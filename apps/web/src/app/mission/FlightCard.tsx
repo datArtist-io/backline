@@ -2,19 +2,14 @@
 // The flight the agent chose (and booked, once it has): airline, times there and back, stops and
 // the price paid.
 import type { TripFlightsOutput } from "@backline/engine";
+import { formatMoney } from "@/lib/currency";
 
 type Leg = NonNullable<TripFlightsOutput["flight"]>["outbound"];
 
 const time = (iso: string) => (iso ? iso.slice(11, 16) : "");
 const day = (iso: string) => (iso ? new Date(`${iso.slice(0, 10)}T12:00:00Z`).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" }) : "");
 const dur = (m: number | null) => (m == null ? "" : m >= 60 ? `${Math.floor(m / 60)}h ${m % 60 ? `${m % 60}m` : ""}`.trim() : `${m}m`);
-const money = (n: number, c: string) => {
-  try {
-    return new Intl.NumberFormat("en", { style: "currency", currency: c, currencyDisplay: "narrowSymbol", maximumFractionDigits: 0 }).format(n);
-  } catch {
-    return `${Math.round(n).toLocaleString("en")} ${c}`;
-  }
-};
+const money = (n: number, currency: string) => formatMoney(n, currency);
 
 function LegRow({ leg, label }: { leg: Leg; label: string }) {
   return (

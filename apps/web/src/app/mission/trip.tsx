@@ -13,16 +13,11 @@ import { buildIcs } from "@/lib/ics";
 import { buildPptx, outline, printDocument, saveBlob, slidesHtml, tripDocumentHtml, type ExportTrip } from "@/lib/export";
 import { EMAIL_MAX, mailtoUrl, plainText, telegramUrl, tripMessage, whatsappUrl, type ShareTrip } from "@/lib/share";
 import { Notes, Receipts } from "./sections";
+import { formatMoney } from "@/lib/currency";
 
 type R<T> = StepResult & { data: T };
 
-const money = (n: number, currency: string) => {
-  try {
-    return new Intl.NumberFormat("en", { style: "currency", currency, currencyDisplay: "narrowSymbol", maximumFractionDigits: 0 }).format(n);
-  } catch {
-    return `${n.toLocaleString("en")} ${currency}`;
-  }
-};
+const money = (n: number, currency: string) => formatMoney(n, currency);
 const longDate = (d: string | null) => (d ? new Date(`${d}T12:00:00Z`).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" }) : null);
 const shortDate = (d: string | null) => (d ? new Date(`${d}T12:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "UTC" }) : null);
 const mins = (m: number) => (m >= 60 ? `${Math.floor(m / 60)} h${m % 60 ? ` ${m % 60} min` : ""}` : `${m} min`);

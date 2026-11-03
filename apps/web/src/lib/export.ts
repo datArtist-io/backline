@@ -2,6 +2,7 @@
 // .pptx, built here with no extra packages) and a web slide deck. Everything is built in the
 // browser from the mission's results; nothing is sent anywhere.
 import type { Place, TasteOutput, TripAgentOutput, TripPlanOutput, TripRoutesOutput } from "@backline/engine";
+import { formatMoney } from "@/lib/currency";
 
 export type ExportTrip = {
   title: string;
@@ -15,13 +16,7 @@ export type ExportTrip = {
 };
 
 const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-const money = (n: number, currency: string) => {
-  try {
-    return new Intl.NumberFormat("en", { style: "currency", currency, currencyDisplay: "narrowSymbol", maximumFractionDigits: 0 }).format(n);
-  } catch {
-    return `${Math.round(n).toLocaleString("en")} ${currency}`;
-  }
-};
+const money = (n: number, currency: string) => formatMoney(n, currency);
 const longDate = (d: string | null) => (d ? new Date(`${d}T12:00:00Z`).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" }) : "");
 const mins = (m: number) => (m >= 60 ? `${Math.floor(m / 60)} h ${m % 60 ? `${m % 60} min` : ""}`.trim() : `${m} min`);
 
