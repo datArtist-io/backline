@@ -5,7 +5,7 @@
 import * as THREE from "three";
 import type { CustomLayerInterface, Map as MlMap } from "maplibre-gl";
 import { TilesRenderer, WGS84_ELLIPSOID } from "3d-tiles-renderer";
-import { GLTFExtensionsPlugin, GoogleCloudAuthPlugin, TileCompressionPlugin, TilesFadePlugin, UnloadTilesPlugin } from "3d-tiles-renderer/plugins";
+import { GLTFExtensionsPlugin, GoogleCloudAuthPlugin, TileCompressionPlugin, UnloadTilesPlugin } from "3d-tiles-renderer/plugins";
 import { DRACOLoader } from "three/examples/jsm/loaders/DRACOLoader.js";
 
 const rad = (d: number) => (d * Math.PI) / 180;
@@ -50,8 +50,10 @@ export class PhotorealLayer implements CustomLayerInterface {
     tiles.registerPlugin(new GLTFExtensionsPlugin({ dracoLoader: draco }));
     tiles.registerPlugin(new TileCompressionPlugin());
     tiles.registerPlugin(new UnloadTilesPlugin());
-    tiles.registerPlugin(new TilesFadePlugin());
-    tiles.errorTarget = 16;
+    // No fade-in: the fade only advances while MapLibre repaints, so when the map goes idle tiles froze
+    // half-transparent and the skyline read as flat, see-through glass. Tiles now appear solid.
+    // A finer error target so towers load as real buildings, not a blurred, flattened skin.
+    tiles.errorTarget = 8;
     const redraw = () => this.map.triggerRepaint();
     // The root tileset failing means the key isn't usable (billing not active, API off, wrong site):
     // hand back to the satellite map rather than leave an empty city.
