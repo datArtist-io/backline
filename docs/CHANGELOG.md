@@ -7,8 +7,9 @@
 - Buildings appear solid (the fade-in froze half-transparent when the map went idle) and stand at street level: the ground is probed over a small grid, and readings from coarse far tiles are ignored.
 
 ### The 3D city is ready before you fly the trip
-- After landing, Backline loads the whole trip's 3D city in the background: virtual cameras along every day's route, set up exactly like Fly the trip's camera (zoom 16.1, tilt 64°, facing along the route), a few at a time, every few hundred metres (at most 160 viewpoints). A small pill shows "Preparing 3D city · 40%", then "3D city ready".
+- After landing, Backline loads the whole trip's 3D city in the background: virtual cameras along every day's route, set up exactly like Fly the trip's camera (zoom 16.1, tilt 64°, facing along the route), a few at a time, every few hundred metres (at most 100 viewpoints), each loading the street ahead to 2.5 km rather than the horizon. A small pill shows "Preparing 3D city · 40%", then "3D city ready".
 - Buildings that have been seen stay in memory for the trip on laptops and desktops (up to about 1.2 GB), instead of being freed the moment they leave the screen; flying back no longer reloads them. Phones keep the library's smaller defaults.
+- Tiles unpack in parallel on all cores (it was 5 at a time, with hundreds waiting), with more downloads at once.
 - Same fix elsewhere: satellite imagery keeps a larger cache on laptops (2,000 tiles), and place photos load as soon as the trip is known, so every stop card opens with its picture.
 - Tests: trip viewpoints (web 45).
 

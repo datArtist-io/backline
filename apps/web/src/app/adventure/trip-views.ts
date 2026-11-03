@@ -6,7 +6,7 @@ const rad = (d: number) => (d * Math.PI) / 180;
 
 /**
  * Viewpoints along every day's route, every few hundred metres, each facing the way the route goes,
- * so loading them covers what Fly the trip will show. At most 160, spread evenly. Pure.
+ * so loading them covers what Fly the trip will show. Spread evenly, at most `max`. Pure.
  */
 export function tripViews(routes: Pick<DayRoute, "geo">[], max = 160): PreloadView[] {
   const segs: { a: [number, number]; b: [number, number]; m: number }[] = [];
@@ -20,7 +20,7 @@ export function tripViews(routes: Pick<DayRoute, "geo">[], max = 160): PreloadVi
   }
   const total = segs.reduce((n, x) => n + x.m, 0);
   if (!total) return [];
-  const step = Math.max(350, total / max);
+  const step = Math.max(450, total / max);
   const out: PreloadView[] = [];
   let next = 0;
   let run = 0;

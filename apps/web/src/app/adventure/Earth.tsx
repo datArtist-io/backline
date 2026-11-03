@@ -1124,7 +1124,7 @@ export default function Earth(props: EarthProps) {
   const routeSig = (props.model?.routes ?? []).map((r) => `${r.day}:${r.geo.length}:${r.geo[0]?.join(",")}`).join("|");
   useEffect(() => {
     const routes = props.model?.routes ?? [];
-    const views = tripViews(routes);
+    const views = tripViews(routes, 100);
     if (!views.length || props.look !== "photoreal") {
       live.current.onPreload?.(null);
       return;

@@ -22,6 +22,8 @@ export const FLY_ZOOM = 16.1;
 export const FLY_PITCH = 64;
 /** How many viewpoints load at once while preparing a trip. */
 const PRELOAD_BATCH = 8;
+/** How far a virtual camera loads: the street ahead and a couple of blocks beyond, not the horizon. */
+const PRELOAD_FAR_M = 2500;
 
 /** A viewpoint along the trip: where the camera looks and which way it faces. */
 export type PreloadView = { lat: number; lon: number; bearing: number };
@@ -70,7 +72,9 @@ export class PhotorealLayer implements CustomLayerInterface {
     this.renderer.autoClear = false;
     this.renderer.setPixelRatio(1);
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
-    const draco = new DRACOLoader().setDecoderPath("https://www.gstatic.com/draco/versioned/decoders/1.5.7/");
+    // Unpacking tiles was the bottleneck (5 at a time, hundreds waiting): use the machine's cores.
+    const cores = typeof navigator !== "undefined" ? navigator.hardwareConcurrency || 4 : 4;
+    const draco = new DRACOLoader().setDecoderPath("https://www.gstatic.com/draco/versioned/decoders/1.5.7/").setWorkerLimit(Math.max(2, Math.min(8, cores - 1)));
     const tiles = new TilesRenderer();
     tiles.registerPlugin(new GoogleCloudAuthPlugin({ apiToken: this.key, autoRefreshToken: true }));
     tiles.registerPlugin(new GLTFExtensionsPlugin({ dracoLoader: draco }));
@@ -89,6 +93,8 @@ export class PhotorealLayer implements CustomLayerInterface {
     // half-transparent and the skyline read as flat, see-through glass. Tiles now appear solid.
     // A finer error target so towers load as real buildings, not a blurred, flattened skin.
     tiles.errorTarget = 8;
+    tiles.parseQueue.maxJobs = Math.max(5, Math.min(12, cores));
+    tiles.downloadQueue.maxJobs = 40;
     const redraw = () => this.map.triggerRepaint();
     // The root tileset failing means the key isn't usable (billing not active, API off, wrong site):
     // hand back to the satellite map rather than leave an empty city.
@@ -156,7 +162,9 @@ export class PhotorealLayer implements CustomLayerInterface {
       }
     }
     if (!this.batch.length && this.queue.length) {
-      this.batch = this.queue.splice(0, PRELOAD_BATCH).map((v) => ({ v, cam: new THREE.PerspectiveCamera(this.lod.fov, w / Math.max(1, h), 1, 4e7) }));
+      // Only what the flight shows up close: a virtual camera that saw to the horizon asked for ~2,000
+      // tiles each. The real camera loads the horizon itself, at low detail.
+      this.batch = this.queue.splice(0, PRELOAD_BATCH).map((v) => ({ v, cam: new THREE.PerspectiveCamera(this.lod.fov, w / Math.max(1, h), 10, PRELOAD_FAR_M) }));
       for (const b of this.batch) this.tiles.setCamera(b.cam);
       this.batchAt = performance.now();
       this.quiet = 0;
