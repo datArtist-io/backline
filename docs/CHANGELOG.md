@@ -6,6 +6,9 @@
 - Photoreal 3D now loads Google's buildings on the globe view. MapLibre gave no camera height there, so the tile loader never went past the root and the map fell back to satellite.
 - Buildings appear solid (the fade-in froze half-transparent when the map went idle) and stand at street level: the ground is probed over a small grid, and readings from coarse far tiles are ignored.
 
+### The flight path fades after landing
+- Once the plane touches down and the camera settles into the city, the flight arc and its route label fade out over two seconds. "Fly in again" brings them back for the replay.
+
 ### Prices in dollars, with a currency switch
 - Every price shows in **US dollars** by default, wherever people connect from. A small currency pill in the top bar (USD, EUR, GBP, NGN and more) converts every price on the page: budget, hotels, flights, exports and the wallet. The wallet's own switch is the same choice.
 - Prices keep their own currency underneath and are converted for display with the day's rates (`/api/fx`).

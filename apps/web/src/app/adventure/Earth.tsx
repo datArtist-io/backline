@@ -506,7 +506,7 @@ export default function Earth(props: EarthProps) {
   const markers = useRef(new Map<string, { m: Marker; el: HTMLElement }>());
   const live = useRef(props);
   live.current = props;
-  const state = useRef({ loaded: false, introAt: -1, introDone: false, introFor: "", introDest: null as { lat: number; lon: number } | null, flown: false, waiting: 0, originFor: "", user: false, orbit: false, touchedAt: 0, bearing: 0, raf: 0, last: 0, dwell: 0, nextStop: 0, playDay: -2, trailAt: 0 });
+  const state = useRef({ loaded: false, introAt: -1, introDone: false, introFor: "", introDest: null as { lat: number; lon: number } | null, flown: false, waiting: 0, originFor: "", user: false, orbit: false, touchedAt: 0, bearing: 0, raf: 0, last: 0, dwell: 0, nextStop: 0, playDay: -2, trailAt: 0, arcFade: 0 });
 
   // Space views are framed for a laptop; on a phone the whole globe sits inside the screen with
   // its atmosphere showing, instead of a cropped ball filling the width.
@@ -581,13 +581,13 @@ export default function Earth(props: EarthProps) {
       map.addLayer({ id: "route-glow", type: "line", source: "routes", layout: { "line-cap": "round", "line-join": "round" }, paint: { "line-color": ["get", "color"], "line-width": ["interpolate", ["linear"], ["zoom"], 10, 6, 16, 18], "line-blur": 8, "line-opacity": 0.35 } });
       map.addLayer({ id: "route", type: "line", source: "routes", layout: { "line-cap": "round", "line-join": "round" }, paint: { "line-color": ["get", "color"], "line-width": ["interpolate", ["linear"], ["zoom"], 10, 1.6, 16, 4.5], "line-opacity": 0.9 } });
       map.addLayer({ id: "trail", type: "line", source: "trail", layout: { "line-cap": "round", "line-join": "round" }, paint: { "line-color": "#ffffff", "line-width": ["interpolate", ["linear"], ["zoom"], 10, 3, 17, 8], "line-blur": 1, "line-opacity": 0.95 } });
-      map.addLayer({ id: "arc-glow", type: "line", source: "arc", layout: { "line-cap": "round" }, paint: { "line-color": "#bcd6ff", "line-width": 9, "line-blur": 7, "line-opacity": 0.45 } });
+      map.addLayer({ id: "arc-glow", type: "line", source: "arc", layout: { "line-cap": "round" }, paint: { "line-color": "#bcd6ff", "line-width": 9, "line-blur": 7, "line-opacity": 0.45, "line-opacity-transition": { duration: 2200, delay: 0 } } });
       map.addLayer({
         id: "arc",
         type: "line",
         source: "arc",
         layout: { "line-cap": "round" },
-        paint: { "line-width": 2.4, "line-gradient": ["interpolate", ["linear"], ["line-progress"], 0, "rgba(255,255,255,0.08)", 0.55, "rgba(255,255,255,0.5)", 1, "#ffffff"] },
+        paint: { "line-width": 2.4, "line-opacity": 1, "line-opacity-transition": { duration: 2200, delay: 0 }, "line-gradient": ["interpolate", ["linear"], ["line-progress"], 0, "rgba(255,255,255,0.08)", 0.55, "rgba(255,255,255,0.5)", 1, "#ffffff"] },
       });
       map.addLayer(layer);
       try {
@@ -820,6 +820,21 @@ export default function Earth(props: EarthProps) {
     map.flyTo({ ...cam, zoom: Math.min(15.2, (cam.zoom ?? 13) - 0.15), pitch: 58, bearing: -16, duration: live.current.reduced ? 0 : duration, curve: 1.35, essential: true });
   };
 
+  // The flight path is the journey in; once the plane is down it fades away (with its label), so the
+  // city isn't crossed by a line to somewhere you've already left.
+  const showArc = (on: boolean) => {
+    const map = mapRef.current;
+    window.clearTimeout(state.current.arcFade);
+    state.current.arcFade = 0;
+    try {
+      map?.setPaintProperty("arc", "line-opacity", on ? 1 : 0);
+      map?.setPaintProperty("arc-glow", "line-opacity", on ? 0.45 : 0);
+    } catch {
+      /* the map is being rebuilt */
+    }
+    box.current?.classList.toggle("is-arrived", !on);
+  };
+
   // The journey in: from home, across the globe, down into the city.
   const intro = (replay = false) => {
     const map = mapRef.current;
@@ -833,6 +848,7 @@ export default function Earth(props: EarthProps) {
     s.originFor = p.origin ? `${p.origin.lat.toFixed(2)},${p.origin.lon.toFixed(2)}` : "";
     s.user = false;
     const arc = map.getSource("arc") as GeoJSONSource;
+    showArc(true);
     const from = p.origin && kmBetween(p.origin, dest) > 150 ? p.origin : null;
     // Where they're flying from is usually known a few seconds after the destination. Keep the globe
     // turning gently until then, so the journey is one flight, not a spin in, a jump out and a flight.
@@ -850,6 +866,9 @@ export default function Earth(props: EarthProps) {
     }
     const land = () => {
       s.introDone = true;
+      // Let the eye follow the line into the city first, then let it go.
+      window.clearTimeout(s.arcFade);
+      s.arcFade = window.setTimeout(() => showArc(false), 2600);
       if (live.current.model && (live.current.model.nodes.length || live.current.model.heat.length)) overview(4200);
       else map.flyTo({ center: [dest.lon, dest.lat], zoom: 10.6, pitch: 48, bearing: -12, duration: live.current.reduced ? 0 : 4200, essential: true });
     };
@@ -966,6 +985,7 @@ export default function Earth(props: EarthProps) {
       if (document.visibilityState !== "visible" || !map || !s.loaded || s.user || !s.introFor || s.waiting) return;
       if (map.getZoom() < 7 && !map.isMoving() && performance.now() - s.introAt > 12000) {
         s.introDone = true;
+        showArc(false);
         const p = live.current;
         if (p.model && (p.model.nodes.length || p.model.heat.length)) overview(2600);
         else if (p.destination) map.flyTo({ center: [p.destination.lon, p.destination.lat], zoom: 10.6, pitch: 48, bearing: -12, duration: 2600, essential: true });

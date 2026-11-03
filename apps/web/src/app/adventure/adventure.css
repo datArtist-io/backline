@@ -1196,7 +1196,8 @@ button:hover .ki-stop .ki-plane, .eq-card:hover .ki-stop .ki-plane { animation: 
 }
 
 /* While the plane flies in, the route label steps aside, then fades back after touch-down. */
-.eq-journey-pin { transition: opacity .6s ease; }
+.eq-journey-pin { transition: opacity 1.2s ease; }
+.is-arrived .eq-journey-pin { opacity: 0; pointer-events: none; }
 .is-flying .eq-journey-pin { opacity: 0; }
 
 /* Before the steps are known: placeholder dots in the same spot, so nothing jumps when they arrive. */
