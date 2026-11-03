@@ -23,7 +23,7 @@ export const FLY_PITCH = 64;
 /** How many viewpoints load at once while preparing a trip. */
 const PRELOAD_BATCH = 8;
 /** How far a virtual camera loads: the street ahead and a couple of blocks beyond, not the horizon. */
-const PRELOAD_FAR_M = 2500;
+const PRELOAD_FAR_M = 1800;
 
 /** A viewpoint along the trip: where the camera looks and which way it faces. */
 export type PreloadView = { lat: number; lon: number; bearing: number };
@@ -94,7 +94,7 @@ export class PhotorealLayer implements CustomLayerInterface {
     // half-transparent and the skyline read as flat, see-through glass. Tiles now appear solid.
     // A finer error target so towers load as real buildings, not a blurred, flattened skin.
     tiles.errorTarget = 8;
-    tiles.parseQueue.maxJobs = Math.max(5, Math.min(12, cores));
+    tiles.parseQueue.maxJobs = Math.max(5, Math.min(8, cores));
     tiles.downloadQueue.maxJobs = 40;
     const redraw = () => this.map.triggerRepaint();
     // The root tileset failing means the key isn't usable (billing not active, API off, wrong site):
@@ -151,12 +151,12 @@ export class PhotorealLayer implements CustomLayerInterface {
   }
 
   private stepPreload(c: { lat: number; lng: number }, w: number, h: number) {
-    // The batch is done once nothing has been loading for a few frames (or it has had 25 seconds).
+    // The batch is done once nothing has been loading for a few frames (or it has had 35 seconds).
     if (this.batch.length) {
       const st = (this.tiles as unknown as { stats: { queued: number; downloading: number; parsing: number } }).stats;
       const busy = st.queued + st.downloading + st.parsing;
       this.quiet = performance.now() - this.batchAt > 800 && busy === 0 ? this.quiet + 1 : 0;
-      if (this.quiet >= 4 || performance.now() - this.batchAt > 25_000) {
+      if (this.quiet >= 4 || performance.now() - this.batchAt > 35_000) {
         this.loadedViews += this.batch.length;
         this.endBatch();
         this.onPreload?.(Math.min(1, this.loadedViews / Math.max(1, this.total)));
