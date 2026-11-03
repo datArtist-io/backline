@@ -9,7 +9,7 @@ import { languageRule } from "../grounding";
 import { EngineError } from "../errors";
 import { mapLimit } from "../util";
 import { askedTime, dayDate, holdAskedTime, justAMeal } from "../trip-request";
-import { placeSchema, scorePlace, toPlace, type Place } from "./places";
+import { placeSchema, scorePlace, stayKindFilter, toPlace, type Place } from "./places";
 import { isArrivalStop, nameRefs, stayForBudget, type Stop, type TripAgentOutput } from "./trip-agent";
 import type { TripFlightsOutput } from "./flights";
 import type { TripTravelOutput, TravelOption } from "./trip-travel";
@@ -542,7 +542,11 @@ function stayCap(trip: TripRequest, currency: string): number | null {
  * the planned hotel stands and the agent confirms by phone. Pure.
  */
 export function chooseStay(stays: Place[], stayId: string | null, trip: TripRequest): { id: string | null; note: string | null; from: string | null; checked: number } {
-  const planned = stays.find((p) => p.id === stayId) ?? null;
+  const planned0 = stays.find((p) => p.id === stayId) ?? null;
+  // Only the kind of stay they asked for can stand in: no swapping an Airbnb-style home for a hotel.
+  const kindOk = stayKindFilter(trip.stayStyle, planned0);
+  stays = stays.filter((p) => p.id === stayId || kindOk(p));
+  const planned = planned0;
   const available = stays.filter((p) => p.offer);
   const fits = (p: Place) => {
     const cap = p.offer ? stayCap(trip, p.offer.currency) : null;

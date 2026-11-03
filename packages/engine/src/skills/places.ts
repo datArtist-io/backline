@@ -334,6 +334,15 @@ export function fitStayStyle(p: Place, style: StayStyle | undefined): Place {
   return { ...p, fit: Math.max(0, p.fit - sink) };
 }
 
+/**
+ * Which stays may replace the planned one: for a home, hostel or B&B, only that kind (a hotel with a
+ * bookable rate is no answer to "find me an Airbnb"); for a mix, a planned home stays a home. Pure.
+ */
+export function stayKindFilter(style: StayStyle | undefined, planned: Pick<Place, "name" | "tags"> | null): (p: Pick<Place, "name" | "tags">) => boolean {
+  const want = style === "home" || style === "hostel" || style === "guesthouse" ? style : style === "mixed" && planned && stayKindOf(planned) === "home" ? "home" : null;
+  return want ? (p) => stayKindOf(p) === want : () => true;
+}
+
 export type NearResult = { places: Place[]; counts: { qloo: number; osm: number; merged: number }; failures: string[] };
 
 const round1 = (n: number) => Math.round(n * 10) / 10;

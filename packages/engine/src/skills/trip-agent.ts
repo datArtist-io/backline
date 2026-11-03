@@ -6,7 +6,7 @@
 import { z } from "zod";
 import type { BriefInput, Evidence, Skill, SkillContext, StepProgress, TripRequest } from "../types";
 import { defineTool, modelPolicy, runAgent, type AgentRun, type AnyTool, type Decision, type FallbackReason, type Policy, type ToolOutput } from "../agent/runtime";
-import { KINDS, PLACE_KINDS, SOURCE_BUDGET_MS, attachOffers, checkPlaces, fitStayStyle, lookFor, placeEvidence, placeSchema, scorePlace, searchByName, searchNear, type Place, type PlaceKind } from "./places";
+import { KINDS, PLACE_KINDS, SOURCE_BUDGET_MS, attachOffers, checkPlaces, fitStayStyle, lookFor, stayKindFilter, placeEvidence, placeSchema, scorePlace, searchByName, searchNear, type Place, type PlaceKind } from "./places";
 import type { GeoHit } from "../clients/osm";
 import type { QlooEntity } from "../clients/qloo";
 import type { HotelOffer } from "../clients/hotels";
@@ -1233,7 +1233,8 @@ export async function finalize(
 
   // 3b. The price they asked for decides the hotel: an "affordable" trip never gets the dearest room,
   //     and a stated budget isn't blown when a good stay inside it was found.
-  const budgetStay = stayForBudget(t, picks.stay[0] ?? null, byFit(s, "stay"));
+  const firstStay = picks.stay[0] ? (s.places.get(picks.stay[0]) ?? null) : null;
+  const budgetStay = stayForBudget(t, picks.stay[0] ?? null, byFit(s, "stay").filter((p) => p.id === picks.stay[0] || stayKindFilter(t.stayStyle, firstStay)(p)));
   if (budgetStay && budgetStay.id !== picks.stay[0]) {
     const was = picks.stay[0] ? s.places.get(picks.stay[0]) : null;
     picks.stay = [budgetStay.id, ...picks.stay.filter((id) => id !== budgetStay.id)];

@@ -57,3 +57,14 @@ describe("kinds of stay", () => {
     expect(stayStyleLinks({ ...base, stayStyle: "hotel" } as never)).toEqual([]);
   });
 });
+
+import { chooseStay } from "../src/skills/trip";
+describe("keeping the kind of stay", () => {
+  it("doesn't swap a home for a hotel just because the hotel has a bookable rate", () => {
+    const home = { ...place("Upon Lisbon Prime Residences", ["Apartment"]), id: "h" };
+    const hotel = { ...place("Epic Sana Lisboa Hotel", ["Hotel"]), id: "x", offer: { offerId: "o", total: 500, currency: "USD", perNight: 160, roomName: "Twin", board: null, refundable: true, cancellation: null, provider: "liteapi" } } as Place;
+    const trip = { destination: "Lisbon, Portugal", startDate: "2026-11-20", endDate: "2026-11-23", adults: 1, rooms: 1, budget: { amount: null, currency: "USD", scope: null }, priceTier: 2, needs: ["stay"], stayStyle: "home" } as never;
+    expect(chooseStay([home, hotel], "h", trip).id).toBe("h");
+    expect(chooseStay([home, hotel], "h", { ...(trip as object), stayStyle: "hotel" } as never).id).toBe("x");
+  });
+});
