@@ -6,6 +6,13 @@
 - Photoreal 3D now loads Google's buildings on the globe view. MapLibre gave no camera height there, so the tile loader never went past the root and the map fell back to satellite.
 - Buildings appear solid (the fade-in froze half-transparent when the map went idle) and stand at street level: the ground is probed over a small grid, and readings from coarse far tiles are ignored.
 
+### Stays beyond hotels: Airbnb-style homes, hostels, B&Bs, resorts
+- The request is read for the kind of stay: an Airbnb, apartment, villa or "place with a kitchen" is a whole home; backpacking or a hostel; a B&B, riad or guest house; a boutique hotel; a resort. What they say beats the model's guess, and "not a hotel" isn't read as a hotel. A saved stay preference ("Airbnb") counts when the request doesn't say.
+- Groups of 4 or more and stays of a week or longer look at whole homes alongside hotels, and say so.
+- Search finds that kind too (Qloo's own tag for it, plus apartments, hostels, guest houses and chalets from OpenStreetMap) and ranks it first by taste; big hotel chains sink for someone who wants a home.
+- Whole homes open Airbnb (entire homes only) and Vrbo with the dates and guests filled in; hostels and B&Bs open Booking.com filtered to them. Airbnb has no public booking API, so these are links the person books themselves.
+- Tests: reading, inferring, ranking and links (engine 415).
+
 ### The flight path fades after landing
 - Once the plane touches down and the camera settles into the city, the flight arc and its route label fade out over two seconds. "Fly in again" brings them back for the replay.
 

@@ -1,7 +1,7 @@
 // A trip or event request: what the planner extracts, how gaps are filled (with every assumption
 // stated), and how it's described back to the model and the user.
 import { z } from "zod";
-import type { Profile, TripRequest } from "./types";
+import type { Profile, StayStyle, TripRequest } from "./types";
 import { normalizeLocation } from "./location";
 import { addDays, readTime, readWhen } from "./when";
 
@@ -57,6 +57,8 @@ export const rawTripSchema = z.object({
   inspiredBy: looseStr,
   /** Things the user says they love in the request: artists, films, cuisines, genres. */
   likes: looseList,
+  /** hotel, home (Airbnb-style apartment/house/villa), hostel, guesthouse (B&B), boutique, resort, mixed. */
+  stayStyle: looseStr,
 });
 export type RawTrip = z.infer<typeof rawTripSchema>;
 
@@ -80,8 +82,36 @@ export const tripRequestSchema = z.object({
   likes: z.array(z.string()).optional(),
   /** Children travelling, by age (rooms and rates are priced for them too). */
   children: z.array(z.number()).optional(),
+  stayStyle: z.enum(["hotel", "home", "hostel", "guesthouse", "boutique", "resort", "mixed"]).optional(),
   assumptions: z.array(z.string()),
 });
+
+export const STAY_STYLES: StayStyle[] = ["hotel", "home", "hostel", "guesthouse", "boutique", "resort", "mixed"];
+
+/** How each kind of stay is said, most specific first. Airbnb and friends mean a whole home. */
+const STAY_WORDS: [RegExp, StayStyle][] = [
+  [/\b(air ?bnbs?|vrbo|home ?aways?|short[- ]let|shortlet|vacation rentals?|holiday (?:home|let|rental)s?|serviced apartments?|apartments?|a flat|condos?|villas?|cabins?|cottages?|chalets?|whole (?:house|home|place)|(?:a|our|own) (?:house|home) to ourselves|place with a kitchen|self[- ]catering|entire (?:home|place|apartment))\b/i, "home"],
+  [/\b(hostels?|backpack(?:er|ing)|dorm(?:itory)?s?)\b/i, "hostel"],
+  [/\b(guest ?houses?|b ?& ?b|bed and breakfast|\bbnb\b|riads?|pensions?|ryokans?|homestays?|family[- ]run inn)\b/i, "guesthouse"],
+  [/\b(boutique (?:hotel|stay|place)s?|design hotels?)\b/i, "boutique"],
+  [/\b(resorts?|all[- ]inclusive)\b/i, "resort"],
+  [/\b(hotels?|motels?)\b/i, "hotel"],
+];
+
+/** The kind of stay the request asks for in words, or null when it doesn't say. Pure. */
+export function stayStyleIn(text: string): StayStyle | null {
+  // "Not a hotel", "no hostels": what they rule out isn't what they want.
+  const said = text.replace(/\b(?:not?|without|avoid|hate|don'?t (?:want|like))\s+(?:an?\s+|the\s+)?[\w-]+(?:\s+[\w-]+)?/gi, " ");
+  for (const [re, style] of STAY_WORDS) if (re.test(said)) return style;
+  return null;
+}
+
+const asStyle = (v: unknown): StayStyle | null => {
+  const t = typeof v === "string" ? v.trim().toLowerCase().replace(/[^a-z]/g, "") : "";
+  if (!t) return null;
+  if ((STAY_STYLES as string[]).includes(t)) return t as StayStyle;
+  return /airbnb|apartment|house|villa|rental|homes?$/.test(t) ? "home" : /bnb|guest/.test(t) ? "guesthouse" : null;
+};
 
 export const CURRENCIES: [RegExp, string][] = [
   [/nigeria|lagos(?![^]*portugal)|abuja|ibadan|port harcourt/i, "NGN"],
@@ -188,6 +218,8 @@ export function groundTrip(raw: RawTrip | null | undefined, text: string, opts: 
   if (out.likes?.length) out.likes = out.likes.filter((l) => saidIn(text, l));
   // From the first read of a request, a landmark must be one they named (models copy the example).
   if (opts.near && out.near && !saidIn(text, out.near)) out.near = null;
+  // The kind of stay: what they said wins; a model's guess stays only if it's a kind we know.
+  out.stayStyle = stayStyleIn(text) ?? asStyle(out.stayStyle);
   if (out.origin && !saidIn(text, out.origin)) out.origin = null;
   // Only skip booking something when they said they'd handle it; models fill this in from "from Lagos".
   if (out.selfArranged?.length && !SELF_HANDLED.test(text)) out.selfArranged = [];
@@ -254,6 +286,17 @@ export function normalizeTrip(raw: RawTrip | null | undefined, fallbackDestinati
     priceTier = 2;
     assumptions.push("No budget given, so I aimed mid-range");
   }
+  // Where to stay: as they said; a group or a long stay gets whole homes alongside hotels.
+  // What they keep in their profile ("Airbnb", "hostels") counts when the request doesn't say.
+  const kept = profile.stayPrefs?.length ? stayStyleIn(profile.stayPrefs.join(", ")) : null;
+  let stayStyle: StayStyle = asStyle(raw?.stayStyle) ?? kept ?? "hotel";
+  if (!asStyle(raw?.stayStyle) && !kept) {
+    const nights = startDate && endDate ? Math.round((Date.parse(endDate) - Date.parse(startDate)) / 86_400_000) : 0;
+    if (adults >= 4 || nights >= 7) {
+      stayStyle = "mixed";
+      assumptions.push(adults >= 4 ? "Travelling as a group, so I looked at whole homes (Airbnb-style) as well as hotels" : "A longer stay, so I looked at apartments and homes as well as hotels");
+    }
+  }
   let needs = (raw?.needs ?? []).filter((n, i, a) => a.indexOf(n) === i);
   if (needs.length === 0) needs = ["stay", "dine"];
   if (eventType && !needs.includes("venue") && !/dinner|lunch|brunch/i.test(eventType)) needs.push("venue");
@@ -275,6 +318,7 @@ export function normalizeTrip(raw: RawTrip | null | undefined, fallbackDestinati
     selfArranged: (raw?.selfArranged ?? []).map((x) => x.replace(/[<>]/g, "").trim().slice(0, 40)).filter(Boolean).slice(0, 5),
     inspiredBy: raw?.inspiredBy?.replace(/[<>"]/g, "").trim().slice(0, 60) || null,
     likes: [...new Set((raw?.likes ?? []).map((l) => l.replace(/[<>"]/g, "").trim().slice(0, 50)).filter(Boolean))].slice(0, 5),
+    stayStyle,
     assumptions,
   };
 }
@@ -325,6 +369,7 @@ export function rawFromTrip(t: TripRequest): RawTrip {
     selfArranged: t.selfArranged,
     inspiredBy: t.inspiredBy ?? null,
     likes: t.likes ?? [],
+    stayStyle: t.stayStyle ?? null,
   };
 }
 
@@ -335,6 +380,7 @@ const ASSUMPTION_FIELDS: [RegExp, (keyof RawTrip)[]][] = [
   [/no dates/i, ["startDate"]],
   [/1 traveller/i, ["adults"]],
   [/mid-range/i, ["priceTier", "budgetAmount"]],
+  [/whole homes|apartments and homes/i, ["stayStyle"]],
 ];
 
 /**
@@ -367,6 +413,16 @@ const fmt = (d: string) =>
 const NEED_WORDS: Record<TripRequest["needs"][number], string> = { stay: "a place to stay", dine: "restaurants", venue: "an event venue", activities: "things to do" };
 
 /** One paragraph a model (or a person) can read to know the whole request. Pure. */
+const STAY_WORDS_OUT: Record<StayStyle, string> = {
+  hotel: "a hotel",
+  home: "a whole home (Airbnb-style apartment, house or villa), not a hotel",
+  hostel: "a hostel",
+  guesthouse: "a guest house or B&B",
+  boutique: "a boutique hotel",
+  resort: "a resort",
+  mixed: "hotels or whole homes (Airbnb-style), whichever suits them best",
+};
+
 export function describeTrip(t: TripRequest): string {
   const parts = [
     `Destination: ${t.destination || "not known yet"}.`,
@@ -377,6 +433,7 @@ export function describeTrip(t: TripRequest): string {
       : `Budget: ${t.priceTier === 1 ? "budget" : t.priceTier === 4 ? "luxury" : t.priceTier === 3 ? "upper mid-range" : "mid-range"} (price level ${t.priceTier ?? 2} of 4), currency ${t.budget.currency}.`,
     `Needs: ${t.needs.map((n) => NEED_WORDS[n]).join(", ")}.`,
     t.near ? `Wants to be near: ${t.near}.` : "",
+    t.stayStyle && t.stayStyle !== "hotel" ? `Wants to stay in: ${STAY_WORDS_OUT[t.stayStyle]}.` : "",
     t.purpose ? `Purpose: ${t.purpose}.` : "",
     t.event ? `Hosting: ${t.event.type}${t.event.guests ? ` for ${t.event.guests} guests` : ""}${t.event.date ? ` on ${fmt(t.event.date)}` : ""}.` : "",
     t.likes?.length ? `Loves: ${t.likes.join(", ")}.` : "",

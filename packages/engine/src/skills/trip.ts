@@ -721,6 +721,35 @@ export function bookingLink(hotel: string, city: string, trip: TripRequest): str
   return `https://www.booking.com/searchresults.html?${q}`;
 }
 
+/** Search links for the kind of stay they want, with their dates and guests. Pure. */
+export function stayStyleLinks(trip: TripRequest): { title: string; site: string; url: string; recommended: boolean }[] {
+  const style = trip.stayStyle;
+  if (!trip.needs.includes("stay") || !style || style === "hotel" || style === "boutique" || style === "resort") return [];
+  const city = trip.destination;
+  const kids = trip.children?.length ?? 0;
+  const dates = trip.startDate && trip.endDate ? " for your dates" : "";
+  if (style === "home" || style === "mixed") {
+    const a = new URLSearchParams({ adults: String(trip.adults) });
+    if (kids) a.set("children", String(kids));
+    if (trip.startDate) a.set("checkin", trip.startDate);
+    if (trip.endDate) a.set("checkout", trip.endDate);
+    a.append("room_types[]", "Entire home/apt");
+    const v = new URLSearchParams({ destination: city, adults: String(trip.adults) });
+    if (kids) v.set("children", String(kids));
+    if (trip.startDate) v.set("startDate", trip.startDate);
+    if (trip.endDate) v.set("endDate", trip.endDate);
+    return [
+      { title: `Browse whole homes on Airbnb${dates}`, site: "Airbnb", url: `https://www.airbnb.com/s/${encodeURIComponent(city)}/homes?${a}`, recommended: style === "home" },
+      { title: `Browse holiday homes on Vrbo${dates}`, site: "Vrbo", url: `https://www.vrbo.com/search?${v}`, recommended: false },
+    ];
+  }
+  // Booking.com's own filters: 203 hostels, 208 bed and breakfasts, 216 guest houses.
+  const q = new URLSearchParams({ ss: city, group_adults: String(trip.adults), no_rooms: String(trip.rooms), group_children: String(kids), nflt: style === "hostel" ? "ht_id=203" : "ht_id=208;ht_id=216" });
+  if (trip.startDate) q.set("checkin", trip.startDate);
+  if (trip.endDate) q.set("checkout", trip.endDate);
+  return [{ title: `Browse ${style === "hostel" ? "hostels" : "guest houses and B&Bs"} on Booking.com${dates}`, site: "Booking.com", url: `https://www.booking.com/searchresults.html?${q}`, recommended: true }];
+}
+
 export const mapsLink = (p: Place) =>
   p.lat != null && p.lon != null
     ? `https://www.google.com/maps/search/?api=1&query=${p.lat},${p.lon}`
@@ -818,6 +847,10 @@ export function buildActions(
         price: { total: ROOM_PER_NIGHT_USD[trip.priceTier ?? 2] * trip.rooms * Math.max(1, tripDates(trip.startDate, trip.endDate).length - 1), currency: "USD" },
       });
   }
+
+  // Stays beyond hotels: whole homes book on Airbnb and Vrbo, hostels and B&Bs on Booking.com, each
+  // opened with the dates and guests filled in, so the user picks the home themselves.
+  for (const l of stayStyleLinks(trip)) add({ kind: "book_stay", channel: "link", title: l.title, placeId: null, placeName: l.site, url: l.url, mode: "you", recommended: l.recommended });
 
   const venue = places.venues.find((p) => p.id === plan.venueId) ?? places.venues[0];
   if (venue && trip.event) {

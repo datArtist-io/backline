@@ -252,6 +252,12 @@ export type Profile = {
   language?: string;
 };
 
+/**
+ * The kind of place they want to stay: a hotel, a whole home (Airbnb-style apartment, house or villa),
+ * a hostel, a guest house or B&B, a boutique hotel, a resort, or a mix of hotels and homes.
+ */
+export type StayStyle = "hotel" | "home" | "hostel" | "guesthouse" | "boutique" | "resort" | "mixed";
+
 export type TripRequest = {
   destination: string;
   /** ISO dates (YYYY-MM-DD), when known. */
@@ -280,6 +286,8 @@ export type TripRequest = {
   likes?: string[];
   /** Children travelling, by age. */
   children?: number[];
+  /** The kind of place to stay (hotel by default). */
+  stayStyle?: StayStyle;
   /** Things the agent assumed because the request didn't say. Shown to the user. */
   assumptions: string[];
 };

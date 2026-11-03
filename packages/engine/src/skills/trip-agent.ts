@@ -6,7 +6,7 @@
 import { z } from "zod";
 import type { BriefInput, Evidence, Skill, SkillContext, StepProgress, TripRequest } from "../types";
 import { defineTool, modelPolicy, runAgent, type AgentRun, type AnyTool, type Decision, type FallbackReason, type Policy, type ToolOutput } from "../agent/runtime";
-import { KINDS, PLACE_KINDS, SOURCE_BUDGET_MS, attachOffers, checkPlaces, lookFor, placeEvidence, placeSchema, scorePlace, searchByName, searchNear, type Place, type PlaceKind } from "./places";
+import { KINDS, PLACE_KINDS, SOURCE_BUDGET_MS, attachOffers, checkPlaces, fitStayStyle, lookFor, placeEvidence, placeSchema, scorePlace, searchByName, searchNear, type Place, type PlaceKind } from "./places";
 import type { GeoHit } from "../clients/osm";
 import type { QlooEntity } from "../clients/qloo";
 import type { HotelOffer } from "../clients/hotels";
@@ -339,7 +339,8 @@ const tasteBased = (s: Pick<TripAgentState, "signals" | "tagSignals">) => s.sign
 function rescore(s: TripAgentState, p: Place): Place {
   const focus = focusOf(s);
   const d = focus && p.lat != null && p.lon != null ? round1(distanceKm(focus, { lat: p.lat, lon: p.lon })) : (p.distanceKm ?? null);
-  return scorePlace({ ...p, distanceKm: d }, { priceTier: s.trip.priceTier, dietary: p.kind === "dine" ? s.input.profile?.dietary : undefined, tasteBased: tasteBased(s), nearBonus: Boolean(s.landmark), tasteLabel: tasteLabel(s.trip, s.taste) });
+  const scored = scorePlace({ ...p, distanceKm: d }, { priceTier: s.trip.priceTier, dietary: p.kind === "dine" ? s.input.profile?.dietary : undefined, tasteBased: tasteBased(s), nearBonus: Boolean(s.landmark), tasteLabel: tasteLabel(s.trip, s.taste) });
+  return p.kind === "stay" ? fitStayStyle(scored, s.trip.stayStyle) : scored;
 }
 
 function rescoreAll(s: TripAgentState) {
@@ -698,7 +699,7 @@ export function tripTools(ctx: SkillContext, s: TripAgentState): AnyTool<TripAge
       // Hotels always cover at least 5 km: a better hotel a short ride away beats the nearest one.
       let radius = round1(Math.max(a.kind === "stay" ? 5 : 0, a.radiusKm ?? (local ? spec.nearKm : spec.cityKm)));
       const search = (radiusKm: number) =>
-        searchNear(ctx, { kind: a.kind, anchor, radiusKm, signals: s.signals, tagSignals: s.tagSignals, priceTier: t().priceTier, dietary: s.input.profile?.dietary, query: a.query ?? null, nearBonus: isLandmark, take: 15, tasteLabel: tasteLabel(t(), s.taste) });
+        searchNear(ctx, { kind: a.kind, anchor, radiusKm, signals: s.signals, tagSignals: s.tagSignals, priceTier: t().priceTier, dietary: s.input.profile?.dietary, query: a.query ?? null, nearBonus: isLandmark, take: 15, tasteLabel: tasteLabel(t(), s.taste), stayStyle: t().stayStyle });
       const t0 = Date.now();
       // Hotels: everything within 5 km, plus the highly rated or upmarket ones out to 10 km, since a
       // much better hotel a short ride further often beats the nearest one.
@@ -940,6 +941,7 @@ function systemPrompt(input: BriefInput, ctx: SkillContext): string {
     "- When there's a landmark, search around it: being close matters most. Walking distance is under 1.5 km.",
     "- Their taste has been read through Qloo (see \"Their taste\"). Without a landmark, searches already centre on the part of town where that taste is strongest, so don't locate that area yourself. Lean your picks and reasons on it: say which places fit their taste and why.",
     "- Compare options with the budget. Price level 1 is cheap, 4 is luxury. Say when something is above budget.",
+    "- Stays aren't only hotels. When they want a whole home (Airbnb-style apartment, house or villa), a hostel, a guest house or B&B, a boutique hotel or a resort (see \"Wants to stay in\"), pick that kind: search_places for stays already ranks it first, and query can add words like \"apartment\", \"villa\" or \"hostel\". Whole homes are booked by the user on Airbnb or Vrbo through the links in the plan; say so in your summary.",
     ctx.web
       ? "- Before recommending, use check_places on your top 2-4 options for rates and booking contacts. Use research for what maps can't tell you: whether an event is on and when, typical rates, travel times, how to get from the station."
       : "- Web research isn't connected, so rely on map and taste data and say prices need confirming.",

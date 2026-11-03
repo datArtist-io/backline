@@ -82,7 +82,7 @@ const NOMINATIM_PHRASES: Record<OsmKind, string[]> = {
 };
 
 const OVERPASS_FILTERS: Record<OsmKind, string[]> = {
-  stay: ['["tourism"~"^(hotel|guest_house|apartment|hostel|motel|resort)$"]'],
+  stay: ['["tourism"~"^(hotel|guest_house|apartment|hostel|motel|resort|chalet)$"]'],
   dine: ['["amenity"~"^(restaurant|cafe|bar|pub|food_court|fast_food)$"]'],
   venue: ['["amenity"~"^(events_venue|conference_centre|community_centre|theatre|arts_centre|nightclub|exhibition_centre)$"]'],
   activity: ['["tourism"~"^(attraction|museum|gallery|viewpoint|zoo|theme_park|aquarium)$"]', '["leisure"~"^(park|water_park|nature_reserve|beach_resort)$"]'],

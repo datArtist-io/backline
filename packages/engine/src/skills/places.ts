@@ -8,7 +8,7 @@ import type { OsmKind, OsmPlace } from "../clients/osm";
 import type { WebResult } from "../clients/web";
 import type { HotelOffer } from "../clients/hotels";
 import { EMAIL_RE } from "../clients/email";
-import type { BriefInput, Evidence, SkillContext } from "../types";
+import type { BriefInput, Evidence, SkillContext, StayStyle } from "../types";
 import { UNTRUSTED_WEB_RULE, languageRule, quoteWeb, textOf, webEvidence } from "../grounding";
 import { broadeningLadder, distanceKm } from "../location";
 import { foldText, mapLimit, withTimeout } from "../util";
@@ -291,7 +291,48 @@ export type NearSearch = {
   take?: number;
   /** How a taste match is explained, e.g. "Loved by fans of Burna Boy". */
   tasteLabel?: string;
+  /** For stays: the kind of place they want (whole home, hostel, B&B…). */
+  stayStyle?: StayStyle;
 };
+
+type StyleSpec = { label: string; qlooTag: string; tagMatch: RegExp; words: RegExp };
+
+/**
+ * Each kind of stay: the Qloo tag to search for it, and the words in a name or tag that say a place is
+ * one (OpenStreetMap tags apartments, hostels and guest houses as such).
+ */
+export const STAY_STYLE: Record<Exclude<StayStyle, "hotel" | "mixed">, StyleSpec> = {
+  home: { label: "Whole home", qlooTag: "vacation rental", tagMatch: /vacation|rental|apartment|holiday|villa|cottage|cabin|condo/i, words: /\b(apartments?|apartamentos?|appartamenti|appartement|flats?|lofts?|residences?|residenza|villas?|homes?|houses?|studios?|cottages?|cabins?|chalets?|condos?|vacation rental|holiday (?:home|let)|serviced)\b/i },
+  hostel: { label: "Hostel", qlooTag: "hostel", tagMatch: /hostel/i, words: /\b(hostels?|backpackers?|dorms?)\b/i },
+  guesthouse: { label: "Guest house", qlooTag: "bed and breakfast", tagMatch: /bed and breakfast|guest ?house|b&b|inn\b/i, words: /\b(guest ?houses?|b ?& ?b|bed (?:and|&) breakfast|inns?|pensions?|pensione|riads?|casa|locanda|ryokans?|homestays?|lodges?)\b/i },
+  boutique: { label: "Boutique hotel", qlooTag: "boutique hotel", tagMatch: /boutique|design/i, words: /\b(boutique|design hotel|art hotel)\b/i },
+  resort: { label: "Resort", qlooTag: "resort", tagMatch: /resort|spa/i, words: /\b(resorts?|spa|beach club|all[- ]inclusive)\b/i },
+};
+
+/** Big hotel brands: the opposite of an Airbnb-style stay. */
+const CHAIN = /\b(hilton|marriott|sheraton|radisson|hyatt|novotel|ibis|intercontinental|holiday inn|best western|premier inn|travelodge|pullman|sofitel|westin|crowne plaza|courtyard|hampton|doubletree|mercure|four points)\b/i;
+
+/** Which kind of stay a place is, when its name or tags say. Pure. */
+export function stayKindOf(p: Pick<Place, "name" | "tags">): Exclude<StayStyle, "mixed"> {
+  const hay = `${p.name} ${p.tags.join(" ")}`;
+  for (const k of ["hostel", "guesthouse", "home", "resort", "boutique"] as const) if (STAY_STYLE[k].words.test(hay)) return k;
+  return "hotel";
+}
+
+/**
+ * Lift the kind of stay they asked for and let the rest sink: a whole home for someone who wants an
+ * Airbnb, a hostel for a backpacker. "mixed" keeps hotels and homes side by side, homes a little up. Pure.
+ */
+export function fitStayStyle(p: Place, style: StayStyle | undefined): Place {
+  if (!style) return p;
+  const kind = stayKindOf(p);
+  if (style === "mixed") return kind === "home" ? { ...p, fit: Math.min(1, p.fit + 0.08), why: ["Whole home", ...p.why] } : p;
+  if (style === "hotel") return kind === "home" || kind === "hostel" ? { ...p, fit: Math.max(0, p.fit - 0.12) } : p;
+  const want = STAY_STYLE[style];
+  if (kind === style || want.words.test(`${p.name} ${p.tags.join(" ")}`)) return { ...p, fit: Math.min(1, p.fit + 0.3), why: [want.label, ...p.why.filter((w) => w !== want.label)] };
+  const sink = style === "home" && CHAIN.test(p.name) ? 0.3 : 0.18;
+  return { ...p, fit: Math.max(0, p.fit - sink) };
+}
 
 export type NearResult = { places: Place[]; counts: { qloo: number; osm: number; merged: number }; failures: string[] };
 
@@ -322,6 +363,23 @@ export async function searchNear(ctx: SkillContext, s: NearSearch): Promise<Near
     return tasteOn ? withMatch(found) : found;
   })();
 
+  // Stays of a particular kind (whole homes, hostels, B&Bs…): Qloo searched for that kind too, so the
+  // list isn't only hotels. "mixed" adds homes alongside hotels.
+  const style = s.kind === "stay" && s.stayStyle && s.stayStyle !== "hotel" ? (s.stayStyle === "mixed" ? STAY_STYLE.home : STAY_STYLE[s.stayStyle]) : null;
+  const styleTask = (async (): Promise<Place[]> => {
+    if (!style) return [];
+    const tags = await placeTags(ctx, style.qlooTag, style.tagMatch);
+    if (!tags.length) return [];
+    const raw = await ctx.qloo.insights(
+      "urn:entity:place",
+      { entityIds: s.signals.length ? s.signals : undefined, tagIds: s.tagSignals?.length ? s.tagSignals : undefined, near: { lat: s.anchor.lat, lon: s.anchor.lon, radiusKm: s.radiusKm }, filterTags: tags, take: 25 },
+      ctx.signal
+    );
+    ctx.usage.add("qloo", 1);
+    const found = raw.filter((e) => e.location && distanceKm(s.anchor, e.location) <= s.radiusKm * 1.25).map((e) => toPlace(e, s.kind));
+    return tasteOn ? withMatch(found) : found;
+  })();
+
   const osmTask = (async (): Promise<Place[]> => {
     if (!ctx.osm) return [];
     const found = await ctx.osm.nearby(s.kind, s.anchor, s.radiusKm * 1000, { signal: ctx.signal, budgetMs: SOURCE_BUDGET_MS - 1000 });
@@ -330,8 +388,9 @@ export async function searchNear(ctx: SkillContext, s: NearSearch): Promise<Near
   })();
 
   // Each source has a fixed budget, so one slow service can't hold the agent up.
-  const [q, o] = await Promise.allSettled([withTimeout(qlooTask, SOURCE_BUDGET_MS, "Qloo places"), withTimeout(osmTask, SOURCE_BUDGET_MS, "Map places")]);
-  const qPlaces = q.status === "fulfilled" ? q.value : [];
+  const [q, o, st] = await Promise.allSettled([withTimeout(qlooTask, SOURCE_BUDGET_MS, "Qloo places"), withTimeout(osmTask, SOURCE_BUDGET_MS, "Map places"), withTimeout(styleTask, SOURCE_BUDGET_MS, "Qloo stays")]);
+  const styled = st.status === "fulfilled" ? st.value : [];
+  const qPlaces = [...(q.status === "fulfilled" ? q.value : []), ...styled.filter((x) => !(q.status === "fulfilled" ? q.value : []).some((y) => y.id === x.id))];
   const oPlaces = o.status === "fulfilled" ? o.value : [];
   if (q.status === "rejected") failures.push("Qloo");
   if (o.status === "rejected") failures.push("OpenStreetMap");
@@ -346,6 +405,7 @@ export async function searchNear(ctx: SkillContext, s: NearSearch): Promise<Near
     .filter((p) => s.kind === "stay" || s.kind === "venue" || !LODGING_NAME.test(p.name) || NOT_JUST_LODGING.test(p.name))
     .filter((p) => s.kind !== "activity" || !EATERY_NAME.test(p.name) || SIGHT_NAME.test(p.name))
     .map((p) => scorePlace(p, { priceTier: s.priceTier, dietary: s.kind === "dine" ? s.dietary : undefined, tasteBased: s.signals.length + (s.tagSignals?.length ?? 0) > 0, nearBonus: s.nearBonus, query: s.query, tasteLabel: s.tasteLabel }))
+    .map((p) => (s.kind === "stay" ? fitStayStyle(p, s.stayStyle) : p))
     .sort((a, b) => b.fit - a.fit)
     .slice(0, take);
   const both = merged.filter((p) => p.source === "qloo+osm").length;
