@@ -645,7 +645,19 @@ export function ActionsCheckpoint({
   const short = w && w.ready && totalUsdCents > w.balance;
   // The payment slip: every payment the trip needs, grouped the way a trip unfolds.
   const priced = actions.filter((a) => a.mode === "auto" && a.price && (a.channel === "reserve" || a.channel === "call"));
-  const others = actions.filter((a) => !priced.includes(a));
+  // Homes, hostels and B&Bs to pick yourself (Airbnb, Vrbo, Booking.com), opened with the dates filled in.
+  const homes = actions.filter((a) => a.kind === "book_stay" && a.channel === "link" && !a.placeId && a.url);
+  const others = actions.filter((a) => !priced.includes(a) && !homes.includes(a));
+  const homeLine = homes.length ? (
+    <p className="ck-homes">
+      <span>{homes.some((a) => /airbnb|vrbo/i.test(a.placeName ?? "")) ? "Rather pick a whole home?" : "Rather pick your own?"}</span>
+      {homes.map((a) => (
+        <a key={a.id} href={a.url!} target="_blank" rel="noopener noreferrer" title={a.title}>
+          {a.placeName} <span aria-hidden="true">↗</span>
+        </a>
+      ))}
+    </p>
+  ) : null;
   const groups = SLIP_GROUPS.map((g) => ({ ...g, items: priced.filter((a) => g.kinds.includes(a.kind)) })).filter((g) => g.items.length);
   const sub = (items: TripAction[]) => items.filter((a) => picked.includes(a.id)).reduce((n, a) => n + (local(a.price!.total, a.price!.currency) ?? 0), 0);
   const line = (a: TripAction) => {
@@ -697,8 +709,10 @@ export function ActionsCheckpoint({
                     );
                   })}
                 </ul>
+                {g.id === "stay" && homeLine}
               </section>
             ))}
+            {!groups.some((g) => g.id === "stay") && homeLine}
           </div>
           {others.length > 0 && (
             <details className="ck-also" open={!priced.length}>
