@@ -72,6 +72,8 @@ export class PhotorealLayer implements CustomLayerInterface {
     });
     this.tiles = tiles;
     this.holder.add(tiles.group);
+    // Diagnostics on the live site, only with ?debug3d in the address.
+    if (typeof location !== "undefined" && location.search.includes("debug3d")) (globalThis as { __photo?: unknown }).__photo = this;
   }
 
   onRemove() {
