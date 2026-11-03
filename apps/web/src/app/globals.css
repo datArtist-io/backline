@@ -1702,3 +1702,13 @@ a { color: inherit; text-decoration: none; }
 .ops-config b { font-weight: 600; }
 .ops-config .ops-muted { margin-left: auto; text-align: right; }
 @media (max-width: 760px) { .ops-grid { grid-template-columns: 1fr; } }
+/* Send the plan: one pill that opens a small menu, so the share bar stays compact */
+.send-plan { position: relative; }
+.send-plan > summary { list-style: none; user-select: none; }
+.send-plan > summary::-webkit-details-marker { display: none; }
+.send-caret { font-size: 10px; opacity: 0.6; transition: transform 0.2s var(--ease-out); }
+.send-plan[open] .send-caret { transform: rotate(180deg); }
+.send-menu { position: absolute; z-index: 30; top: calc(100% + 6px); left: 0; min-width: 150px; padding: 5px; display: grid; gap: 2px; border-radius: 14px; background: rgba(255, 255, 255, 0.96); box-shadow: inset 0 0 0 1px rgba(16, 19, 43, 0.08), 0 16px 32px -18px rgba(16, 19, 43, 0.45); }
+.send-plan .send-menu button { font: inherit; font-size: 13.5px; font-weight: 600; text-align: left; color: var(--ink); padding: 8px 12px; border: 0; border-radius: 10px; background: none; cursor: pointer; }
+.send-plan .send-menu button:hover:not(:disabled), .send-plan .send-menu button:focus-visible { background: rgba(123, 92, 255, 0.1); }
+.send-plan .send-menu button:disabled { opacity: 0.5; cursor: not-allowed; }

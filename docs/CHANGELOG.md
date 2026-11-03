@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-11-03
+
+### Send the plan anywhere
+- A **Send** button next to Calendar, PDF and the rest opens a small menu: **WhatsApp**, **Telegram** or **Email me**. The whole plan goes as one message: the title, every day hour by hour, the budget and tips.
+- WhatsApp and Telegram open with the message ready, so you can send it to yourself or to whoever you're travelling with.
+- **Email me** sends it to the address you signed in with, and only that address, so it can't be used to email anyone else (5 a day per person). Signed out, your own email app opens with the plan instead.
+- Tests: the message builder and share links (web 37).
+
 ## 2026-10-30 to 2026-10-31
 
 ### Plans that match what was asked

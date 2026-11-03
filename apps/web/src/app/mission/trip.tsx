@@ -10,7 +10,8 @@ import type { ActionResult, Fact, Place, Profile, TasteOutput, TripAction, TripA
 import type { Evidence, StepResult } from "@/lib/mission-stream";
 import { copyText, downloadFile, mailtoHref, slug } from "@/lib/actions";
 import { buildIcs } from "@/lib/ics";
-import { buildPptx, printDocument, saveBlob, slidesHtml, tripDocumentHtml, type ExportTrip } from "@/lib/export";
+import { buildPptx, outline, printDocument, saveBlob, slidesHtml, tripDocumentHtml, type ExportTrip } from "@/lib/export";
+import { EMAIL_MAX, mailtoUrl, plainText, telegramUrl, tripMessage, whatsappUrl, type ShareTrip } from "@/lib/share";
 import { Notes, Receipts } from "./sections";
 
 type R<T> = StepResult & { data: T };
@@ -364,12 +365,83 @@ function ExportBar({ trip }: { trip: ExportTrip }) {
       >
         Present now
       </button>
+      <SendPlan trip={trip} flash={flash} />
       {done && (
         <span className="export-done" role="status">
           {done}
         </span>
       )}
     </div>
+  );
+}
+
+/** Send the whole plan to WhatsApp, Telegram or your inbox, ready to keep or pass on. */
+function SendPlan({ trip, flash }: { trip: ExportTrip; flash: (msg: string) => void }) {
+  const [sending, setSending] = useState(false);
+  const site = typeof window === "undefined" ? "" : window.location.origin;
+  const share = (): ShareTrip => {
+    const o = outline(trip);
+    return { title: trip.title, chips: trip.chips, summary: o.summary, days: o.days, budget: o.budget, tips: o.tips };
+  };
+  const open = (url: string) => {
+    const w = window.open(url, "_blank", "noopener,noreferrer");
+    if (!w) window.location.href = url;
+  };
+  const email = async () => {
+    const subject = `Your Backline trip: ${trip.title}`.slice(0, 160);
+    const text = plainText(tripMessage(share(), site, EMAIL_MAX));
+    setSending(true);
+    try {
+      const res = await fetch("/api/share/email", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ subject, text }) });
+      const body = (await res.json().catch(() => ({}))) as { ok?: boolean; to?: string; reason?: string };
+      if (res.ok && body.ok) return flash(`Sent to ${body.to}`);
+      // Signed out (or email not set up here): the traveller's own mail app takes over.
+      if (res.status === 401 || res.status === 503) {
+        open(mailtoUrl(subject, plainText(tripMessage(share(), site))));
+        return flash("Opening your email app");
+      }
+      flash(body.reason ?? "The email couldn't be sent");
+    } catch {
+      flash("The email couldn't be sent");
+    } finally {
+      setSending(false);
+    }
+  };
+  const menu = useRef<HTMLDetailsElement>(null);
+  // Close on a click elsewhere or Escape, so the menu never lingers over the plan.
+  useEffect(() => {
+    const away = (e: Event) => {
+      const el = menu.current;
+      if (el?.open && !(e instanceof KeyboardEvent ? e.key !== "Escape" : el.contains(e.target as Node))) el.open = false;
+    };
+    document.addEventListener("pointerdown", away);
+    document.addEventListener("keydown", away);
+    return () => {
+      document.removeEventListener("pointerdown", away);
+      document.removeEventListener("keydown", away);
+    };
+  }, []);
+  const pick = (go: () => void) => () => {
+    if (menu.current) menu.current.open = false;
+    go();
+  };
+  return (
+    <details className="send-plan" ref={menu}>
+      <summary className="export-btn" aria-label="Send the plan">
+        {sending ? "Sending…" : "Send"} <span aria-hidden="true" className="send-caret">▾</span>
+      </summary>
+      <div className="send-menu" role="menu">
+        <button type="button" role="menuitem" onClick={pick(() => open(whatsappUrl(tripMessage(share(), site))))}>
+          WhatsApp
+        </button>
+        <button type="button" role="menuitem" onClick={pick(() => open(telegramUrl(site, tripMessage(share(), site))))}>
+          Telegram
+        </button>
+        <button type="button" role="menuitem" disabled={sending} onClick={pick(() => void email())}>
+          Email me
+        </button>
+      </div>
+    </details>
   );
 }
 
