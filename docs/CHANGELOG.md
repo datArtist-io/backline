@@ -6,6 +6,12 @@
 - Photoreal 3D now loads Google's buildings on the globe view. MapLibre gave no camera height there, so the tile loader never went past the root and the map fell back to satellite.
 - Buildings appear solid (the fade-in froze half-transparent when the map went idle) and stand at street level: the ground is probed over a small grid, and readings from coarse far tiles are ignored.
 
+### The 3D city is ready before you fly the trip
+- After landing, Backline loads the whole trip's 3D city in the background: virtual cameras along every day's route, set up exactly like Fly the trip's camera (zoom 16.1, tilt 64°, facing along the route), a few at a time, every few hundred metres (at most 160 viewpoints). A small pill shows "Preparing 3D city · 40%", then "3D city ready".
+- Buildings that have been seen stay in memory for the trip on laptops and desktops (up to about 1.2 GB), instead of being freed the moment they leave the screen; flying back no longer reloads them. Phones keep the library's smaller defaults.
+- Same fix elsewhere: satellite imagery keeps a larger cache on laptops (2,000 tiles), and place photos load as soon as the trip is known, so every stop card opens with its picture.
+- Tests: trip viewpoints (web 45).
+
 ### Faster place searches
 - Map data (OpenStreetMap's public Overpass servers) is asked of three servers at once and the first good answer wins, instead of one after another. A server that just failed is skipped for a minute (five if it hung), so later searches don't wait on it. Measured before: a place search waited out its full 11-second limit.
 - Once Qloo (the taste data) has answered, map data gets 3 more seconds at most; a late answer is cached for the next search nearby, and isn't reported as a failure.

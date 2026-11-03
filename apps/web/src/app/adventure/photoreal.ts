@@ -17,6 +17,19 @@ const mercY = (lat: number) => deg(Math.log(Math.tan(Math.PI / 4 + rad(lat) / 2)
 const PROBE = [-140, 0, 140];
 const DOWN = new THREE.Vector3(0, -1, 0);
 
+/** The camera Fly the trip uses (Earth.tsx), so the trip can be loaded from the same views ahead of time. */
+export const FLY_ZOOM = 16.1;
+export const FLY_PITCH = 64;
+/** How many viewpoints load at once while preparing a trip. */
+const PRELOAD_BATCH = 8;
+
+/** A viewpoint along the trip: where the camera looks and which way it faces. */
+export type PreloadView = { lat: number; lon: number; bearing: number };
+
+/** Phones get the library's defaults; a laptop or desktop keeps a whole trip's city in memory. */
+const roomy = () => typeof navigator !== "undefined" && !/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
+const GB = 2 ** 30;
+
 const ENU_TO_LOCAL = new THREE.Matrix4().set(1, 0, 0, 0, 0, 0, 1, 0, 0, -1, 0, 0, 0, 0, 0, 1);
 
 export class PhotorealLayer implements CustomLayerInterface {
@@ -34,6 +47,15 @@ export class PhotorealLayer implements CustomLayerInterface {
   /** Metres to drop the tiles by so the real ground under the map's centre sits at the map's zero. */
   groundOffset = 0;
   private lastProbe = 0;
+  // Preparing a trip: viewpoints still to load, the ones loading now, and how far along it is.
+  private queue: PreloadView[] = [];
+  private batch: { cam: THREE.PerspectiveCamera; v: PreloadView }[] = [];
+  private total = 0;
+  private loadedViews = 0;
+  private quiet = 0;
+  private batchAt = 0;
+  private onPreload?: (fraction: number) => void;
+  private pumping = 0;
   private enu = new THREE.Matrix4();
   private ray = new THREE.Raycaster();
 
@@ -53,7 +75,16 @@ export class PhotorealLayer implements CustomLayerInterface {
     tiles.registerPlugin(new GoogleCloudAuthPlugin({ apiToken: this.key, autoRefreshToken: true }));
     tiles.registerPlugin(new GLTFExtensionsPlugin({ dracoLoader: draco }));
     tiles.registerPlugin(new TileCompressionPlugin());
-    tiles.registerPlugin(new UnloadTilesPlugin());
+    // Keep what's been seen: freeing a building the moment it leaves the screen meant flying back
+    // reloaded it. On a laptop or desktop the city stays in memory for the whole trip (up to ~1.2 GB).
+    const keep = roomy();
+    tiles.registerPlugin(new UnloadTilesPlugin(keep ? { delay: 120_000, bytesTarget: 1.2 * GB } : {}));
+    if (keep) {
+      tiles.lruCache.minSize = 20000;
+      tiles.lruCache.maxSize = 26000;
+      tiles.lruCache.minBytesSize = 1.2 * GB;
+      tiles.lruCache.maxBytesSize = 1.6 * GB;
+    }
     // No fade-in: the fade only advances while MapLibre repaints, so when the map goes idle tiles froze
     // half-transparent and the skyline read as flat, see-through glass. Tiles now appear solid.
     // A finer error target so towers load as real buildings, not a blurred, flattened skin.
@@ -76,7 +107,85 @@ export class PhotorealLayer implements CustomLayerInterface {
     if (typeof location !== "undefined" && location.search.includes("debug3d")) (globalThis as { __photo?: unknown }).__photo = this;
   }
 
+  /**
+   * Load the whole trip before it's flown: virtual cameras at each viewpoint, set up exactly like Fly
+   * the trip's camera, a few at a time, until every one has its full-detail buildings in memory.
+   */
+  preload(views: PreloadView[], onProgress?: (fraction: number) => void) {
+    this.cancelPreload();
+    this.queue = views.slice();
+    this.total = views.length;
+    this.loadedViews = 0;
+    this.onPreload = onProgress;
+    onProgress?.(views.length ? 0 : 1);
+    if (views.length) this.pump();
+  }
+
+  cancelPreload() {
+    this.queue = [];
+    this.endBatch();
+    if (this.pumping) cancelAnimationFrame(this.pumping);
+    this.pumping = 0;
+  }
+
+  // The map only draws when something changes; keep it drawing while the trip loads.
+  private pump = () => {
+    if (!this.queue.length && !this.batch.length) {
+      this.pumping = 0;
+      return;
+    }
+    this.map?.triggerRepaint();
+    this.pumping = requestAnimationFrame(this.pump);
+  };
+
+  private endBatch() {
+    for (const b of this.batch) this.tiles?.deleteCamera(b.cam);
+    this.batch = [];
+  }
+
+  private stepPreload(c: { lat: number; lng: number }, w: number, h: number) {
+    // The batch is done once nothing has been loading for a few frames (or it has had 25 seconds).
+    if (this.batch.length) {
+      const st = (this.tiles as unknown as { stats: { queued: number; downloading: number; parsing: number } }).stats;
+      const busy = st.queued + st.downloading + st.parsing;
+      this.quiet = performance.now() - this.batchAt > 800 && busy === 0 ? this.quiet + 1 : 0;
+      if (this.quiet >= 4 || performance.now() - this.batchAt > 25_000) {
+        this.loadedViews += this.batch.length;
+        this.endBatch();
+        this.onPreload?.(Math.min(1, this.loadedViews / Math.max(1, this.total)));
+      }
+    }
+    if (!this.batch.length && this.queue.length) {
+      this.batch = this.queue.splice(0, PRELOAD_BATCH).map((v) => ({ v, cam: new THREE.PerspectiveCamera(this.lod.fov, w / Math.max(1, h), 1, 4e7) }));
+      for (const b of this.batch) this.tiles.setCamera(b.cam);
+      this.batchAt = performance.now();
+      this.quiet = 0;
+    }
+    if (!this.batch.length) return;
+    // Place each virtual camera as Fly the trip would: behind the point, tilted, facing along the route.
+    const k = 111319.49 * Math.cos(rad(c.lat));
+    const pxPerMetre = (512 * 2 ** FLY_ZOOM) / (40075016.7 * Math.cos(rad(c.lat)));
+    const cssH = this.map.getCanvas().clientHeight || 800;
+    const dist = cssH / 2 / Math.tan(rad(this.lod.fov / 2)) / pxPerMetre;
+    const p = rad(FLY_PITCH);
+    for (const { cam, v } of this.batch) {
+      const tx = (v.lon - c.lng) * k;
+      const tz = -(mercY(v.lat) - mercY(c.lat)) * k;
+      const b = rad(v.bearing);
+      const back = Math.sin(p) * dist;
+      cam.position.set(tx - Math.sin(b) * back, Math.cos(p) * dist, tz + Math.cos(b) * back);
+      cam.up.set(0, 1, 0);
+      cam.lookAt(tx, 0, tz);
+      cam.fov = this.lod.fov;
+      cam.aspect = w / Math.max(1, h);
+      cam.updateProjectionMatrix();
+      cam.updateMatrixWorld();
+      this.tiles.setResolution(cam, w, h);
+    }
+  }
+
   onRemove() {
+    this.cancelPreload();
     this.tiles?.dispose();
     this.renderer?.dispose();
   }
@@ -111,6 +220,7 @@ export class PhotorealLayer implements CustomLayerInterface {
     this.lod.updateMatrixWorld();
     this.tiles.setCamera(this.lod);
     this.tiles.setResolution(this.lod, w, h);
+    if (this.queue.length || this.batch.length) this.stepPreload(c, w, h);
     this.scene.updateMatrixWorld();
     this.tiles.update();
 

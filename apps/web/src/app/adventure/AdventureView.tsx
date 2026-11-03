@@ -160,6 +160,30 @@ export default function AdventureView({
 
   const [mode, setMode] = useState<"earth" | "taste">("earth");
   const [look, setLook] = useState<"photoreal" | "real" | "painted">(photoOk ? "photoreal" : "real");
+  // Place photos load as soon as the trip is known, not when a stop is opened, so every card opens
+  // with its picture already there. Picked places first; kept referenced so the browser keeps them.
+  const photos = useRef<HTMLImageElement[]>([]);
+  const photoSig = (model?.nodes ?? []).map((n) => n.place?.image ?? "").join("|");
+  useEffect(() => {
+    const urls = [...(model?.nodes ?? [])].sort((a, b) => Number(b.picked) - Number(a.picked)).map((n) => n.place?.image).filter((u): u is string => Boolean(u));
+    photos.current = [...new Set(urls)].slice(0, 60).map((u) => {
+      const img = new Image();
+      img.decoding = "async";
+      img.src = u;
+      return img;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [photoSig]);
+  // The trip's 3D city loading ahead of Fly the trip (0 to 1), shown as a small pill until it's ready.
+  const [preload, setPreload] = useState<number | null>(null);
+  const [preloadShown, setPreloadShown] = useState(false);
+  useEffect(() => {
+    if (preload == null) return setPreloadShown(false);
+    setPreloadShown(true);
+    if (preload < 1) return;
+    const t = window.setTimeout(() => setPreloadShown(false), 4000);
+    return () => window.clearTimeout(t);
+  }, [preload]);
   /** The hour on the trip's clock: follows the stops as you fly, so the light does too. */
   const [clock, setClock] = useState<number | null>(null);
   /** The time someone dragged to on the day's clock (Immersive View style), or null to follow the plan. */
@@ -464,6 +488,7 @@ export default function AdventureView({
                 photoOk = false;
                 setLook((l) => (l === "photoreal" ? "real" : l));
               }}
+              onPreload={setPreload}
             />
           )}
           {ok && mode === "taste" && (
@@ -579,6 +604,11 @@ export default function AdventureView({
             )}
             {toolbar}
           </nav>
+          {preloadShown && preload != null && look === "photoreal" && (
+            <p className={`eq-preload${preload >= 1 ? " is-ready" : ""}`} role="status" aria-live="polite">
+              {preload >= 1 ? "3D city ready" : `Preparing 3D city · ${Math.round(preload * 100)}%`}
+            </p>
+          )}
         </div>
 
         {/* Qloo: the reason for every pick */}

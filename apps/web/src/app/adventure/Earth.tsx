@@ -10,6 +10,8 @@ import { useEffect, useRef, useState, type MutableRefObject } from "react";
 import { GAME_LAYERS, LAND, REAL_LAYERS, dusk, lightFor, skyFor, type Sky } from "./world";
 import { Environment } from "./env";
 import { KIND_COLOR, pathIndex, pointAt, type AdventureModel, type DayRoute, type QuestNode } from "./model";
+import type { PreloadView } from "./photoreal";
+import { tripViews } from "./trip-views";
 
 export type Spot = { name: string; lat: number; lon: number };
 
@@ -45,6 +47,8 @@ export type EarthProps = {
   onReady: () => void;
   /** Google's photoreal tiles were refused (key not active yet): the look falls back to satellite. */
   onPhotoFail?: () => void;
+  /** Loading the whole trip's 3D city ahead of Fly the trip: 0 to 1, or null when there's nothing to load. */
+  onPreload?: (fraction: number | null) => void;
 };
 
 // Keyless defaults. Imagery and vector tiles can be swapped for a keyed provider with these env vars.
@@ -496,7 +500,7 @@ export default function Earth(props: EarthProps) {
   const box = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MlMap | null>(null);
   const layerRef = useRef<Scene3D | null>(null);
-  const photoRef = useRef<{ enabled: boolean } | null>(null);
+  const photoRef = useRef<{ enabled: boolean; preload?: (views: PreloadView[], onProgress?: (f: number) => void) => void; cancelPreload?: () => void } | null>(null);
   const journeyRef = useRef<Marker | null>(null);
   // The plane that flies the arc on the way in.
   const planeRef = useRef<Marker | null>(null);
@@ -534,7 +538,8 @@ export default function Earth(props: EarthProps) {
       fadeDuration: 0,
       // Keep loading imagery while the camera flies, and keep plenty of it, so the city is there on arrival.
       cancelPendingTileRequestsWhileZooming: false,
-      maxTileCacheSize: 600,
+      // A laptop keeps a whole trip's imagery, so flying back over a street doesn't load it again.
+      maxTileCacheSize: /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent) ? 600 : 2000,
       // Retina at full resolution doubles the work for little visible gain on a moving 3D scene.
       pixelRatio: Math.min(window.devicePixelRatio || 1, 1.5),
     });
@@ -1114,6 +1119,31 @@ export default function Earth(props: EarthProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Load the whole trip's 3D city before it's flown, once the plane is down: every day's route, seen
+  // the way Fly the trip sees it. Started again when the plan's routes change.
+  const routeSig = (props.model?.routes ?? []).map((r) => `${r.day}:${r.geo.length}:${r.geo[0]?.join(",")}`).join("|");
+  useEffect(() => {
+    const routes = props.model?.routes ?? [];
+    const views = tripViews(routes);
+    if (!views.length || props.look !== "photoreal") {
+      live.current.onPreload?.(null);
+      return;
+    }
+    let started = false;
+    const t = window.setInterval(() => {
+      const photo = photoRef.current;
+      if (started || !photo?.enabled || !photo.preload || !state.current.introDone) return;
+      started = true;
+      window.clearInterval(t);
+      photo.preload(views, (f) => live.current.onPreload?.(f));
+    }, 1200);
+    return () => {
+      window.clearInterval(t);
+      photoRef.current?.cancelPreload?.();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [routeSig, props.look]);
+
   const flyCache = useRef<{ day: number; route: DayRoute; pts: [number, number][]; idx: { cum: number[]; total: number }; km: number } | null>(null);
 
   const fly = (map: MlMap, p: EarthProps, dt: number) => {
@@ -1191,3 +1221,4 @@ function rankPin(n: QuestNode, p: EarthProps): number {
 function escapeHtml(s: string): string {
   return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 }
+
