@@ -349,6 +349,8 @@ const round1 = (n: number) => Math.round(n * 10) / 10;
 
 /** The most time one place source may take in a search. */
 export const SOURCE_BUDGET_MS = 11000;
+/** How long map data may keep a search waiting once Qloo has answered. */
+export const MAP_GRACE_MS = 3000;
 
 /** Places of one kind around a point, from Qloo and OpenStreetMap together, best first. */
 export async function searchNear(ctx: SkillContext, s: NearSearch): Promise<NearResult> {
@@ -397,14 +399,26 @@ export async function searchNear(ctx: SkillContext, s: NearSearch): Promise<Near
   })();
 
   // Each source has a fixed budget, so one slow service can't hold the agent up.
-  const [q, o, st] = await Promise.allSettled([withTimeout(qlooTask, SOURCE_BUDGET_MS, "Qloo places"), withTimeout(osmTask, SOURCE_BUDGET_MS, "Map places"), withTimeout(styleTask, SOURCE_BUDGET_MS, "Qloo stays")]);
+  // Qloo (taste) gets the full budget. The map adds contacts and fills gaps, so once Qloo has answered
+  // it gets a short grace, not the whole budget; a late answer still lands in the map cache for the
+  // next search nearby.
+  const qlooDone = withTimeout(qlooTask, SOURCE_BUDGET_MS, "Qloo places");
+  const osmDone = withTimeout(osmTask, SOURCE_BUDGET_MS, "Map places");
+  const osmOrGrace = Promise.race([osmDone, qlooDone.then(
+    () => new Promise<never>((_, reject) => setTimeout(() => reject(new Error("Map places: still loading after Qloo answered")), MAP_GRACE_MS)),
+    () => osmDone
+  )]);
+  osmDone.catch(() => undefined);
+  const [q, o, st] = await Promise.allSettled([qlooDone, osmOrGrace, withTimeout(styleTask, SOURCE_BUDGET_MS, "Qloo stays")]);
   const styled = st.status === "fulfilled" ? st.value : [];
   const qPlaces = [...(q.status === "fulfilled" ? q.value : []), ...styled.filter((x) => !(q.status === "fulfilled" ? q.value : []).some((y) => y.id === x.id))];
   const oPlaces = o.status === "fulfilled" ? o.value : [];
   if (q.status === "rejected") failures.push("Qloo");
-  if (o.status === "rejected") failures.push("OpenStreetMap");
+  // Still loading after the grace isn't a failure: it'll be in the cache for the next search.
+  const lateMap = o.status === "rejected" && /still loading/.test(String(o.reason));
+  if (o.status === "rejected" && !lateMap) failures.push("OpenStreetMap");
   if (q.status === "rejected") ctx.log.warn("Qloo place search failed", { kind: s.kind, error: String(q.reason) });
-  if (o.status === "rejected") ctx.log.warn("Map place search failed", { kind: s.kind, error: String(o.reason) });
+  if (o.status === "rejected" && !lateMap) ctx.log.warn("Map place search failed", { kind: s.kind, error: String(o.reason) });
 
   const merged = mergePlaces(qPlaces, oPlaces);
   const places = merged

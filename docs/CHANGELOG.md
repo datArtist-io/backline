@@ -8,6 +8,7 @@
 
 ### Faster place searches
 - Map data (OpenStreetMap's public Overpass servers) is asked of three servers at once and the first good answer wins, instead of one after another. A server that just failed is skipped for a minute (five if it hung), so later searches don't wait on it. Measured before: a place search waited out its full 11-second limit.
+- Once Qloo (the taste data) has answered, map data gets 3 more seconds at most; a late answer is cached for the next search nearby, and isn't reported as a failure.
 - Tests: the race, and no server asked twice (engine 417).
 
 ### Stays beyond hotels: Airbnb-style homes, hostels, B&Bs, resorts
