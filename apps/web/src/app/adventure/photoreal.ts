@@ -13,6 +13,10 @@ const deg = (r: number) => (r * 180) / Math.PI;
 const mercY = (lat: number) => deg(Math.log(Math.tan(Math.PI / 4 + rad(lat) / 2)));
 
 // Our scene's axes: x east, y up, z south. The ellipsoid's local frame is x east, y north, z up.
+/** Offsets in metres for the ground probe: a 3x3 grid across a city block or two. */
+const PROBE = [-140, 0, 140];
+const DOWN = new THREE.Vector3(0, -1, 0);
+
 const ENU_TO_LOCAL = new THREE.Matrix4().set(1, 0, 0, 0, 0, 0, 1, 0, 0, -1, 0, 0, 0, 0, 0, 1);
 
 export class PhotorealLayer implements CustomLayerInterface {
@@ -109,18 +113,29 @@ export class PhotorealLayer implements CustomLayerInterface {
     this.scene.updateMatrixWorld();
     this.tiles.update();
 
-    // Every so often, find the real ground under the centre so pins and routes sit on it.
+    // Every so often, find the real ground around the centre so pins and routes sit on it. One ray
+    // straight down lands on a rooftop over a skyline, which sank the whole city by that tower's
+    // height; the lowest point of a few rays over the area is the street.
     const now = performance.now();
     if (now - this.lastProbe > 1200) {
       this.lastProbe = now;
-      this.ray.set(new THREE.Vector3(0, 9000, 0), new THREE.Vector3(0, -1, 0));
-      const hit = this.ray.intersectObject(this.tiles.group, true)[0];
-      if (hit) this.groundOffset += hit.point.y;
+      let low = Infinity;
+      for (const dx of PROBE) {
+        for (const dz of PROBE) {
+          this.ray.set(new THREE.Vector3(dx, 9000, dz), DOWN);
+          const hits = this.ray.intersectObject(this.tiles.group, true);
+          if (hits.length) low = Math.min(low, hits[hits.length - 1].point.y);
+        }
+      }
+      if (low < Infinity) this.groundOffset += low;
     }
 
     const model = map.transform.getMatrixForModel([c.lng, c.lat], 0);
     this.camera.projectionMatrix = new THREE.Matrix4().fromArray(args.defaultProjectionData.mainMatrix as number[]).multiply(new THREE.Matrix4().fromArray(model as unknown as number[]));
     this.renderer.resetState();
+    // The satellite drawn underneath is flat at height zero; never let it hide real ground or
+    // building bases that sit a little below it.
+    this.renderer.clearDepth();
     this.renderer.setViewport(0, 0, w, h);
     this.renderer.render(this.scene, this.camera);
   }
