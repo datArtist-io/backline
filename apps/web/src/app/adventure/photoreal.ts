@@ -94,9 +94,8 @@ export class PhotorealLayer implements CustomLayerInterface {
     // A real perspective camera for choosing tile detail: where MapLibre's camera is, looking at the centre.
     const w = gl.drawingBufferWidth;
     const h = gl.drawingBufferHeight;
-    const tr = map.transform as unknown as { getCameraLngLat?: () => { lng: number; lat: number }; getCameraAltitude?: () => number };
-    const ll = tr.getCameraLngLat?.();
-    const alt = tr.getCameraAltitude?.();
+    const ll = (map.transform as unknown as { getCameraLngLat?: () => { lng: number; lat: number } }).getCameraLngLat?.();
+    const alt = cameraAltitude(map);
     if (ll && alt != null) {
       const k = 111319.49 * Math.cos(rad(c.lat));
       this.lod.position.set((ll.lng - c.lng) * k, alt, -(mercY(ll.lat) - mercY(c.lat)) * k);
@@ -129,7 +128,10 @@ export class PhotorealLayer implements CustomLayerInterface {
           if (hits.length) low = Math.min(low, hits[hits.length - 1].point.y);
         }
       }
-      if (low < Infinity) this.groundOffset += low;
+      // Distant, low-detail tiles are coarse slabs that sit kilometres under the real surface; only
+      // accept a ground height that exists on Earth (Dead Sea to Everest, plus margin).
+      const next = this.groundOffset + low;
+      if (low < Infinity && next > -600 && next < 9000) this.groundOffset = next;
     }
 
     const model = map.transform.getMatrixForModel([c.lng, c.lat], 0);
@@ -141,4 +143,26 @@ export class PhotorealLayer implements CustomLayerInterface {
     this.renderer.setViewport(0, 0, w, h);
     this.renderer.render(this.scene, this.camera);
   }
+}
+
+type CamTransform = {
+  getCameraAltitude?: () => number;
+  _mercatorTransform?: { getCameraAltitude?: () => number };
+  cameraToCenterDistance?: number;
+  worldSize?: number;
+};
+
+const finite = (v: unknown): number | null => (typeof v === "number" && Number.isFinite(v) ? v : null);
+
+/** The camera's height in metres. On the globe view MapLibre leaves it empty, which left the tiles
+ * with no camera, so they never loaded past the root; fall back to the flat-map answer, then work it out. */
+function cameraAltitude(map: MlMap): number | null {
+  const tr = map.transform as unknown as CamTransform;
+  const direct = finite(tr.getCameraAltitude?.()) ?? finite(tr._mercatorTransform?.getCameraAltitude?.());
+  if (direct != null) return direct;
+  const dist = finite(tr.cameraToCenterDistance);
+  const world = finite(tr.worldSize);
+  if (dist == null || world == null) return null;
+  const pxPerMetre = world / (2 * Math.PI * 6371008.8 * Math.cos(rad(map.getCenter().lat)));
+  return (Math.cos(rad(map.getPitch())) * dist) / pxPerMetre;
 }
