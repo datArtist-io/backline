@@ -84,8 +84,9 @@ export class PhotorealLayer implements CustomLayerInterface {
     const keep = roomy();
     tiles.registerPlugin(new UnloadTilesPlugin(keep ? { delay: 120_000, bytesTarget: 1.2 * GB } : {}));
     if (keep) {
-      tiles.lruCache.minSize = 20000;
-      tiles.lruCache.maxSize = 26000;
+      // Most entries are small index files: the count filled up (23,600) at under 1 GB, so allow many more.
+      tiles.lruCache.minSize = 60000;
+      tiles.lruCache.maxSize = 80000;
       tiles.lruCache.minBytesSize = 1.2 * GB;
       tiles.lruCache.maxBytesSize = 1.6 * GB;
     }
