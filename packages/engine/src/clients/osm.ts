@@ -81,6 +81,9 @@ const NOMINATIM_PHRASES: Record<OsmKind, string[]> = {
   activity: ["[attraction]", "[museum]"],
 };
 
+/** Public Overpass servers, asked together. */
+const OVERPASS_MIRRORS = ["https://overpass-api.de/api/interpreter", "https://overpass.private.coffee/api/interpreter", "https://overpass.kumi.systems/api/interpreter"];
+
 const OVERPASS_FILTERS: Record<OsmKind, string[]> = {
   stay: ['["tourism"~"^(hotel|guest_house|apartment|hostel|motel|resort|chalet)$"]'],
   dine: ['["amenity"~"^(restaurant|cafe|bar|pub|food_court|fast_food)$"]'],
@@ -380,6 +383,8 @@ export class OsmClient {
   private readonly ua: string;
   private readonly geoCache = new TtlCache<GeoHit[]>(24 * 60 * 60 * 1000, 500);
   private readonly nearbyCache = new TtlCache<OsmPlace[]>(60 * 60 * 1000, 200);
+  /** Overpass servers that failed recently, and until when to leave them alone. */
+  private readonly downUntil = new Map<string, number>();
   private readonly routeCache = new TtlCache<Route>(6 * 60 * 60 * 1000, 300);
   private readonly areaCache = new TtlCache<string>(24 * 60 * 60 * 1000, 300);
   private readonly gates = new Map<string, { gate: Promise<void>; last: number }>();
@@ -528,26 +533,37 @@ export class OsmClient {
 
     const around = `(around:${r},${at.lat.toFixed(5)},${at.lon.toFixed(5)})`;
     const query = `[out:json][timeout:8];(${OVERPASS_FILTERS[kind].map((f) => `nwr${f}["name"]${around};`).join("")});out center ${limit};`;
-    const urls = this.config.overpassUrls?.length ? this.config.overpassUrls : ["https://overpass-api.de/api/interpreter", "https://overpass.kumi.systems/api/interpreter"];
+    // The public Overpass servers come and go: ask them all at once and take the first good answer,
+    // instead of waiting out one that hangs before trying the next. A server that just failed is left
+    // alone for a while, so the next search doesn't wait on it again.
+    const configured = this.config.overpassUrls?.length ? this.config.overpassUrls : OVERPASS_MIRRORS;
+    const up = configured.filter((u) => (this.downUntil.get(u) ?? 0) <= Date.now());
+    const urls = up.length ? up : configured;
     let failure: unknown = null;
-    for (const url of urls) {
-      if (left() < 3000) break;
-      const t0 = Date.now();
+    if (left() >= 3000) {
+      const done = new AbortController();
+      const signal = opts.signal ? AbortSignal.any([opts.signal, done.signal]) : done.signal;
+      const body = new URLSearchParams({ data: query }).toString();
       try {
-        const json = await this.http(
-          url,
-          { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ data: query }).toString() },
-          opts.signal,
-          Math.min(left() - 2000, 8000)
+        const places = await Promise.any(
+          urls.map(async (url) => {
+            const t0 = Date.now();
+            try {
+              const json = await this.http(url, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body }, signal, Math.max(1000, Math.min(left() - 1500, 8500)));
+              return nearestFirst(fromOverpass(json));
+            } catch (err) {
+              // Losing the race isn't failing.
+              if (!done.signal.aborted && !opts.signal?.aborted) this.downUntil.set(url, Date.now() + (Date.now() - t0 > 2500 ? 300_000 : 60_000));
+              throw err;
+            }
+          })
         );
-        const places = nearestFirst(fromOverpass(json));
+        done.abort();
         this.nearbyCache.set(key, places);
         return places;
       } catch (err) {
-        failure = err;
+        failure = err instanceof AggregateError ? err.errors[0] : err;
         if (opts.signal?.aborted) throw err;
-        // A slow server won't be quicker elsewhere; only an instant refusal is worth a second try.
-        if (Date.now() - t0 > 2500) break;
       }
     }
 

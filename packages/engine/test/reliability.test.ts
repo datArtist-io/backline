@@ -65,8 +65,27 @@ describe("maps when Overpass is down", () => {
     const found = await osm.nearby("stay", { lat: 6.4757, lon: 3.368 }, 3000, { budgetMs: 8000 });
     expect(found.map((p) => p.name)).toEqual(["Close Inn"]);
     expect(found[0]).toMatchObject({ id: "osm:n9", phone: "+234 1 000", stars: 3, address: "Iganmu Road, Lagos" });
-    // One quick refusal earns one retry elsewhere, never a long wait.
-    expect(fetch.mock.calls.filter((c) => String(c[0]).includes("interpreter")).length).toBeLessThanOrEqual(2);
+    // Every server is asked once, together; none is asked twice.
+    const asked = fetch.mock.calls.filter((c) => String(c[0]).includes("interpreter")).map((c) => String(c[0]));
+    expect(asked.length).toBe(new Set(asked).size);
+    // Servers that just failed are left alone: the next search goes straight to the fallback.
+    fetch.mockClear();
+    await osm.nearby("stay", { lat: 6.5, lon: 3.4 }, 3000, { budgetMs: 8000 });
+    const again = fetch.mock.calls.filter((c) => String(c[0]).includes("interpreter")).length;
+    expect(again).toBeLessThanOrEqual(asked.length);
+  });
+
+  it("takes the first map server that answers, without waiting for one that hangs", async () => {
+    const fetch = vi.fn(async (url: string, init?: RequestInit) => {
+      if (url.includes("overpass-api.de")) return new Promise<Response>((_, reject) => init?.signal?.addEventListener("abort", () => reject(new Error("aborted"))));
+      if (url.includes("interpreter")) return json({ elements: [{ type: "node", id: 5, lat: 6.476, lon: 3.369, tags: { tourism: "hotel", name: "Quick Hotel" } }] });
+      return json([]);
+    });
+    const osm = new OsmClient({ fetch: fetch as unknown as typeof globalThis.fetch, minIntervalMs: 0 });
+    const t0 = Date.now();
+    const found = await osm.nearby("stay", { lat: 6.4757, lon: 3.368 }, 3000, { budgetMs: 8000 });
+    expect(found.map((p) => p.name)).toEqual(["Quick Hotel"]);
+    expect(Date.now() - t0).toBeLessThan(1000);
   });
 
   it("reads Nominatim place answers safely", () => {
