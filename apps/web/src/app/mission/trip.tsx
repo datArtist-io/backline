@@ -1,7 +1,7 @@
 "use client";
 // The planning agent's screens: what it found and why, the plan with travel between stops, the
 // places it picked, what it's about to do, and what it did.
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import { useWallet, walletMoney } from "./Wallet";
 import TripMap, { DAY_COLORS, type MapDay, type TasteLayer } from "./TripMap";
@@ -318,18 +318,7 @@ function ExportBar({ trip }: { trip: ExportTrip }) {
   const dated = trip.plan.days.some((d) => d.date);
   return (
     <div className="export-bar" role="group" aria-label="Save or share the plan">
-      <button
-        type="button"
-        className="export-btn primary"
-        disabled={!dated}
-        title={dated ? "Every stop as a calendar event (Google, Apple, Outlook)" : "Add dates to the plan first"}
-        onClick={() => {
-          downloadFile(`${name}.ics`, buildIcs(trip.title, trip.plan, trip.places), "text/calendar;charset=utf-8");
-          flash("Calendar file saved: open it to add every stop");
-        }}
-      >
-        <span aria-hidden="true">▦</span> Add to calendar
-      </button>
+      <CalendarMenu trip={trip} name={name} dated={dated} flash={flash} />
       <button type="button" className="export-btn" onClick={() => (printDocument(trip) ? flash("Choose “Save as PDF” in the print window") : flash("Allow pop-ups to save a PDF"))}>
         PDF
       </button>
@@ -375,6 +364,93 @@ function ExportBar({ trip }: { trip: ExportTrip }) {
   );
 }
 
+/** Closes a dropdown on a click elsewhere or Escape, so it never lingers over the plan. */
+function useCloseAway(menu: RefObject<HTMLDetailsElement | null>) {
+  useEffect(() => {
+    const away = (e: Event) => {
+      const el = menu.current;
+      if (el?.open && !(e instanceof KeyboardEvent ? e.key !== "Escape" : el.contains(e.target as Node))) el.open = false;
+    };
+    document.addEventListener("pointerdown", away);
+    document.addEventListener("keydown", away);
+    return () => {
+      document.removeEventListener("pointerdown", away);
+      document.removeEventListener("keydown", away);
+    };
+  }, [menu]);
+}
+
+/**
+ * Into the traveller's calendar. Signed in, Google or Apple/Outlook subscribe to their private Backline
+ * calendar once, and every trip they plan after that appears by itself. Signed out, it saves a file.
+ */
+function CalendarMenu({ trip, name, dated, flash }: { trip: ExportTrip; name: string; dated: boolean; flash: (msg: string) => void }) {
+  const menu = useRef<HTMLDetailsElement>(null);
+  const [busy, setBusy] = useState(false);
+  useCloseAway(menu);
+  const file = () => downloadFile(`${name}.ics`, buildIcs(trip.title, trip.plan, trip.places), "text/calendar;charset=utf-8");
+  const subscribe = async (app: "google" | "apple") => {
+    if (menu.current) menu.current.open = false;
+    // Open the tab now, while the click still counts, so the browser doesn't block it after the wait.
+    const tab = app === "google" ? window.open("about:blank", "_blank") : null;
+    setBusy(true);
+    try {
+      const res = await fetch("/api/calendar", { method: "POST" });
+      const body = (await res.json().catch(() => ({}))) as { ok?: boolean; google?: string; webcal?: string; reason?: string };
+      if (res.ok && body.ok && body.google && body.webcal) {
+        if (app === "google") {
+          if (tab) tab.location.href = body.google;
+          else window.location.href = body.google;
+          return flash("Add the calendar in Google: your trips will keep in sync");
+        }
+        window.location.href = body.webcal;
+        return flash("Subscribe in your calendar app: your trips will keep in sync");
+      }
+      tab?.close();
+      file();
+      flash(res.status === 401 ? "Calendar file saved. Sign in to keep trips in sync" : "Calendar file saved");
+    } catch {
+      tab?.close();
+      file();
+      flash("Calendar file saved");
+    } finally {
+      setBusy(false);
+    }
+  };
+  if (!dated)
+    return (
+      <button type="button" className="export-btn primary" disabled title="Add dates to the plan first">
+        <span aria-hidden="true">▦</span> Calendar
+      </button>
+    );
+  return (
+    <details className="send-plan" ref={menu}>
+      <summary className="export-btn primary" aria-label="Add the plan to your calendar">
+        <span aria-hidden="true">▦</span> {busy ? "Connecting…" : "Calendar"} <span aria-hidden="true" className="send-caret">▾</span>
+      </summary>
+      <div className="send-menu" role="menu">
+        <button type="button" role="menuitem" disabled={busy} onClick={() => void subscribe("google")}>
+          Google Calendar
+        </button>
+        <button type="button" role="menuitem" disabled={busy} onClick={() => void subscribe("apple")}>
+          Apple or Outlook
+        </button>
+        <button
+          type="button"
+          role="menuitem"
+          onClick={() => {
+            if (menu.current) menu.current.open = false;
+            file();
+            flash("Calendar file saved: open it to add every stop");
+          }}
+        >
+          Download file
+        </button>
+      </div>
+    </details>
+  );
+}
+
 /** Send the whole plan to WhatsApp, Telegram or your inbox, ready to keep or pass on. */
 function SendPlan({ trip, flash }: { trip: ExportTrip; flash: (msg: string) => void }) {
   const [sending, setSending] = useState(false);
@@ -408,19 +484,7 @@ function SendPlan({ trip, flash }: { trip: ExportTrip; flash: (msg: string) => v
     }
   };
   const menu = useRef<HTMLDetailsElement>(null);
-  // Close on a click elsewhere or Escape, so the menu never lingers over the plan.
-  useEffect(() => {
-    const away = (e: Event) => {
-      const el = menu.current;
-      if (el?.open && !(e instanceof KeyboardEvent ? e.key !== "Escape" : el.contains(e.target as Node))) el.open = false;
-    };
-    document.addEventListener("pointerdown", away);
-    document.addEventListener("keydown", away);
-    return () => {
-      document.removeEventListener("pointerdown", away);
-      document.removeEventListener("keydown", away);
-    };
-  }, []);
+  useCloseAway(menu);
   const pick = (go: () => void) => () => {
     if (menu.current) menu.current.open = false;
     go();

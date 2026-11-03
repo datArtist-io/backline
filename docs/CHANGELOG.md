@@ -2,6 +2,15 @@
 
 ## 2026-11-03
 
+### Real Google Earth city
+- Photoreal 3D now loads Google's buildings on the globe view. MapLibre gave no camera height there, so the tile loader never went past the root and the map fell back to satellite.
+- Buildings appear solid (the fade-in froze half-transparent when the map went idle) and stand at street level: the ground is probed over a small grid, and readings from coarse far tiles are ignored.
+
+### Trips sync to your calendar
+- The **Calendar** menu offers **Google Calendar**, **Apple or Outlook**, or **Download file**. Signed in, Google and Apple/Outlook subscribe once to a private Backline calendar; every trip you plan after that appears by itself, and updated plans replace the old events.
+- The link is signed for one person (HMAC with the server key), so it can't be guessed or forged. Nothing new is stored: the feed reads the trips already saved to the account (`/api/calendar`, `/api/calendar/feed/<token>.ics`).
+- Tests: signed links, events and durations, newest plan per trip (web 41).
+
 ### Send the plan anywhere
 - A **Send** button next to Calendar, PDF and the rest opens a small menu: **WhatsApp**, **Telegram** or **Email me**. The whole plan goes as one message: the title, every day hour by hour, the budget and tips.
 - WhatsApp and Telegram open with the message ready, so you can send it to yourself or to whoever you're travelling with.
