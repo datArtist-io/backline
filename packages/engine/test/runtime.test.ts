@@ -107,13 +107,30 @@ describe("the agent loop", () => {
     expect(events.filter((e) => e.kind === "act")[0].by).toBe("autopilot");
   });
 
-  it("lets the fallback finish when the model runs out of turns", async () => {
+  it("gives the model a last turn to finish, then lets the fallback finish if it still doesn't", async () => {
     const model = scripted(Array.from({ length: 10 }, (_, i) => ({ thought: "more", actions: [{ tool: "a", args: { q: String(i) } }] })));
     const auto = scripted([{ thought: "Wrapping up", actions: [], finish: { ok: true } }], "autopilot");
-    const run = await runAgent({ tools: [echo("a")], state: { log: [] }, policy: model, fallback: auto, finish, limits: { ...limits, maxTurns: 3 } });
+    const state = { log: [] as string[] };
+    const run = await runAgent({ tools: [echo("a")], state, policy: model, fallback: auto, finish, limits: { ...limits, maxTurns: 3 } });
     expect(run.stop).toBe("finished");
     expect(run.fallbackReason).toBe("turns");
-    expect(model.decide).toHaveBeenCalledTimes(3);
+    expect(model.decide).toHaveBeenCalledTimes(4);
+    expect(model.decide.mock.calls[3][0].final).toBe(true);
+    // Tools asked for on the last turn don't run.
+    expect(state.log).toEqual(["a:0", "a:1", "a:2"]);
+  });
+
+  it("the model finishing on its last turn keeps the run its own", async () => {
+    const model = scripted([...Array.from({ length: 3 }, (_, i) => ({ thought: "more", actions: [{ tool: "a", args: { q: String(i) } }] })), { thought: "Done", actions: [], finish: { ok: true } }]);
+    const auto = scripted([], "autopilot");
+    const run = await runAgent({ tools: [echo("a")], state: { log: [] }, policy: model, fallback: auto, finish, limits: { ...limits, maxTurns: 3 } });
+    expect(run.stop).toBe("finished");
+    expect(run.usedFallback).toBe(false);
+    expect(auto.decide).not.toHaveBeenCalled();
+  });
+
+  it("reads namespaced tool names", () => {
+    expect(normalizeDecision({ actions: [{ tool: "repo_browser.search_places", args: { kind: "stay" } }] }).actions[0].tool).toBe("search_places");
   });
 
   it("records why a finish was sent back, for diagnostics", async () => {

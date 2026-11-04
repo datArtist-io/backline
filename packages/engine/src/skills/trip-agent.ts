@@ -1469,7 +1469,7 @@ export const tripAgent: Skill<BriefInput, TripAgentOutput> = {
       policy,
       fallback: ctx.llm ? auto : undefined,
       finish: { schema: finishSchema, check: checkFinish },
-      limits: { maxTurns: 8, maxCalls: 18, deadlineMs: DEADLINE_MS, parallel: 3 },
+      limits: { maxTurns: 10, maxCalls: 24, deadlineMs: DEADLINE_MS, parallel: 3 },
       emit,
       signal: ctx.signal,
       log: ctx.log,

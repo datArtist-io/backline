@@ -19,7 +19,7 @@ Built for the [Qloo Agentic Hackathon](https://qloo.devpost.com/). Live at **[ba
 
 ## How the agent works (ReAct)
 
-Research and choosing is one agent loop, not a fixed pipeline ([agent/runtime.ts](packages/engine/src/agent/runtime.ts)). Each turn the model **reasons** (one sentence, streamed to the screen), **acts** (up to 3 tool calls in parallel), and **observes** the results, then decides the next step, until it chooses to finish or a budget (8 turns, 18 calls, 90 s) runs out.
+Research and choosing is one agent loop, not a fixed pipeline ([agent/runtime.ts](packages/engine/src/agent/runtime.ts)). Each turn the model **reasons** (one sentence, streamed to the screen), **acts** (up to 3 tool calls in parallel), and **observes** the results, then decides the next step, until it chooses to finish or a budget (10 turns, 24 calls, 90 s) runs out; on its last turn it is asked to finish with what it has.
 
 | Tool | What it does |
 |---|---|
@@ -88,7 +88,7 @@ npm run dev                                  # http://localhost:3000
 | Command | What it does |
 |---|---|
 | `npm run dev` | Start the web app |
-| `npm test` | Engine and web unit tests (synthetic data, no network): 437 + 47 |
+| `npm test` | Engine and web unit tests (synthetic data, no network): 439 + 47 |
 | `npm run typecheck` | Type-check every workspace |
 | `npm run check` | Verify API keys and Qloo capabilities |
 | `npm run check:locations` | Venue coverage across 24 locations worldwide |

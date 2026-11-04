@@ -54,6 +54,8 @@ export type TurnView<S> = {
   turn: number;
   /** Tools switched off for the rest of the run because they kept failing. */
   off?: string[];
+  /** The last turn: no more tools, finish with what you have. */
+  final?: boolean;
   state: S;
   turns: Turn[];
   budget: { turnsLeft: number; callsLeft: number; msLeft: number; parallel: number };
@@ -169,7 +171,8 @@ export function normalizeDecision(raw: unknown): Decision {
       for (const [k, v] of Object.entries(a)) if (!["tool", "tool_name", "name", "thought", "function", "type", "id", "args"].includes(k)) rest[k] = v;
       args = rest;
     }
-    return [{ tool: tool.trim().slice(0, 40), args: args as Record<string, unknown> }];
+    // Some models namespace their tools ("functions.locate", "repo_browser.search_places").
+    return [{ tool: tool.trim().replace(/^[\w-]+\./, "").slice(0, 40), args: args as Record<string, unknown> }];
   });
   let finish: unknown = undefined;
   if (o.finish !== undefined && o.finish !== null && o.finish !== false) finish = o.finish === true ? (o.result ?? o.answer ?? {}) : o.finish;
@@ -238,18 +241,20 @@ export function modelPolicy<S>(o: {
         o.briefing(view.state),
         "",
         "## Your tools",
-        renderTools(o.tools.filter((t) => !view.off?.includes(t.name)), view.state),
+        view.final ? "None left: the tool budget is spent." : renderTools(o.tools.filter((t) => !view.off?.includes(t.name)), view.state),
         view.off?.length ? `(${view.off.join(", ")} kept failing this run, so ${view.off.length === 1 ? "it's" : "they're"} off. Work with what you have.)` : "",
         "",
         "## Work so far",
         renderHistory(view.turns),
         "",
         "## Budget",
-        `Turn ${view.turn}. ${view.budget.turnsLeft} turn(s) and ${view.budget.callsLeft} tool call(s) left, about ${secs} seconds.${low ? " That's nearly it: finish now with what you have." : ""}`,
+        view.final
+          ? "This is your last turn. Finish now with the best picks from what you've found: reply with the finish shape only."
+          : `Turn ${view.turn}. ${view.budget.turnsLeft} turn(s) and ${view.budget.callsLeft} tool call(s) left, about ${secs} seconds.${low ? " That's nearly it: finish now with what you have." : ""}`,
         "",
         "## Reply",
         "JSON only, one of:",
-        '{"thought": "<one short sentence telling the user what you are doing next>", "actions": [{"tool": "<tool name>", "args": {}}]}',
+        ...(view.final ? [] : ['{"thought": "<one short sentence telling the user what you are doing next>", "actions": [{"tool": "<tool name>", "args": {}}]}']),
         `{"thought": "<one short sentence>", "finish": ${o.finishShape}}`,
         `Up to ${view.budget.parallel} actions per turn. Only batch actions that don't depend on each other's results. Finish only after you've seen the results you need.`,
       ].join("\n");
@@ -270,6 +275,7 @@ export async function runAgent<S, F>(o: RunAgentOptions<S, F>): Promise<AgentRun
   const failedRow = new Map<string, number>();
   const off = new Set<string>();
   let calls = 0;
+  let finalGiven = false;
   let policy = o.policy;
   let usedFallback = false;
   let fallbackReason: FallbackReason | null = null;
@@ -346,8 +352,13 @@ export async function runAgent<S, F>(o: RunAgentOptions<S, F>): Promise<AgentRun
   for (let n = 1; ; n++) {
     if (o.signal?.aborted) return end("aborted");
     if (msLeft() <= 0) return end("deadline");
+    let final = false;
     if (policy.name === "model" && modelTurns >= o.limits.maxTurns) {
-      if (!switchToFallback("I've used my thinking budget, so I'm wrapping up with what I've found.", "turns")) return end("turns");
+      // One last turn to finish with what it has, before anyone else finishes for it.
+      if (!finalGiven && msLeft() > 8000) {
+        finalGiven = true;
+        final = true;
+      } else if (!switchToFallback("I've used my thinking budget, so I'm wrapping up with what I've found.", "turns")) return end("turns");
     }
     if (policy.name === "autopilot" && autoTurns >= AUTOPILOT_MAX_TURNS) return end("turns");
 
@@ -355,6 +366,7 @@ export async function runAgent<S, F>(o: RunAgentOptions<S, F>): Promise<AgentRun
     const view: TurnView<S> = {
       turn: n,
       off: [...off],
+      final,
       state: o.state,
       turns,
       budget: { turnsLeft: Math.max(0, o.limits.maxTurns - modelTurns - 1), callsLeft: Math.max(0, o.limits.maxCalls - calls), msLeft: msLeft(), parallel },
@@ -379,6 +391,15 @@ export async function runAgent<S, F>(o: RunAgentOptions<S, F>): Promise<AgentRun
       continue;
     }
 
+    if (final) {
+      // The last turn is for finishing: tools asked for now won't run.
+      if (d.finish === undefined) {
+        decisions[decisions.length - 1].note = "last turn without a finish";
+        if (!switchToFallback("I've used my thinking budget, so I'm wrapping up with what I've found.", "turns")) return end("turns");
+        continue;
+      }
+      d = { ...d, actions: [] };
+    }
     const thought = d.thought || (d.actions.length ? "Working on it" : "Wrapping up");
     emit({ kind: "think", text: thought, turn: n, by });
     const turn: Turn = { n, by, thought, calls: [] };
