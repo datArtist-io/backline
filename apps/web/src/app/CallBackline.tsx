@@ -18,6 +18,7 @@ const pretty = (n: string) => {
 
 // Voice trips already opened on this browser leave the list: they've been seen.
 const OPENED = "backline.openedVoiceTrips";
+const FRESH_MS = 30 * 60 * 1000;
 function loadOpened(): string[] {
   try {
     const v = JSON.parse(localStorage.getItem(OPENED) ?? "[]");
@@ -50,7 +51,8 @@ export default function CallBackline() {
     }
     setOpened(next);
   };
-  const shown = trips.filter((t) => t.live || !opened.includes(t.code));
+  // Only fresh calls: a trip leaves the list once opened here, or 30 minutes after its call.
+  const shown = trips.filter((t) => t.live || (!opened.includes(t.code) && Date.now() - new Date(t.at).getTime() < FRESH_MS));
   const tripsRef = useRef<Item[]>([]);
   tripsRef.current = trips;
 
