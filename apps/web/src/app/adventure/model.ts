@@ -47,6 +47,8 @@ export type DayRoute = {
   path: [number, number][];
   /** The same line on the real map: [lon, lat] pairs. */
   geo: [number, number][];
+  /** The line follows real roads (else it's straight between stops). */
+  onRoads?: boolean;
   /** Where each stop sits along the path, 0–1, in visiting order. */
   stops: { nodeId: string; at: number }[];
   km: number | null;
@@ -245,7 +247,7 @@ export function buildAdventure(src: AdventureSource): AdventureModel | null {
     // Without a road path the stops are the path's own vertices: spread them evenly by distance.
     const evenStops = roadPath.length < 2 && idx.total > 0 ? visited.map((n, i) => ({ nodeId: n.id, at: idx.cum[i] / idx.total })) : stops;
     const geo: [number, number][] = roadGeo.length >= 2 ? roadGeo : visited.map((n) => [n.lon, n.lat] as [number, number]);
-    routes.push({ day: di, label: day.label, date: day.date, color: DAY_COLORS[di % DAY_COLORS.length], path, geo, stops: evenStops, km: rd?.km ?? null, minutes: rd?.minutes ?? null, quests });
+    routes.push({ day: di, label: day.label, date: day.date, color: DAY_COLORS[di % DAY_COLORS.length], path, geo, onRoads: roadGeo.length >= 2, stops: evenStops, km: rd?.km ?? null, minutes: rd?.minutes ?? null, quests });
   });
 
   const heat: HeatPoint[] = heatRaw.map(([lat, lon, w]) => {

@@ -504,11 +504,11 @@ export default function Earth(props: EarthProps) {
     enabled: boolean;
     preload?: (views: PreloadView[], onProgress?: (f: number) => void) => void;
     cancelPreload?: () => void;
-    setRoutes?: (routes: { day: number; color: string; geo: [number, number][] }[]) => void;
+    setRoutes?: (routes: { day: number; color: string; geo: [number, number][]; onRoads?: boolean }[]) => void;
     setActiveDay?: (day: number | "all") => void;
     setProgress?: (day: number | null, t: number | null) => void;
   } | null>(null);
-  const ribbonRoutes = (m: AdventureModel | null | undefined) => (m?.routes ?? []).filter((r) => r.geo.length >= 2).map((r) => ({ day: r.day, color: r.color, geo: r.geo as [number, number][] }));
+  const ribbonRoutes = (m: AdventureModel | null | undefined) => (m?.routes ?? []).filter((r) => r.geo.length >= 2).map((r) => ({ day: r.day, color: r.color, geo: r.geo as [number, number][], onRoads: r.onRoads }));
   const journeyRef = useRef<Marker | null>(null);
   // The plane that flies the arc on the way in.
   const planeRef = useRef<Marker | null>(null);

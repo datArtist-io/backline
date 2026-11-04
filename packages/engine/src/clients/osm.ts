@@ -624,29 +624,34 @@ export class OsmClient {
       foot: ["https://routing.openstreetmap.de/routed-foot/route/v1/driving"],
     };
     const urls = this.config.routingUrls?.[mode]?.length ? this.config.routingUrls[mode]! : defaults[mode];
-    let failure: unknown = null;
-    for (const base of urls) {
-      try {
-        await this.slot(`route:${new URL(base).host}`, opts.signal);
-        const json = (await this.http(`${base.replace(/\/$/, "")}/${coords}?overview=full&geometries=polyline6&steps=false`, {}, opts.signal, this.config.timeoutMs ?? 12000)) as {
-          code?: string;
-          routes?: { distance?: number; duration?: number; geometry?: string; legs?: { distance?: number; duration?: number }[] }[];
-        };
-        const r = json.routes?.[0];
-        if (json.code !== "Ok" || !r || typeof r.distance !== "number" || typeof r.duration !== "number") throw new UpstreamError("maps", 422, `Routing returned ${json.code ?? "no route"}`, "No route was found between these stops.");
-        const route: Route = {
-          km: Math.round(r.distance / 100) / 10,
-          minutes: Math.max(1, Math.round(r.duration / 60)),
-          legs: (r.legs ?? []).map((l) => ({ km: Math.round((l.distance ?? 0) / 100) / 10, minutes: Math.max(1, Math.round((l.duration ?? 0) / 60)) })),
-          path: simplifyPath(typeof r.geometry === "string" ? decodePolyline(r.geometry, 6) : [], 300),
-        };
-        this.routeCache.set(key, route);
-        return route;
-      } catch (err) {
-        failure = err;
-        if (opts.signal?.aborted) throw err;
-      }
+    // Both routing servers at once, first good answer wins: one hanging used to cost 12 seconds a day.
+    const done = new AbortController();
+    const signal = opts.signal ? AbortSignal.any([opts.signal, done.signal]) : done.signal;
+    try {
+      const route = await Promise.any(
+        urls.map(async (base) => {
+          await this.slot(`route:${new URL(base).host}`, signal);
+          const json = (await this.http(`${base.replace(/\/$/, "")}/${coords}?overview=full&geometries=polyline6&steps=false`, {}, signal, this.config.timeoutMs ?? 8000)) as {
+            code?: string;
+            routes?: { distance?: number; duration?: number; geometry?: string; legs?: { distance?: number; duration?: number }[] }[];
+          };
+          const r = json.routes?.[0];
+          if (json.code !== "Ok" || !r || typeof r.distance !== "number" || typeof r.duration !== "number") throw new UpstreamError("maps", 422, `Routing returned ${json.code ?? "no route"}`, "No route was found between these stops.");
+          return {
+            km: Math.round(r.distance / 100) / 10,
+            minutes: Math.max(1, Math.round(r.duration / 60)),
+            legs: (r.legs ?? []).map((l) => ({ km: Math.round((l.distance ?? 0) / 100) / 10, minutes: Math.max(1, Math.round((l.duration ?? 0) / 60)) })),
+            path: simplifyPath(typeof r.geometry === "string" ? decodePolyline(r.geometry, 6) : [], 300),
+          } as Route;
+        })
+      );
+      done.abort();
+      this.routeCache.set(key, route);
+      return route;
+    } catch (err) {
+      if (opts.signal?.aborted) throw err;
+      const first = err instanceof AggregateError ? err.errors[0] : err;
+      throw first ?? new UpstreamError("maps", null, "No routing service answered", "Routing didn't respond.");
     }
-    throw failure ?? new UpstreamError("maps", null, "No routing service answered", "Routing didn't respond.");
   }
 }

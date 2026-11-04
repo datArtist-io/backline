@@ -197,18 +197,22 @@ export async function routeDays(
   const located = locatedPlaces(a);
   const where = [a.where.city?.countryCode, a.where.city?.display, a.trip.destination].filter(Boolean).join(" ");
   const hotelId = stayId ?? a.picks.stays[0] ?? null;
-  const until = Date.now() + 20_000;
-  let roadsOk = true;
+  // Every day is routed on the roads at once, each on its own: one day failing used to send every
+  // later day to straight lines. A day without a road route by the deadline gets honest estimates.
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const deadline = new Promise<null>((resolve) => {
+    timer = setTimeout(() => resolve(null), 20_000);
+  });
+  const planned = days.map((d, k) => ({ d, i: from + k, stops: dayStops(d, from + k, total, located, hotelId) }));
+  const roads = await Promise.all(planned.map(({ stops }) => (stops.length < 2 ? Promise.resolve(null) : Promise.race([roadRoute(ctx, stops), deadline]))));
+  clearTimeout(timer);
   const out: TripRoutesOutput["days"] = [];
-  for (const [k, d] of days.entries()) {
-    const i = from + k;
-    const stops = dayStops(d, i, total, located, hotelId);
+  planned.forEach(({ d, i, stops }, k) => {
     if (stops.length < 2) {
       out.push({ index: i, date: d.date, label: d.label, stops, legs: [], path: stops.map((s) => [s.lat, s.lon]), km: 0, minutes: 0, directions: null });
-      continue;
+      return;
     }
-    const road = roadsOk && Date.now() < until ? await roadRoute(ctx, stops) : null;
-    if (!road) roadsOk = false;
+    const road = roads[k];
     const legs = withRides(road?.legs ?? estimateLegs(stops), stops, where);
     const currency = legs.find((l) => l.ride)?.ride?.currency;
     const priced = legs.filter((l) => l.ride && l.ride.currency === currency);
@@ -224,7 +228,7 @@ export async function routeDays(
       directions: directionsUrl(stops),
       rides: priced.length ? { low: priced.reduce((n, l) => n + l.ride!.low, 0), high: priced.reduce((n, l) => n + l.ride!.high, 0), currency: priced[0].ride!.currency, count: priced.length } : null,
     });
-  }
+  });
   return out;
 }
 

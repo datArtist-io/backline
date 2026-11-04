@@ -8,7 +8,8 @@
 import * as THREE from "three";
 import { WGS84_ELLIPSOID } from "3d-tiles-renderer";
 
-export type RibbonRoute = { day: number; color: string; geo: [number, number][] };
+/** onRoads: the line follows real streets and lies on them; a straight line between stops lies over the rooftops instead. */
+export type RibbonRoute = { day: number; color: string; geo: [number, number][]; onRoads?: boolean };
 
 const rad = (d: number) => (d * Math.PI) / 180;
 /** Points along a route are at most this far apart, so the ribbon follows the street's rises and dips. */
@@ -79,7 +80,7 @@ class Ribbon {
   private width = 0;
   dirty = true;
 
-  constructor(readonly day: number, color: string, geo: [number, number][], ground: number) {
+  constructor(readonly day: number, color: string, geo: [number, number][], ground: number, private readonly onRoads = true) {
     const d = densify(geo);
     const n = d.lat.length;
     this.lat = Float64Array.from(d.lat);
@@ -128,8 +129,9 @@ class Ribbon {
     ray.far = 4000;
     const hits = ray.intersectObject(tiles, true);
     if (!hits.length) return false;
-    // The last surface the ray meets is the street (the first can be a roof the route passes beside).
-    const p = hits[hits.length - 1].point.applyMatrix4(_inv.copy(m).invert());
+    // On roads, the last surface the ray meets is the street (the first can be a roof beside it). A
+    // straight line between stops would vanish into buildings at street level, so it rides the rooftops.
+    const p = hits[this.onRoads ? hits.length - 1 : 0].point.applyMatrix4(_inv.copy(m).invert());
     WGS84_ELLIPSOID.getPositionToCartographic(p, _carto);
     if (!Number.isFinite(_carto.height) || Math.abs(_carto.height - this.h[i]) > 3000) return false;
     if (Math.abs(_carto.height - this.h[i]) > 0.3) this.dirty = true;
@@ -204,7 +206,7 @@ export class RouteRibbons {
       this.root.remove(r.group);
       r.dispose();
     }
-    this.ribbons = routes.filter((r) => r.geo.length >= 2).map((r) => new Ribbon(r.day, r.color, r.geo, ground));
+    this.ribbons = routes.filter((r) => r.geo.length >= 2).map((r) => new Ribbon(r.day, r.color, r.geo, ground, r.onRoads !== false));
     for (const r of this.ribbons) this.root.add(r.group);
     this.queue = [];
     this.nextPass = 0;

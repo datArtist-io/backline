@@ -8,6 +8,7 @@
 
 ### Routes on the real streets, and a brisker flight
 - On the 3D city, routes are ribbons laid on the actual street height (measured from Google's tiles by casting rays straight down, a few points a frame, refined as finer tiles arrive) and depth-tested against the buildings, so a route passes behind a building instead of being painted across it. They widen with the zoom so they read from far out. The flat map lines are hidden on the 3D city and still used on the satellite and painted maps.
+- Road routes follow real streets more often: both routing servers are asked at once, and every day is routed in parallel on its own (one day failing used to send every later day to straight lines). A day that still has no road route lies over the rooftops instead of vanishing into buildings.
 - While a day is flown, only its route shows, and the flown stretch turns white along it.
 - Fly the trip is about twice as quick: roughly a second per km, 9 to 24 seconds a day (it was up to 46), with a shorter beat at each stop.
 - Tests: route point spacing (web 47).
