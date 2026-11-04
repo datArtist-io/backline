@@ -180,7 +180,9 @@ export default function AdventureView({
   const [timeOpen, setTimeOpen] = useState(false);
   const [viewOpen, setViewOpen] = useState(false);
   // Light or dark: the system's choice until someone picks, then theirs (remembered on this device).
-  const [theme, setTheme] = useState<"light" | "dark">("light");
+  // Null until the page's script runs: the server can't know it, and the theme set on <html> before the
+  // first paint (layout.tsx) styles the page meanwhile.
+  const [theme, setTheme] = useState<"light" | "dark" | null>(null);
   useEffect(() => {
     let saved: string | null = null;
     try {
@@ -192,6 +194,7 @@ export default function AdventureView({
   }, []);
   const pickTheme = (t: "light" | "dark") => {
     setTheme(t);
+    document.documentElement.setAttribute("data-bl-theme", t);
     try {
       localStorage.setItem("bl.theme", t);
     } catch {
@@ -442,7 +445,7 @@ export default function AdventureView({
   const matchPct = model?.stats.match ?? null;
 
   return (
-    <section ref={rootRef} data-theme={theme} style={gradeVars(sky, hour)} className={`eq${fullscreen ? " is-full" : ""}${ready ? " is-ready" : ""}${play ? " is-flying" : ""}`} aria-label={city ? `Your trip to ${city}` : "Your trip"}>
+    <section ref={rootRef} data-theme={theme ?? undefined} style={gradeVars(sky, hour)} className={`eq${fullscreen ? " is-full" : ""}${ready ? " is-ready" : ""}${play ? " is-flying" : ""}`} aria-label={city ? `Your trip to ${city}` : "Your trip"}>
       <div className="eq-stage">
         {/* Deep space around the globe until you arrive in the city. */}
         {blobs && <Space active={!arrived} />}
