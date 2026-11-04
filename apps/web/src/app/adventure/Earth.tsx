@@ -70,6 +70,9 @@ function homeGuess(): [number, number] | null {
   }
 }
 
+/** The last third of a route, so a long one never wraps round the back of the globe. */
+const lastStretch = <T,>(path: T[]): T[] => path.slice(Math.max(0, path.length - 1 - Math.max(2, Math.round((path.length - 1) * 0.34))));
+
 /** Trips (by page) whose plane has already flown in: the journey in plays once, even if the map is rebuilt. */
 const FLOWN = new Set<string>();
 const pageKey = () => (typeof window === "undefined" ? "" : `${window.location.pathname}${window.location.search}`);
@@ -879,6 +882,8 @@ export default function Earth(props: EarthProps) {
       s.waiting = 0;
     }
     if (!from && !p.reduced && !s.flown && !p.model && !waitedRef.current) {
+      // The route label waits too, until the plane is down.
+      box.current?.classList.add("is-flying");
       // Home comes about half a second after the request is understood, and understanding takes 3 to 15
       // seconds depending on the model. A fixed 7 seconds ran out with a slower model: the globe glided
       // into the city, then the plane took off late and yanked the camera back out. So wait for the
@@ -892,6 +897,7 @@ export default function Earth(props: EarthProps) {
     }
     const land = () => {
       s.introDone = true;
+      box.current?.classList.remove("is-flying");
       // Let the eye follow the line into the city first, then let it go.
       window.clearTimeout(s.arcFade);
       s.arcFade = window.setTimeout(() => showArc(false), 2600);
@@ -899,14 +905,14 @@ export default function Earth(props: EarthProps) {
       else map.flyTo({ center: [dest.lon, dest.lat], zoom: 10.6, pitch: 48, bearing: -12, duration: live.current.reduced ? 0 : 4200, essential: true });
     };
     if (p.reduced) {
-      arc.setData(fc(from ? [line(greatCircle(from, dest))] : []));
+      arc.setData(fc(from ? [line(lastStretch(greatCircle(from, dest)))] : []));
       land();
       return;
     }
     s.introDone = false;
     // The plane flies in once per trip. Later (a corrected pin, a rebuilt map) the camera just glides there.
     if (from && !replay && (s.flown || FLOWN.has(pageKey()))) {
-      arc.setData(fc([line(greatCircle(from, dest))]));
+      arc.setData(fc([line(lastStretch(greatCircle(from, dest)))]));
       s.flown = true;
       land();
       return;
@@ -981,7 +987,10 @@ export default function Earth(props: EarthProps) {
         const behind = at(Math.max(0, u - 0.01));
         // Contrail: the path flown so far, its tail fading (line-gradient on the layer).
         const n = Math.max(1, Math.floor(u * (pts.length - 1)));
-        arc.setData(fc([line([...pts.slice(0, n + 1), pos])]));
+        // The recent stretch only (about a third of the route): on a long route the whole line wrapped
+        // round the back of the globe and was drawn sticking out past its edge.
+        const from0 = Math.max(0, n - Math.max(2, Math.round((pts.length - 1) * 0.34)));
+        arc.setData(fc([line([...pts.slice(from0, n + 1), pos])]));
         const alt = Math.sin(Math.PI * u);
         pe.style.setProperty("--alt", alt.toFixed(3));
         if (planeRef.current === plane) plane.setLngLat(pos).setRotation(heading(behind, ahead));
@@ -1040,7 +1049,9 @@ export default function Earth(props: EarthProps) {
     const moved = dest && (!s.introDest || kmBetween({ name: "", ...s.introDest }, { name: "", ...dest }) > 60);
     if (key && s.loaded && s.introFor !== key && (moved || (!s.flown && !s.introDone && !s.waiting))) intro();
     // Home became known: fly in from there, once, unless they're already exploring.
-    else if (key && s.loaded && originKey && s.originFor !== originKey && !s.flown && !s.user && !props.selectedId && !props.play) intro();
+    // Only while the globe is still waiting: once it has gone into the city, a home that arrives late
+    // (from the slower getting-there step) must not fly the plane and pull the camera back out.
+    else if (key && s.loaded && originKey && s.originFor !== originKey && !s.flown && !s.introDone && !s.user && !props.selectedId && !props.play) intro();
     // Only re-frame when the places themselves changed, not on every re-render of the same plan.
     else if (props.model && s.introDone && !s.user && !props.selectedId && !props.play && framedSig.current !== modelSig) overview(2600);
     framedSig.current = modelSig;

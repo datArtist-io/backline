@@ -427,7 +427,12 @@ export const tripHome: Skill<BriefInput, TripHomeOutput> = {
     const origin = (t?.origin ?? input.profile?.homeCity ?? "").trim();
     const none = { data: { origin: null, from: null, to: null, km: null }, evidence: [] as Evidence[], notes: [] as string[] };
     if (!t?.destination || !origin || city(origin) === city(t.destination) || !ctx.osm) return none;
-    const [a, b] = await Promise.all([ctx.osm.geocode(origin, { limit: 1, signal: ctx.signal }), ctx.osm.geocode(t.destination, { limit: 1, signal: ctx.signal })]).catch(() => [[], []] as const);
+    // The map's geocoder can be slow or busy: a second try, by the city name alone, before giving up.
+    const find = async (place: string) => {
+      const first = await ctx.osm!.geocode(place, { limit: 1, signal: ctx.signal }).catch(() => []);
+      return first[0] ? first : ctx.osm!.geocode(place.split(",")[0].trim(), { limit: 1, signal: ctx.signal }).catch(() => []);
+    };
+    const [a, b] = await Promise.all([find(origin), find(t.destination)]);
     if (!a[0]) return none;
     return { data: { origin, from: { lat: a[0].lat, lon: a[0].lon }, to: b[0] ? { lat: b[0].lat, lon: b[0].lon } : null, km: b[0] ? haversineKm(a[0], b[0]) : null }, evidence: [], notes: [] };
   },
