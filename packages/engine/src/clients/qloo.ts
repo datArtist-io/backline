@@ -56,6 +56,9 @@ export type InsightParams = {
   take?: number;
 };
 
+/** Qloo requests allowed at once; the rest wait their turn. */
+const QLOO_MAX_IN_FLIGHT = 5;
+
 type Config = { apiKey: string; baseUrl?: string; timeoutMs?: number; cacheTtlMs?: number };
 
 // Lenient response schemas: we validate the parts we rely on and ignore the rest.
@@ -133,7 +136,11 @@ export class QlooClient {
     const cached = this.cache.get(url);
     if (cached !== undefined) return cached;
 
-    const data = await withRetry(
+    // At most a few requests in flight: a burst of a dozen at once made Qloo throttle every search.
+    await this.slot(signal);
+    let data: unknown;
+    try {
+    data = await withRetry(
       async () => {
         let res: Response;
         try {
@@ -154,8 +161,38 @@ export class QlooClient {
       },
       { signal }
     );
+    } finally {
+      this.release();
+    }
     this.cache.set(url, data);
     return data;
+  }
+
+  private inFlight = 0;
+  private waiting: (() => void)[] = [];
+  private async slot(signal?: AbortSignal): Promise<void> {
+    if (this.inFlight < QLOO_MAX_IN_FLIGHT) {
+      this.inFlight += 1;
+      return;
+    }
+    await new Promise<void>((resolve, reject) => {
+      const go = () => {
+        signal?.removeEventListener("abort", stop);
+        resolve();
+      };
+      const stop = () => {
+        this.waiting = this.waiting.filter((w) => w !== go);
+        reject(signal?.reason ?? new Error("aborted"));
+      };
+      this.waiting.push(go);
+      signal?.addEventListener("abort", stop, { once: true });
+    });
+    // The slot was handed over by release(), which kept inFlight as it was.
+  }
+  private release() {
+    const next = this.waiting.shift();
+    if (next) next();
+    else this.inFlight -= 1;
   }
 
   /** Look up entities by name. */
