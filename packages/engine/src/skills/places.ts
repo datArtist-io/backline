@@ -294,6 +294,8 @@ export type NearSearch = {
   tasteLabel?: string;
   /** For stays: the kind of place they want (whole home, hostel, B&B…). */
   stayStyle?: StayStyle;
+  /** For restaurants: cuisines they asked for ("italian", "korean"), each searched in Qloo too. */
+  cuisines?: string[];
 };
 
 type StyleSpec = { label: string; qlooTag: string; tagMatch: RegExp; words: RegExp };
@@ -429,8 +431,28 @@ export async function searchNear(ctx: SkillContext, s: NearSearch): Promise<Near
     () => osmDone
   )]);
   osmDone.catch(() => undefined);
-  const [q, o, st] = await Promise.allSettled([qlooDone, osmOrGrace, withTimeout(styleTask, SOURCE_BUDGET_MS, "Qloo stays")]);
-  const styled = st.status === "fulfilled" ? st.value : [];
+  // Restaurants of each cuisine they asked for, found by Qloo through its own cuisine tags, with their
+  // taste, so "Italian and Korean food" isn't left to whatever happens to be near.
+  const cuisineTask = (async (): Promise<Place[]> => {
+    if (s.kind !== "dine" || !s.cuisines?.length) return [];
+    const lists = await Promise.all(
+      s.cuisines.slice(0, 3).map(async (c) => {
+        const tags = await placeTags(ctx, `${c} restaurant`, new RegExp(c.replace(/[^a-z ]/gi, ""), "i"));
+        if (!tags.length) return [] as Place[];
+        const raw = await ctx.qloo.insights(
+          "urn:entity:place",
+          { entityIds: s.signals.length ? s.signals : undefined, tagIds: s.tagSignals?.length ? s.tagSignals : undefined, near: { lat: s.anchor.lat, lon: s.anchor.lon, radiusKm: Math.max(s.radiusKm, 4) }, filterTags: tags, take: 12 },
+          ctx.signal
+        );
+        ctx.usage.add("qloo", 1);
+        const found = raw.filter((e) => e.location && distanceKm(s.anchor, e.location) <= Math.max(s.radiusKm, 4) * 1.25).map((e) => toPlace(e, s.kind));
+        return tasteOn ? withMatch(found) : found;
+      })
+    );
+    return lists.flat();
+  })();
+  const [q, o, st, cu] = await Promise.allSettled([qlooDone, osmOrGrace, withTimeout(styleTask, SOURCE_BUDGET_MS, "Qloo stays"), withTimeout(cuisineTask, SOURCE_BUDGET_MS, "Qloo cuisines")]);
+  const styled = [...(st.status === "fulfilled" ? st.value : []), ...(cu.status === "fulfilled" ? cu.value : [])];
   const qPlaces = [...(q.status === "fulfilled" ? q.value : []), ...styled.filter((x) => !(q.status === "fulfilled" ? q.value : []).some((y) => y.id === x.id))];
   const oPlaces = o.status === "fulfilled" ? o.value : [];
   if (q.status === "rejected") failures.push("Qloo");

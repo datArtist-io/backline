@@ -10,7 +10,7 @@
 - Flights estimated from distance cost far less per km on long routes: Atlanta–Singapore was priced at ~$2,000 each way per person (a $10,681 slip on a $7,000 budget); it's now ~$900, in line with real fares.
 - A total budget is kept on the payment slip: if what's ticked runs over, optional extras are unticked (dearest table bookings first, then extras, then rides) and the plan says which; flights and the stay are never dropped. The slip shows "Your budget $7,000 · $X to spare" or "over by $X".
 - Food rules are read from the request ("no pork", halal, kosher, vegetarian, vegan, nut or shellfish allergy, no alcohol) and are absolute: places built around what they don't eat (tonkotsu ramen, bak kut teh, rib houses, charcuterie; steakhouses for vegetarians) are dropped from every list and plan. Halal-tagged places always pass.
-- Cuisines they name ("Italian and Korean food") steer the restaurant search and count for more in ranking.
+- Cuisines they name ("Italian and Korean food") are searched in Qloo through its own cuisine tags, with their taste, and count for more in ranking, so they aren't left to whatever is nearby.
 - Tests: food rules, flight estimates, the budget guard and cuisines (engine 422).
 
 ### The 3D city is ready before you fly the trip

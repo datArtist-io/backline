@@ -715,7 +715,7 @@ export function tripTools(ctx: SkillContext, s: TripAgentState): AnyTool<TripAge
       const cuisines = a.kind === "dine" ? cuisinesOf(t(), s.input.request ?? "") : [];
       const query = [a.query ?? "", ...cuisines].join(" ").trim() || null;
       const search = (radiusKm: number) =>
-        searchNear(ctx, { kind: a.kind, anchor, radiusKm, signals: s.signals, tagSignals: s.tagSignals, priceTier: t().priceTier, dietary: dietOf(s), query, nearBonus: isLandmark, take: 15, tasteLabel: tasteLabel(t(), s.taste), stayStyle: t().stayStyle });
+        searchNear(ctx, { kind: a.kind, anchor, radiusKm, signals: s.signals, tagSignals: s.tagSignals, priceTier: t().priceTier, dietary: dietOf(s), query, nearBonus: isLandmark, take: 15, tasteLabel: tasteLabel(t(), s.taste), stayStyle: t().stayStyle, cuisines });
       const t0 = Date.now();
       // Hotels: everything within 5 km, plus the highly rated or upmarket ones out to 10 km, since a
       // much better hotel a short ride further often beats the nearest one.
