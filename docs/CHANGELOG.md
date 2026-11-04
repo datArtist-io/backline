@@ -19,6 +19,7 @@
 - Fixed: it pointed north for a moment at take-off and landing (its heading came from two identical points) and then snapped round; it now starts on its heading and turns smoothly. It no longer stretches near the edge of the globe (it was laid onto the surface; it now faces the screen).
 
 ### Slip and trip polish
+- Pressing send on the home page no longer leaves a half-finished frame (headline and buttons gone, blobs at full colour) on screen while the trip loads: the page settles into the trip's own night sky with "Planning your trip", and the trip opens into it.
 - The 3D city keeps filling in. Google refuses tiles for a while when too many are asked for in a minute (the trip's preload asks for thousands), and a refused tile was never asked for again, so parts of the city stopped loading. Refused tiles are now asked for again after a pause (4 s, doubling to a minute), and the city only falls back to satellite if its root fails three times.
 - The trip opens in the right theme from the first paint. It drew in light for the seconds the scripts took to load (grey buttons and a grey bar on the dark page), then switched; the saved or system theme is now set on the page before it draws.
 - Your phone fills itself on the payment slip: from your account, or the number you used last on this browser. It was only fetched when the name or email was missing, so signed-in people always saw an empty box. A number typed on the slip is saved to the account.

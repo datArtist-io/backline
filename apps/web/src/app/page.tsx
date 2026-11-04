@@ -23,6 +23,12 @@ export default function Landing() {
   const { me, ready: meReady, configured: signInOn } = useMe();
   const [mode, setMode] = useState<Autonomy>("auto");
   const [launching, setLaunching] = useState(false);
+  // Back to this page from the trip (the browser can restore it as it was): no veil left over.
+  useEffect(() => {
+    const reset = () => setLaunching(false);
+    window.addEventListener("pageshow", reset);
+    return () => window.removeEventListener("pageshow", reset);
+  }, []);
   const [hint, setHint] = useState(0);
   // While the mode tip shows, it takes the chips' place instead of covering them.
   const [tipOn, setTipOn] = useState(false);
@@ -96,6 +102,14 @@ export default function Landing() {
           </div>
           <TryPrompts onPick={(q) => go(q, [])} extra={<RecentSearches onPick={(q) => go(q, [])} />} />
         </section>
+
+        {/* The hand-off into the trip: the page settles into the trip's own night sky while it opens, so
+            there's no half-finished frame in between, however long the next page takes. */}
+        {launching && (
+          <div className="launch-veil" aria-hidden="true">
+            <p><i />Planning your trip</p>
+          </div>
+        )}
 
         <CallBackline />
         <Capabilities />

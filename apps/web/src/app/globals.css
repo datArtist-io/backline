@@ -730,6 +730,17 @@ a { color: inherit; text-decoration: none; }
 
 /* Launch: the hero settles and the prompt lifts before the mission opens. */
 .hero-title, .hero .prompt-wrap, .hero-switch { transition: opacity 0.4s var(--ease-out), transform 0.5s var(--ease-out), filter 0.4s var(--ease-out); }
+.launch-veil { position: fixed; inset: 0; z-index: 200; display: grid; place-items: center; pointer-events: all; background:
+    radial-gradient(60% 50% at 78% 18%, rgba(255, 79, 163, 0.16), transparent 70%),
+    radial-gradient(55% 45% at 18% 78%, rgba(123, 92, 255, 0.22), transparent 70%),
+    radial-gradient(120% 90% at 50% 50%, #0d1030 0%, #060716 60%, #020208 100%);
+  animation: veil-in 0.42s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.launch-veil p { display: inline-flex; align-items: center; gap: 10px; margin: 0; color: rgba(241, 243, 255, 0.86); font: 600 15px/1 var(--font-display, system-ui), system-ui, sans-serif; letter-spacing: 0.01em; animation: veil-text 0.5s 0.3s ease both; }
+.launch-veil i { width: 8px; height: 8px; border-radius: 50%; background: linear-gradient(135deg, #7b5cff, #ff4fa3); box-shadow: 0 0 12px rgba(255, 79, 163, 0.7); animation: veil-dot 1.2s ease-in-out infinite; }
+@keyframes veil-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes veil-text { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes veil-dot { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.45; transform: scale(0.8); } }
+@media (prefers-reduced-motion: reduce) { .launch-veil, .launch-veil p, .launch-veil i { animation: none; } }
 .hero.is-launching .hero-title { opacity: 0; transform: translateY(-18px); filter: blur(8px); }
 .hero.is-launching .hero-switch { opacity: 0; transform: translateY(8px); }
 .hero.is-launching .prompt-wrap { transform: translateY(-10px) scale(1.02); }
