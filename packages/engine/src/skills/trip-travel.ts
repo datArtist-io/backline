@@ -9,6 +9,7 @@ import { withTimeout } from "../util";
 import { CURRENCIES } from "../trip-request";
 import type { TripRequest } from "../types";
 import { shared, tripKey } from "./shared";
+import { knownAirports } from "../clients/airports";
 
 export const MODES = ["flight", "train", "bus", "car", "ferry", "other"] as const;
 export type TravelMode = (typeof MODES)[number];
@@ -232,9 +233,16 @@ const hm = (m: number | null) => (m == null ? null : `${Math.floor(m / 60)} h${m
  */
 export async function googleFare(ctx: SkillContext, input: BriefInput, origin: string, destination: string): Promise<TravelOption | null> {
   const t = input.trip;
-  if (!ctx.googleFlights || !ctx.flights || !t?.startDate) return null;
-  const [from, to] = await Promise.all([ctx.flights.airportCodes(origin.split(",")[0], ctx.signal), ctx.flights.airportCodes(destination.split(",")[0], ctx.signal)]);
-  if (!from.length || !to.length || from.some((c) => to.includes(c))) return null;
+  if (!ctx.googleFlights || !t?.startDate) return null;
+  // The city's airports from the built-in list first; the flight provider's lookup only for the rest.
+  const codes = async (place: string) => {
+    const known = knownAirports(place);
+    if (known.length || !ctx.flights) return known;
+    return ctx.flights.airportCodes(place.split(",")[0], ctx.signal).catch(() => [] as string[]);
+  };
+  const [from, to] = await Promise.all([codes(origin), codes(destination)]);
+  if (!from.length || !to.length) throw new Error(`no airport found for ${!from.length ? origin : destination}`);
+  if (from.some((c) => to.includes(c))) return null;
   const people = Math.max(1, t.adults);
   const currency = "USD";
   const [out, back] = await Promise.all([
@@ -286,16 +294,20 @@ export function travelFor(ctx: SkillContext, input: BriefInput, trip: TripReques
 }
 
 async function travelCompute(ctx: SkillContext, input: BriefInput): Promise<{ data: TripTravelOutput; evidence: Evidence[]; notes: string[] }> {
+  let fareError: string | null = null;
   const [base, fare] = await Promise.all([
     travelBase(ctx, input),
     input.trip?.destination && (input.trip.origin ?? input.profile?.homeCity)
       ? googleFare(ctx, input, (input.trip.origin ?? input.profile?.homeCity)!, input.trip.destination).catch((err) => {
-          ctx.log.warn("Google Flights fare failed", { error: String(err) });
+          // Kept, so the reason shows in diagnostics instead of disappearing.
+          const why = String(err instanceof Error ? err.message : err).replace(/api_key=[^&\s]+/g, "api_key=…").slice(0, 160);
+          ctx.log.warn("Google Flights fare failed", { error: why });
+          fareError = why;
           return null;
         })
       : Promise.resolve(null),
   ]);
-  if (!fare || !base.data.origin) return base;
+  if (!fare || !base.data.origin) return fareError && base.data.origin ? { ...base, data: { ...base.data, gaps: [...base.data.gaps, `Live fare (Google Flights: ${fareError})`] } } : base;
   const rest = base.data.options.filter((o) => o.mode !== "flight").map((o) => ({ ...o, best: false }));
   return { ...base, data: { ...base.data, options: [fare, ...rest] } };
 }

@@ -9,6 +9,8 @@
 - GitHub: contributing guide, code of conduct, issue and pull request templates, and CI (type check and tests on every push and pull request).
 
 ### Flights always on the slip, live fare when there is one
+- Live fares no longer depend on Duffel: the main airports of ~140 cities are built in (Atlanta ATL, Singapore SIN, London all five), and Duffel's lookup is used only for the rest. With Duffel's test key, the airport lookup was the step that failed and every trip fell back to "est.".
+- When Google Flights fails, the reason is kept (in the trip's gaps and the server log) instead of disappearing, and `/api/health` shows whether the SerpApi key works and how many searches are left (that check costs no search).
 - Getting there and back is always on the payment slip. The fare, best first: the live Google Flights fare for the dates; a fare listed online for the route; an estimate from the distance (recalibrated on real fares: Lagos–Rome about $560 one way, not $297). Anything but the live fare carries an "est." tag on the slip and says the live fare replaces it, and the agent calls it an estimate. Turning SerpApi on (or it answering again) swaps in the live fare by itself.
 - Google Flights answers are kept for 6 hours (Next.js data cache), so practising the same trip doesn't spend searches.
 

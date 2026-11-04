@@ -73,6 +73,14 @@ export async function checkServices(env: Record<string, string | undefined>): Pr
       const r = await q.search("Lisbon", { take: 2, signal: AbortSignal.timeout(15000) });
       return `${r.length} results`;
     }),
+    // SerpApi's account endpoint: is the key good, and how many flight searches are left (costs no search).
+    timed("flight prices: Google Flights (SerpApi)", Boolean(e.SERPAPI_API_KEY), async () => {
+      const res = await fetch(`https://serpapi.com/account.json?api_key=${encodeURIComponent(e.SERPAPI_API_KEY!)}`, { signal: AbortSignal.timeout(10000) });
+      if (!res.ok) throw new UpstreamError("flights", res.status, `SerpApi returned ${res.status}`);
+      const a = (await res.json()) as { plan_searches_left?: number; total_searches_left?: number; searches_per_month?: number; plan_name?: string };
+      const left = a.total_searches_left ?? a.plan_searches_left;
+      return `${left ?? "?"} searches left${a.searches_per_month ? ` of ${a.searches_per_month} a month` : ""}${a.plan_name ? ` (${a.plan_name})` : ""}`;
+    }),
     Promise.resolve({ service: "hotels: LiteAPI", configured: Boolean(e.LITEAPI_API_KEY), ok: null, ms: null, status: null, detail: e.LITEAPI_API_KEY ? (e.LITEAPI_API_KEY.startsWith("sand") ? "sandbox key (test bookings)" : "live key") : "not configured" }),
     Promise.resolve({ service: "flights: Duffel", configured: Boolean(e.DUFFEL_API_KEY), ok: null, ms: null, status: null, detail: e.DUFFEL_API_KEY ? (e.DUFFEL_API_KEY.startsWith("duffel_test") ? "test key (flights hidden)" : "live key") : "not configured" })
   );
