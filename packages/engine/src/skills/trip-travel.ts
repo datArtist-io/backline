@@ -2,7 +2,7 @@
 // bus, car, ferry) with typical durations and price ranges read from the web and cited, instead of a
 // test airline's made-up fare. If the route is short, flights aren't offered unless the sources say they exist.
 import { z } from "zod";
-import type { BriefInput, Evidence, Skill } from "../types";
+import type { BriefInput, Evidence, Skill, SkillContext } from "../types";
 import type { WebResult } from "../clients/web";
 import { UNTRUSTED_WEB_RULE, languageRule, quoteWeb, webEvidence } from "../grounding";
 import { withTimeout } from "../util";
@@ -24,6 +24,10 @@ const optionSchema = z.object({
   site: z.string().nullable(),
   verified: z.boolean(),
   best: z.boolean(),
+  /** A real fare for the exact dates and travellers (Google Flights), not a listed "from" price or an estimate. */
+  live: z.boolean().optional(),
+  /** With live: the return flight's fare, per person (priceMin/priceMax are the outbound's). */
+  returnPrice: z.number().nullable().optional(),
 });
 
 const travelOutput = z.object({
@@ -216,6 +220,45 @@ export function estimatedTravel(origin: string, destination: string, km: number 
   return out.slice(0, 4);
 }
 
+/** Minutes as "13 h 40 min". Pure. */
+const hm = (m: number | null) => (m == null ? null : `${Math.floor(m / 60)} h${m % 60 ? ` ${m % 60} min` : ""}`);
+
+/**
+ * Real fares from Google Flights for the exact dates and travellers, out and back, put first and
+ * marked live. Anything else stays as it was (and is only shown, never charged). Null when there's
+ * no fare source, no dates or no airport for either city.
+ */
+export async function googleFare(ctx: SkillContext, input: BriefInput, origin: string, destination: string): Promise<TravelOption | null> {
+  const t = input.trip;
+  if (!ctx.googleFlights || !ctx.flights || !t?.startDate) return null;
+  const [from, to] = await Promise.all([ctx.flights.airportCodes(origin.split(",")[0], ctx.signal), ctx.flights.airportCodes(destination.split(",")[0], ctx.signal)]);
+  if (!from.length || !to.length || from.some((c) => to.includes(c))) return null;
+  const people = Math.max(1, t.adults);
+  const currency = "USD";
+  const [out, back] = await Promise.all([
+    ctx.googleFlights.fare({ from: from.join(","), to: to.join(","), date: t.startDate, adults: people, currency, signal: ctx.signal }),
+    t.endDate ? ctx.googleFlights.fare({ from: to.join(","), to: from.join(","), date: t.endDate, adults: people, currency, signal: ctx.signal }) : Promise.resolve(null),
+  ]);
+  ctx.usage.add("flights", t.endDate ? 2 : 1);
+  if (!out) return null;
+  const each = Math.round(out.total / people);
+  return {
+    mode: "flight",
+    title: [out.airline ?? "Flight", out.stops === 0 ? "nonstop" : `${out.stops} stop${out.stops === 1 ? "" : "s"}`].join(", "),
+    duration: hm(out.minutes),
+    priceMin: each,
+    priceMax: each,
+    currency,
+    note: "Google Flights fare for your dates",
+    url: out.url,
+    site: "Google Flights",
+    verified: true,
+    best: true,
+    live: true,
+    returnPrice: back ? Math.round(back.total / people) : null,
+  };
+}
+
 export const tripTravel: Skill<BriefInput, TripTravelOutput> = {
   id: "trip.travel",
   title: "Working out how to get there",
@@ -223,6 +266,23 @@ export const tripTravel: Skill<BriefInput, TripTravelOutput> = {
   timeoutMs: 70_000,
   output: travelOutput,
   async run(ctx, input) {
+    const [base, fare] = await Promise.all([
+      travelBase(ctx, input),
+      input.trip?.destination && (input.trip.origin ?? input.profile?.homeCity)
+        ? googleFare(ctx, input, (input.trip.origin ?? input.profile?.homeCity)!, input.trip.destination).catch((err) => {
+            ctx.log.warn("Google Flights fare failed", { error: String(err) });
+            return null;
+          })
+        : Promise.resolve(null),
+    ]);
+    if (!fare || !base.data.origin) return base;
+    const rest = base.data.options.filter((o) => o.mode !== "flight").map((o) => ({ ...o, best: false }));
+    return { ...base, data: { ...base.data, options: [fare, ...rest] } };
+  },
+};
+
+async function travelBase(ctx: SkillContext, input: BriefInput): Promise<{ data: TripTravelOutput; evidence: Evidence[]; notes: string[] }> {
+  {
     const t = input.trip;
     const none = (gaps: string[] = []) => ({ data: { origin: null, destination: null, km: null, from: null, to: null, options: [], gaps }, evidence: [] as Evidence[], notes: gaps });
     if (!t?.destination) return none();
@@ -309,5 +369,5 @@ export const tripTravel: Skill<BriefInput, TripTravelOutput> = {
       ctx.log.warn("Trip travel research failed", { error: String(err) });
       return fallback();
     }
-  },
-};
+  }
+}

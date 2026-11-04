@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-11-04
+
+### Flight prices are real or not charged
+- Fares come from Google Flights (through SerpApi, `SERPAPI_API_KEY`): the actual price for this route, these dates and this many travellers, out and back priced separately, from every airport in the city. Among flights within 40% of the quickest journey, the cheapest is picked, so a 30-hour detour never wins on price.
+- No guessed fare is ever charged. A "from" price on a listing or a distance estimate (the $297 Lagos–Rome on the slip) is no longer paid: without a real fare the slip shows "Compare live fares" with a Google Flights link, the budget line says no fare was guessed, and listed prices are marked "(listed)".
+- Tests: Google Flights fare picking and request, live-only charging (engine 427).
+
 ## 2026-11-03
 
 ### Real Google Earth city

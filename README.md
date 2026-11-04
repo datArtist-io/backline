@@ -72,7 +72,7 @@ npm run dev                                  # http://localhost:3000
 | Command | What it does |
 |---|---|
 | `npm run dev` | Start the web app |
-| `npm test` | Engine and web unit tests (synthetic data, no network): 424 + 47 |
+| `npm test` | Engine and web unit tests (synthetic data, no network): 427 + 47 |
 | `npm run typecheck` | Type-check every workspace |
 | `npm run check` | Verify API keys and Qloo capabilities |
 | `npm run check:locations` | Venue coverage across 24 locations worldwide |
@@ -91,6 +91,7 @@ npm run dev                                  # http://localhost:3000
 | `ANTHROPIC_API_KEY`, `CLAUDE_SEARCH_MODEL` | Web research and listed hotel prices; Tavily also supported, with Wikivoyage as a free fallback |
 | `BOOKING_LIVE` | `1` lets live Duffel and LiteAPI keys buy real tickets and rooms; unset, live keys only price (demo checkout) |
 | `DUFFEL_API_KEY` | Flight search, booking and payment (a `duffel_test_` token uses Duffel's test airline) |
+| `SERPAPI_API_KEY` | Real Google Flights fares for the exact route, dates and travellers (SerpApi; free plan 250 searches a month). Without it, no flight is charged: the slip links to live fares |
 | `LITEAPI_API_KEY` | Live hotel rates, booking and payment (a `sand_` key simulates payment) |
 | `RESEND_API_KEY`, `ACTIONS_FROM_EMAIL` | Emails the agent sends for you (plans, confirmations, restaurant requests); sender must be on a domain verified in Resend |
 | `VAPI_API_KEY`, `VAPI_PHONE_NUMBER_ID`, `VAPI_MODEL` | Outbound AI phone calls through Vapi (imported Telnyx number). Without them the agent writes the call script for you |

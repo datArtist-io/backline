@@ -7,6 +7,7 @@ import type { CallPlacer } from "./clients/calls";
 import type { OsmClient } from "./clients/osm";
 import type { HotelProvider } from "./clients/hotels";
 import type { DuffelClient } from "./clients/duffel";
+import type { GoogleFlightsClient } from "./clients/google-flights";
 import type { UberClient } from "./clients/uber";
 
 /** Where a recommendation came from. Every recommendation must carry at least one. */
@@ -78,6 +79,8 @@ export type SkillContext = {
   hotels?: HotelProvider | null;
   /** Flight search and booking, or null when no flight provider is connected. */
   flights?: DuffelClient | null;
+  /** Real Google Flights fares (SerpApi), for when there's no live booking provider. */
+  googleFlights?: GoogleFlightsClient | null;
   /** Live Uber prices for ride legs, or null (no production keys): the trip pages then use published-rate estimates. */
   uber?: UberClient | null;
   /**

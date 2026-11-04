@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { dietaryIn, groundTrip } from "../src/trip-request";
 import { dietOk } from "../src/skills/places";
-import { fitBudget, flightEstimate, type TripAction } from "../src/skills/trip";
+import { fitBudget, type TripAction } from "../src/skills/trip";
 
 describe("food rules from the request", () => {
   it("reads them in plain words", () => {
@@ -24,11 +24,6 @@ describe("food rules from the request", () => {
 });
 
 describe("money", () => {
-  it("estimates long flights at a realistic price", () => {
-    expect(flightEstimate(16024)).toBeGreaterThan(800);
-    expect(flightEstimate(16024)).toBeLessThan(1000);
-    expect(flightEstimate(1200)).toBeLessThan(200);
-  });
   it("unticks optional extras, dearest tables first, to stay within budget, never flights or the stay", () => {
     const a = (kind: TripAction["kind"], total: number, placeName: string | null = null) => ({ id: placeName ?? kind, kind, channel: kind === "reserve_table" ? "call" : "reserve", title: kind, placeId: null, placeName, mode: "auto", recommended: true, price: { total, currency: "USD" } }) as unknown as TripAction;
     const acts = [a("book_travel", 3600), a("book_stay", 1600), a("book_rides", 500), a("reserve_table", 140, "PS.Cafe"), a("reserve_table", 70, "Zam Zam")];
@@ -59,9 +54,10 @@ describe("the budget is computed, never written by the model", () => {
     expect(live[0]).toMatchObject({ amount: 3410, basis: "live airline fare" });
     expect(live[1]).toMatchObject({ amount: 1565, basis: "live rate (LiteAPI)" });
     expect(live[2]).toMatchObject({ item: "Food and drinks, 7 days", amount: 1400 });
-    const est = codeBudget(trip, stay, null, { origin: "Atlanta", km: 16024, options: [] } as never);
-    expect(est[0].basis).toMatch(/estimate from distance/);
-    expect(est[0].amount).toBeGreaterThan(3000);
-    expect(est[0].amount).toBeLessThan(4000);
+    const gf = codeBudget(trip, stay, null, { origin: "Atlanta", km: 16024, options: [{ mode: "flight", live: true, priceMin: 1200, returnPrice: 1100, currency: "USD" }] } as never);
+    expect(gf[0]).toMatchObject({ amount: (1200 + 1100) * 2, basis: "Google Flights fares for your dates" });
+    const none = codeBudget(trip, stay, null, { origin: "Atlanta", km: 16024, options: [{ mode: "flight", priceMin: 900, currency: "USD", site: "x.com" }] } as never);
+    expect(none[0].amount).toBeNull();
+    expect(none[0].basis).toMatch(/no fare is guessed/);
   });
 });

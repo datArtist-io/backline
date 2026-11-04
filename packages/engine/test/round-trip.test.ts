@@ -46,19 +46,28 @@ describe("getting there and back", () => {
       { mode: "flight", title: "Fly via Istanbul (Turkish)", duration: "about 12 h", priceMin: 550, priceMax: 900, currency: "USD", note: null, url: null, site: null, verified: true, best: false },
     ],
   } as never;
-  it("books the best option as two tickets, out and back, for everyone", () => {
-    const [out, back] = travelActions(travel, trip, { pay: true });
+  const live = { ...(travel as object), options: [{ mode: "flight", title: "Ethiopian Airlines, 1 stop", duration: "11 h 20 min", priceMin: 640, priceMax: 640, returnPrice: 590, currency: "USD", note: null, url: "https://www.google.com/travel/flights?x", site: "Google Flights", verified: true, best: true, live: true }, ...(travel as { options: unknown[] }).options] } as never;
+  it("charges the live fare for these dates as two tickets, out and back, for everyone", () => {
+    const [out, back] = travelActions(live, trip, { pay: true });
     expect(out.title).toMatch(/out: Lagos → Rome/);
     expect(back.title).toMatch(/back: Rome → Lagos/);
-    expect(out.price).toEqual({ total: 700 * 2, currency: "USD" });
-    expect(back.price).toEqual({ total: 700 * 2, currency: "USD" });
+    expect(out.price).toEqual({ total: 640 * 2, currency: "USD" });
+    expect(back.price).toEqual({ total: 590 * 2, currency: "USD" });
     expect(out.options?.find((o) => o.best)?.title).toMatch(/Ethiopian/);
     expect(out.mode).toBe("auto");
   });
-  it("estimates a long route's fare from distance when no source lists one, and says so", () => {
+  it("never charges a listed 'from' price: without a live fare it links to live fares instead", () => {
+    const legs = travelActions(travel, trip, { pay: true });
+    expect(legs).toHaveLength(1);
+    expect(legs[0].price).toBeNull();
+    expect(legs[0].mode).toBe("you");
+    expect(legs[0].title).toMatch(/Compare live fares/);
+    expect(legs[0].options?.[0].price).toMatch(/\(listed\)/);
+  });
+  it("never guesses a long route's fare from distance", () => {
     const legs = travelActions({ ...(travel as object), options: [] } as never, trip, { pay: true });
-    expect(legs).toHaveLength(2);
-    expect(legs[0].subject).toMatch(/estimated from distance/);
+    expect(legs).toHaveLength(1);
+    expect(legs[0].price).toBeNull();
     expect(legs[0].url).toMatch(/google\.com\/travel\/flights/);
   });
   it("offers nothing for a short route with no listed fare", () => {

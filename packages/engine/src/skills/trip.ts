@@ -592,11 +592,9 @@ export function codeBudget(trip: TripRequest, stay: Place | null, flight: TripFl
   if (!ownTransport) {
     if (flight) out.push({ item: `Flights, ${who}, return`, amount: Math.round(flight.total), currency: flight.currency, basis: "live airline fare" });
     else if (travel?.origin && travel.km && travel.km >= 500) {
-      const listed = (travel.options ?? []).find((o) => o.mode === "flight" && (o.priceMin != null || o.priceMax != null) && o.currency);
-      if (listed) {
-        const each = ((listed.priceMin ?? listed.priceMax!) + (listed.priceMax ?? listed.priceMin!)) / 2;
-        out.push({ item: `Flights, ${who}, return`, amount: Math.round(each * 2 * people), currency: listed.currency!, basis: `fare listed on ${listed.site}` });
-      } else out.push({ item: `Flights, ${who}, return`, amount: Math.round(flightEstimate(travel.km) * 2 * people), currency: "USD", basis: "estimate from distance; live fares when booking" });
+      const live = (travel.options ?? []).find((o) => o.live && o.priceMin != null && o.currency);
+      if (live) out.push({ item: `Flights, ${who}, return`, amount: Math.round((live.priceMin! + (live.returnPrice ?? live.priceMin!)) * people), currency: live.currency!, basis: "Google Flights fares for your dates" });
+      else out.push({ item: `Flights, ${who}, return`, amount: null, currency: "USD", basis: "compare live fares for your dates; no fare is guessed" });
     }
   }
   if (trip.needs.includes("stay") && stay) {
@@ -1015,54 +1013,65 @@ export function flightsSearchUrl(origin: string, destination: string, date: stri
  * for everyone, as two tickets: out on the first day and back on the last. Fares are per person one way.
  * With no listed fare for a long route, the fare is estimated from distance and labelled so. Pure.
  */
-/**
- * One-way economy fare in USD from distance. Long-haul costs far less per km than a short hop: the old
- * flat 0.12 USD/km put Atlanta–Singapore at ~2,000 USD each way, double the real ~800–1,000. Pure.
- * Atlanta–New York (~1,200 km) ≈ 150, Atlanta–Barcelona (~7,400 km) ≈ 465, Atlanta–Singapore (~16,000 km) ≈ 900.
- */
-export function flightEstimate(km: number): number {
-  return Math.round(50 + 0.08 * Math.min(km, 1500) + 0.05 * Math.max(0, km - 1500));
-}
-
 export function travelActions(t: TripTravelOutput | undefined, trip: TripRequest, can: { pay: boolean }): Omit<TripAction, "id">[] {
   if (!t?.origin || !t.destination) return [];
   const opts = (t.options ?? []).filter((o) => o.mode !== "car");
-  const priced = opts.filter((o) => (o.priceMin != null || o.priceMax != null) && o.currency);
-  let pick: TravelOption | undefined = priced.find((o) => o.best) ?? [...priced].sort((x, y) => (x.priceMin ?? x.priceMax ?? 0) - (y.priceMin ?? y.priceMax ?? 0))[0];
-  let estimated = false;
-  if (!pick && t.km && t.km >= 500) {
-    // No source listed a fare: a distance-based economy estimate, one way, ±20%.
-    const mid = flightEstimate(t.km);
-    pick = { mode: "flight", title: `Flights ${t.origin.split(",")[0]} → ${t.destination.split(",")[0]}`, duration: null, priceMin: Math.round(mid * 0.8), priceMax: Math.round(mid * 1.2), currency: "USD", note: null, url: flightsSearchUrl(t.origin, t.destination, trip.startDate), site: "Google Flights", verified: false, best: true };
-    estimated = true;
-  }
-  if (!pick || !pick.currency) return [];
-  const each = ((pick.priceMin ?? pick.priceMax!) + (pick.priceMax ?? pick.priceMin!)) / 2;
-  const people = Math.max(1, trip.adults);
-  const how = pick.mode === "flight" ? "Flight" : `${pick.mode[0].toUpperCase()}${pick.mode.slice(1)}`;
-  const range = (o: TravelOption) => (o.priceMin != null || o.priceMax != null) && o.currency ? `${o.priceMin != null && o.priceMax != null && o.priceMin !== o.priceMax ? `${Math.round(o.priceMin)}–${Math.round(o.priceMax)}` : Math.round((o.priceMin ?? o.priceMax)!)} ${o.currency} pp one way` : null;
-  const options = (estimated ? [pick] : opts.slice(0, 4)).map((o) => ({ title: o.title, mode: o.mode, duration: o.duration, price: range(o), site: o.site, url: o.url, best: o === pick }));
   const from = t.origin.split(",")[0], to = t.destination.split(",")[0];
-  const leg = (dir: "out" | "back") => ({
-    kind: "book_travel" as const,
-    channel: "reserve" as const,
-    title: `${how} ${dir === "out" ? `out: ${from} → ${to}` : `back: ${to} → ${from}`}, ${people} ticket${people === 1 ? "" : "s"}${(dir === "out" ? trip.startDate : trip.endDate) ? `, ${fmtDate(dir === "out" ? trip.startDate : trip.endDate)}` : ""}`,
-    placeId: null,
-    placeName: pick!.title,
-    to: null,
-    url: pick!.url ?? (pick!.mode === "flight" ? flightsSearchUrl(dir === "out" ? t.origin! : t.destination!, dir === "out" ? t.destination! : t.origin!, dir === "out" ? trip.startDate : trip.endDate) : null),
-    subject: [pick!.title, pick!.duration, estimated ? "fare estimated from distance (no listed fare found)" : null].filter(Boolean).join(" · "),
-    body: null,
-    callOpening: null,
-    callBrief: null,
-    mode: can.pay ? ("auto" as const) : ("you" as const),
-    recommended: true,
-    missing: null,
-    offerId: null,
-    price: { total: Math.round(each * people), currency: pick!.currency! },
-    options: dir === "out" ? options : undefined,
-  });
-  return [leg("out"), leg("back")];
+  const people = Math.max(1, trip.adults);
+  const range = (o: TravelOption) => (o.priceMin != null || o.priceMax != null) && o.currency ? `${o.priceMin != null && o.priceMax != null && o.priceMin !== o.priceMax ? `${Math.round(o.priceMin)}–${Math.round(o.priceMax)}` : Math.round((o.priceMin ?? o.priceMax)!)} ${o.currency} pp one way${o.live ? "" : " (listed)"}` : null;
+  const options = opts.slice(0, 4).map((o) => ({ title: o.title, mode: o.mode, duration: o.duration, price: range(o), site: o.site, url: o.url, best: Boolean(o.best) }));
+  // Only a real fare for these dates is ever charged: a "from" price on a listing or a distance estimate
+  // is shown, not paid. Without one, the person compares live fares themselves.
+  const live = opts.find((o) => o.live && o.priceMin != null && o.currency);
+  if (!live) {
+    const far = (t.km ?? 0) >= 500 || opts.some((o) => o.mode === "flight");
+    if (!far && !opts.length) return [];
+    return [
+      {
+        kind: "book_travel",
+        channel: "link",
+        title: `Compare live ${far ? "fares" : "tickets"}: ${from} → ${to}${trip.startDate ? `, ${fmtDate(trip.startDate)}` : ""}`,
+        placeId: null,
+        placeName: far ? "Google Flights" : (opts[0]?.site ?? null),
+        to: null,
+        url: far ? flightsSearchUrl(t.origin, t.destination, trip.startDate) : (opts[0]?.url ?? null),
+        subject: "No live fare for your dates yet, so nothing is charged for it",
+        body: null,
+        callOpening: null,
+        callBrief: null,
+        mode: "you",
+        recommended: true,
+        missing: null,
+        offerId: null,
+        price: null,
+        options: options.length ? options : undefined,
+      },
+    ];
+  }
+  const how = live.mode === "flight" ? "Flight" : `${live.mode[0].toUpperCase()}${live.mode.slice(1)}`;
+  const leg = (dir: "out" | "back") => {
+    const each = dir === "back" && live.returnPrice != null ? live.returnPrice : live.priceMin!;
+    return {
+      kind: "book_travel" as const,
+      channel: "reserve" as const,
+      title: `${how} ${dir === "out" ? `out: ${from} → ${to}` : `back: ${to} → ${from}`}, ${people} ticket${people === 1 ? "" : "s"}${(dir === "out" ? trip.startDate : trip.endDate) ? `, ${fmtDate(dir === "out" ? trip.startDate : trip.endDate)}` : ""}`,
+      placeId: null,
+      placeName: live.title,
+      to: null,
+      url: dir === "out" ? live.url : flightsSearchUrl(t.destination!, t.origin!, trip.endDate),
+      subject: [live.title, live.duration, live.note].filter(Boolean).join(" · "),
+      body: null,
+      callOpening: null,
+      callBrief: null,
+      mode: can.pay ? ("auto" as const) : ("you" as const),
+      recommended: true,
+      missing: null,
+      offerId: null,
+      price: { total: Math.round(each * people), currency: live.currency! },
+      options: dir === "out" ? options : undefined,
+    };
+  };
+  return trip.endDate ? [leg("out"), leg("back")] : [leg("out")];
 }
 
 /** The trip's rides (and airport transfers when they're stops), day by day, with the fare to set aside. Pure. */

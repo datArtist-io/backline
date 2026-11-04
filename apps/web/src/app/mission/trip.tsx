@@ -650,7 +650,17 @@ export function ActionsCheckpoint({
   const priced = actions.filter((a) => a.mode === "auto" && a.price && (a.channel === "reserve" || a.channel === "call"));
   // Homes, hostels and B&Bs to pick yourself (Airbnb, Vrbo, Booking.com), opened with the dates filled in.
   const homes = actions.filter((a) => a.kind === "book_stay" && a.channel === "link" && !a.placeId && a.url);
-  const others = actions.filter((a) => !priced.includes(a) && !homes.includes(a));
+  // No real fare for these dates: flights stay off the slip rather than charge a guess.
+  const fares = actions.find((a) => a.kind === "book_travel" && a.channel === "link" && !a.price && a.url);
+  const fareLine = fares ? (
+    <p className="ck-homes">
+      <span>No live fare for your dates, so flights aren&apos;t charged.</span>
+      <a href={fares.url!} target="_blank" rel="noopener noreferrer" title={fares.title}>
+        Compare live fares <span aria-hidden="true">↗</span>
+      </a>
+    </p>
+  ) : null;
+  const others = actions.filter((a) => !priced.includes(a) && !homes.includes(a) && a !== fares);
   const homeLine = homes.length ? (
     <p className="ck-homes">
       <span>{(() => {
@@ -731,6 +741,7 @@ export function ActionsCheckpoint({
               </section>
             ))}
             {!groups.some((g) => g.id === "stay") && homeLine}
+            {fareLine}
           </div>
           {others.length > 0 && (
             <details className="ck-also" open={!priced.length}>

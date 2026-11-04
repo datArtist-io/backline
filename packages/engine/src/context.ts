@@ -18,6 +18,7 @@ import { ChainedWebSearch } from "./clients/chain";
 import type { WebSearch } from "./clients/web";
 import type { Logger, SkillContext, UsageMeter } from "./types";
 import { PriceOnlyDuffel, PriceOnlyLiteApi } from "./clients/price-only";
+import { GoogleFlightsClient } from "./clients/google-flights";
 
 const envSchema = z.object({
   QLOO_API_KEY: z.string().min(10, "QLOO_API_KEY is missing"),
@@ -62,6 +63,8 @@ const envSchema = z.object({
   LITEAPI_API_KEY: z.string().optional(),
   /** Duffel token for flight search and booking. A test token (duffel_test_…) books on Duffel's test airline. */
   DUFFEL_API_KEY: z.string().optional(),
+  /** SerpApi key: real Google Flights fares for the exact route and dates. */
+  SERPAPI_API_KEY: z.string().optional(),
   /** "1" lets live provider keys buy real tickets and rooms; otherwise live keys only price (demo checkout). */
   BOOKING_LIVE: z.string().optional(),
   /** Uber price estimates. Used only when UBER_ENV is "production": sandbox prices are made up. */
@@ -143,7 +146,7 @@ function parseExtraBody(raw: string | undefined): Record<string, unknown> | unde
   return undefined;
 }
 
-type Shared = { key: string; qloo: QlooClient; llm: LlmClient | null; web: WebSearch | null; rates: ClaudeSearchClient | null; email: EmailSender | null; calls: CallPlacer | null; osm: OsmClient | null; hotels: HotelProvider | null; flights: DuffelClient | null; uber: UberClient | null };
+type Shared = { key: string; qloo: QlooClient; llm: LlmClient | null; web: WebSearch | null; rates: ClaudeSearchClient | null; email: EmailSender | null; calls: CallPlacer | null; osm: OsmClient | null; hotels: HotelProvider | null; flights: DuffelClient | null; googleFlights: GoogleFlightsClient | null; uber: UberClient | null };
 
 // Clients are reused across requests in the same server process so their caches are shared.
 let shared: Shared | null = null;
@@ -178,6 +181,7 @@ export function createContext(env: Record<string, string | undefined>, opts: { l
     e.LITEAPI_API_KEY?.slice(0, 5),
     e.DUFFEL_API_KEY?.slice(0, 12),
     e.BOOKING_LIVE,
+    e.SERPAPI_API_KEY?.slice(0, 6),
     e.UBER_CLIENT_ID?.slice(0, 8),
     e.UBER_ENV,
   ]);
@@ -194,6 +198,7 @@ export function createContext(env: Record<string, string | undefined>, opts: { l
       osm: e.MAPS === "off" ? null : new OsmClient({ userAgent: e.OSM_USER_AGENT, email: e.OSM_CONTACT_EMAIL }),
       // Live keys give real fares and rates; real tickets and rooms are only bought with BOOKING_LIVE=1.
       hotels: e.LITEAPI_API_KEY ? (e.BOOKING_LIVE === "1" || e.LITEAPI_API_KEY.startsWith("sand_") ? new LiteApiProvider({ apiKey: e.LITEAPI_API_KEY }) : new PriceOnlyLiteApi({ apiKey: e.LITEAPI_API_KEY })) : null,
+      googleFlights: e.SERPAPI_API_KEY ? new GoogleFlightsClient({ apiKey: e.SERPAPI_API_KEY }) : null,
       flights: e.DUFFEL_API_KEY ? (e.BOOKING_LIVE === "1" || e.DUFFEL_API_KEY.startsWith("duffel_test_") ? new DuffelClient({ token: e.DUFFEL_API_KEY }) : new PriceOnlyDuffel({ token: e.DUFFEL_API_KEY })) : null,
       uber: e.UBER_CLIENT_ID && e.UBER_CLIENT_SECRET && e.UBER_ENV === "production" ? new UberClient({ clientId: e.UBER_CLIENT_ID, clientSecret: e.UBER_CLIENT_SECRET, scope: e.UBER_SCOPE }) : null,
     };
@@ -210,6 +215,7 @@ export function createContext(env: Record<string, string | undefined>, opts: { l
     osm: shared.osm,
     hotels: shared.hotels,
     flights: shared.flights,
+    googleFlights: shared.googleFlights,
     uber: shared.uber,
     log: opts.log ?? consoleLogger,
     usage: createUsageMeter(),

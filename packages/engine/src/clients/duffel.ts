@@ -145,6 +145,18 @@ export class DuffelClient {
     return pick ? { code: pick.iata_code!, name: pick.name ?? pick.iata_code! } : null;
   }
 
+  /** Every airport serving a city ("FCO,CIA" for Rome), or the airport itself, as IATA codes. */
+  async airportCodes(query: string, signal?: AbortSignal): Promise<string[]> {
+    const json = (await this.call("GET", `/places/suggestions?query=${encodeURIComponent(query)}`, undefined, signal, 10000)) as {
+      data?: { type?: string; iata_code?: string; airports?: { iata_code?: string }[] | null }[];
+    };
+    const places = json?.data ?? [];
+    const city = places.find((p) => p.type === "city" && p.airports?.length);
+    if (city) return city.airports!.map((a) => a.iata_code).filter((c): c is string => Boolean(c)).slice(0, 4);
+    const airport = places.find((p) => p.type === "airport" && p.iata_code);
+    return airport ? [airport.iata_code!] : [];
+  }
+
   /** Fares for a one-way or round trip, cheapest first. */
   async search(q: { from: string; to: string; depart: string; back?: string | null; adults: number; signal?: AbortSignal }): Promise<FlightOffer[]> {
     const slices = [{ origin: q.from, destination: q.to, departure_date: q.depart }, ...(q.back ? [{ origin: q.to, destination: q.from, departure_date: q.back }] : [])];
