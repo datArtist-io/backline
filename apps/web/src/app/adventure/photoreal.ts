@@ -116,10 +116,27 @@ export class PhotorealLayer implements CustomLayerInterface {
     tiles.parseQueue.maxJobs = Math.max(5, Math.min(8, cores));
     tiles.downloadQueue.maxJobs = 40;
     const redraw = () => this.map.triggerRepaint();
-    // The root tileset failing means the key isn't usable (billing not active, API off, wrong site):
-    // hand back to the satellite map rather than leave an empty city.
+    // Google refuses tiles for a while when too many are asked for in a minute (the trip's preload asks
+    // for thousands). A refused tile is never asked for again by itself, so the city stopped filling in:
+    // ask again after a pause, longer each time it keeps happening. The root failing twice more after
+    // retries means the key isn't usable (billing, API off, wrong site): hand back to the satellite map.
+    let rootRetries = 0;
+    let backoff = 4000;
+    let retryAt = 0;
     tiles.addEventListener("load-error", (e: { tile: unknown }) => {
-      if (!e.tile) this.onFail?.();
+      if (!e.tile && rootRetries >= 2) return this.onFail?.();
+      if (!e.tile) rootRetries++;
+      if (retryAt) return;
+      retryAt = window.setTimeout(() => {
+        retryAt = 0;
+        if (this.tiles !== tiles) return;
+        tiles.resetFailedTiles();
+        redraw();
+      }, e.tile ? backoff : 15000);
+      backoff = Math.min(60000, backoff * 2);
+    });
+    tiles.addEventListener("load-model", () => {
+      backoff = 4000;
     });
     tiles.addEventListener("load-model", redraw);
     tiles.addEventListener("tiles-load-end", () => {

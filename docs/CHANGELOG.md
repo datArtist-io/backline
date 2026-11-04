@@ -9,6 +9,7 @@
 - GitHub: contributing guide, code of conduct, issue and pull request templates, and CI (type check and tests on every push and pull request).
 
 ### Slip and trip polish
+- The 3D city keeps filling in. Google refuses tiles for a while when too many are asked for in a minute (the trip's preload asks for thousands), and a refused tile was never asked for again, so parts of the city stopped loading. Refused tiles are now asked for again after a pause (4 s, doubling to a minute), and the city only falls back to satellite if its root fails three times.
 - The trip opens in the right theme from the first paint. It drew in light for the seconds the scripts took to load (grey buttons and a grey bar on the dark page), then switched; the saved or system theme is now set on the page before it draws.
 - Your phone fills itself on the payment slip: from your account, or the number you used last on this browser. It was only fetched when the name or email was missing, so signed-in people always saw an empty box. A number typed on the slip is saved to the account.
 - Fly the trip is steadier: about 1.8 seconds per km, 15 to 36 seconds a day, with a longer beat at each stop (9 to 24 rushed past the buildings).
