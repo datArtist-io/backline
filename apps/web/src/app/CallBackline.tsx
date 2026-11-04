@@ -16,6 +16,17 @@ const pretty = (n: string) => {
   return m ? `+1 (${m[1]}) ${m[2]}-${m[3]}` : d;
 };
 
+// Voice trips already opened on this browser leave the list: they've been seen.
+const OPENED = "backline.openedVoiceTrips";
+function loadOpened(): string[] {
+  try {
+    const v = JSON.parse(localStorage.getItem(OPENED) ?? "[]");
+    return Array.isArray(v) ? v.filter((x) => typeof x === "string").slice(-50) : [];
+  } catch {
+    return [];
+  }
+}
+
 function ago(iso: string): string {
   const s = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000);
   if (s < 60) return "just now";
@@ -28,6 +39,18 @@ export default function CallBackline() {
   const [tab, setTab] = useState<Tab>(KEY ? "talk" : "call");
   const [number, setNumber] = useState<string | null>(null);
   const [trips, setTrips] = useState<Item[]>([]);
+  const [opened, setOpened] = useState<string[]>([]);
+  useEffect(() => setOpened(loadOpened()), []);
+  const markOpened = (code: string) => {
+    const next = [...new Set([...loadOpened(), code])].slice(-50);
+    try {
+      localStorage.setItem(OPENED, JSON.stringify(next));
+    } catch {
+      /* storage can be off */
+    }
+    setOpened(next);
+  };
+  const shown = trips.filter((t) => t.live || !opened.includes(t.code));
   const tripsRef = useRef<Item[]>([]);
   tripsRef.current = trips;
 
@@ -101,18 +124,18 @@ export default function CallBackline() {
             )}
           </div>
         </div>
-        {trips.length > 0 && (
+        {shown.length > 0 && (
           <div className="voice-trips">
             <b>Planned by voice</b>
             <ul>
-              {trips.slice(0, 3).map((t) => (
+              {shown.slice(0, 3).map((t) => (
                 <li key={t.code} className={t.live ? "is-live" : ""}>
                   <span className="callin-code" aria-label={`Code ${t.code}`}>{t.code}</span>
                   <span className="voice-trip">
                     <b>{t.destination ?? "On the line now…"}</b>
                     {t.destination ? [t.days ? `${t.days} days` : null, t.loves].filter(Boolean).join(" · ") : null}
                   </span>
-                  {t.url ? <a className="callin-open" href={t.url.replace(/^https?:\/\/[^/]+/, "")}>Open</a> : <span className="callin-when">{t.live ? <i className="callin-pulse" aria-hidden="true" /> : ago(t.at)}</span>}
+                  {t.url ? <a className="callin-open" href={t.url.replace(/^https?:\/\/[^/]+/, "")} onClick={() => markOpened(t.code)}>Open</a> : <span className="callin-when">{t.live ? <i className="callin-pulse" aria-hidden="true" /> : ago(t.at)}</span>}
                 </li>
               ))}
             </ul>
