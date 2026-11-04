@@ -12,6 +12,10 @@
 - Getting there and back is always on the payment slip. The fare, best first: the live Google Flights fare for the dates; a fare listed online for the route; an estimate from the distance (recalibrated on real fares: Lagos–Rome about $560 one way, not $297). Anything but the live fare carries an "est." tag on the slip and says the live fare replaces it, and the agent calls it an estimate. Turning SerpApi on (or it answering again) swaps in the live fare by itself.
 - Google Flights answers are kept for 6 hours (Next.js data cache), so practising the same trip doesn't spend searches.
 
+### A real airliner flies the journey in
+- The plane is a detailed jet (shaded fuselage and swept wings, two engines, a tail in Backline's colours) with real navigation lights: red on the left wingtip, green on the right, a white tail strobe. It's about four times the old icon, grows as it climbs, and its own silhouette falls away beneath it as a shadow.
+- Fixed: it pointed north for a moment at take-off and landing (its heading came from two identical points) and then snapped round; it now starts on its heading and turns smoothly. It no longer stretches near the edge of the globe (it was laid onto the surface; it now faces the screen).
+
 ### Slip and trip polish
 - The 3D city keeps filling in. Google refuses tiles for a while when too many are asked for in a minute (the trip's preload asks for thousands), and a refused tile was never asked for again, so parts of the city stopped loading. Refused tiles are now asked for again after a pause (4 s, doubling to a minute), and the city only falls back to satellite if its root fails three times.
 - The trip opens in the right theme from the first paint. It drew in light for the seconds the scripts took to load (grey buttons and a grey bar on the dark page), then switched; the saved or system theme is now set on the page before it draws.

@@ -3,6 +3,7 @@
 // imagery, terrain and 3D buildings. A Three.js layer shares its camera and depth buffer, so the
 // game sits in the real city: light beacons over every place the agent picked, Qloo's taste rising
 // out of the streets as glowing columns, and a traveller who flies each day's route.
+import { easeHeading, planeHtml } from "./plane";
 import maplibregl, { type CustomLayerInterface, type GeoJSONSource, type Map as MlMap, type Marker, type StyleSpecification } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import * as THREE from "three";
@@ -956,8 +957,12 @@ export default function Earth(props: EarthProps) {
       planeRef.current?.remove();
       const pe = document.createElement("div");
       pe.className = "eq-plane-pin";
-      pe.innerHTML = `<div class="eq-plane-shadow" aria-hidden="true"></div><div class="eq-plane"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M12 1.6c.9 0 1.5 1.1 1.5 2.4v5.3l8 4.7v2.2l-8-2.4v4.8l2.6 2v1.7L12 21.2l-4.1 1.1v-1.7l2.6-2v-4.8l-8 2.4V14l8-4.7V4c0-1.3.6-2.4 1.5-2.4z" fill="currentColor"/></svg></div>`;
-      const plane = new maplibregl.Marker({ element: pe, anchor: "center", rotationAlignment: "map", pitchAlignment: "map" }).setLngLat(pts[0]).addTo(map);
+      pe.innerHTML = planeHtml();
+      // Upright to the screen (not laid on the globe, which stretched it near the edge), turned to its heading.
+      const plane = new maplibregl.Marker({ element: pe, anchor: "center", rotationAlignment: "map", pitchAlignment: "viewport" }).setLngLat(pts[0]).addTo(map);
+      // Its heading from the first stretch of the path (it pointed north for a frame at take-off).
+      let hdg = heading(pts[0], pts[Math.min(pts.length - 1, 2)]);
+      plane.setRotation(hdg);
       planeRef.current = plane;
       pulse(pts[0][0], pts[0][1], "is-home");
       // The route label waits until touch-down, so it never sits on top of the plane.
@@ -969,14 +974,16 @@ export default function Earth(props: EarthProps) {
         const f = Math.min(1, (performance.now() - t0) / dur);
         const u = smooth(f);
         const pos = at(u);
-        const ahead = at(Math.min(1, u + 0.01));
-        const behind = at(Math.max(0, u - 0.01));
+        const ahead = at(Math.min(1, u + 0.012));
+        const behind = at(Math.max(0, u - 0.012));
         // Contrail: the path flown so far, its tail fading (line-gradient on the layer).
         const n = Math.max(1, Math.floor(u * (pts.length - 1)));
         arc.setData(fc([line([...pts.slice(0, n + 1), pos])]));
         const alt = Math.sin(Math.PI * u);
         pe.style.setProperty("--alt", alt.toFixed(3));
-        if (planeRef.current === plane) plane.setLngLat(pos).setRotation(heading(behind, ahead));
+        // Ahead and behind can be the same point at the very ends; keep the last heading then.
+        if (Math.abs(ahead[0] - behind[0]) + Math.abs(ahead[1] - behind[1]) > 1e-6) hdg = easeHeading(hdg, heading(behind, ahead), 0.25);
+        if (planeRef.current === plane) plane.setLngLat(pos).setRotation(hdg);
         // The camera rides a little ahead of the plane, pulling back at cruise.
         const lead = at(Math.min(1, u + 0.06));
         if (!s.user) map.jumpTo({ center: [pos[0] + (lead[0] - pos[0]) * 0.5, pos[1] + (lead[1] - pos[1]) * 0.5], zoom: zFrom + (zTo - zFrom) * u - climb * alt, pitch: 0, bearing: 0 });
