@@ -282,6 +282,9 @@
 /* The menu stays usable while the trip plays: open the bookings, wallet or guide mid-flight. */
 .eq-earth[data-z="far"] .eq-pin { opacity: 0; pointer-events: none; }
 .eq-earth .eq-pin { transition: opacity 0.4s; }
+/* A marker on the far side of the globe: MapLibre leaves it at 20% opacity by default, a ghost that
+   drifted across space as the globe turned. Hidden outright until it comes round. */
+.eq-earth .maplibregl-marker-covered { opacity: 0 !important; pointer-events: none; }
 .eq-earth[data-z="city"] .eq-pin:not(.picked) { opacity: 0; pointer-events: none; }
 .eq-earth .eq-pin.quiet span { opacity: 0 !important; pointer-events: none; }
 .eq-earth .eq-pin.sel, .eq-earth .eq-pin.hov { z-index: 3; }

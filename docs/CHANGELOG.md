@@ -21,6 +21,7 @@
 - Fixed: when home only arrived at the end (from the getting-there step), the plane flew after the trip was ready and pulled the camera back out of the city. Once the globe has gone into the city, a late home no longer flies. The quick home lookup tries the geocoder twice.
 - Fixed: on long routes over the pole (Atlanta to Singapore) the white trail wrapped round the back of the globe and stuck out past its edge; the trail is now the recent stretch of the route.
 - Fixed: the route label showed faintly while the globe waited for take-off.
+- Fixed: place pins on the far side of the globe showed as faint ghosts drifting across space as it turned (MapLibre leaves covered markers at 20% opacity); they're hidden until they come round.
 - Fixed: the plane had stopped flying in. Where you fly from came from the getting-there step, which now waits for the agent (about 30 s), and the globe stops waiting after 7. A small first step (`trip.home`) now pins the departure city within a second or two.
 
 ### Slip and trip polish
