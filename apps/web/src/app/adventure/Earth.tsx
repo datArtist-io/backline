@@ -899,11 +899,20 @@ export default function Earth(props: EarthProps) {
       // seconds depending on the model. A fixed 7 seconds ran out with a slower model: the globe glided
       // into the city, then the plane took off late and yanked the camera back out. So wait for the
       // request (up to 40 s), then a moment for home.
-      s.waiting = window.setTimeout(() => {
-        s.waiting = 0;
-        waitedRef.current = true;
-        intro();
-      }, p.understood ? 3000 : 40000);
+      // Checked a few times a second rather than told once: the "understood" signal can land before
+      // this wait starts, and a missed signal left the globe waiting the full 40 s.
+      const started = performance.now();
+      let understoodAt = 0;
+      const check = () => {
+        const now = performance.now();
+        if (live.current.understood && !understoodAt) understoodAt = now;
+        if ((understoodAt && now - understoodAt >= 3000) || now - started >= 40000) {
+          s.waiting = 0;
+          waitedRef.current = true;
+          intro();
+        } else s.waiting = window.setTimeout(check, 250);
+      };
+      s.waiting = window.setTimeout(check, 250);
       return;
     }
     const land = () => {
@@ -1090,12 +1099,6 @@ export default function Earth(props: EarthProps) {
     styleState();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [props.selectedId, props.hoverId, props.activeDay, props.showTaste, props.traffic, props.look, props.weather.kind, props.weather.hour]);
-
-  // The request just got understood while the globe waits for home: give home its short moment now.
-  useEffect(() => {
-    if (props.understood && state.current.waiting && state.current.loaded) intro();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [props.understood]);
 
   useEffect(() => {
     // Replaying the way in never waits for home: what's known now is what flies.

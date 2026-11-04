@@ -6,7 +6,7 @@ What each outside service does, what it receives, and what happens when it's mis
 |---|---|---|---|---|
 | **Qloo** | Taste profile, heatmap zone, taste-ranked places and events (the core of every pick) | The request's tastes and places | Map-only search; picks say they aren't taste-matched | `QLOO_API_KEY` |
 | **AI models** (Anthropic, Nebius, Groq; any OpenAI-compatible) | The ReAct agent, understanding the request, writing the plan | The request and tool results; personal details only when a booking or call needs them | Next provider in `LLM_*` → `LLM2_*` → `LLM3_*`; if all fail, the autopilot finishes with the same tools | `LLM_*`, `LLM2_*`, `LLM3_*` |
-| **SerpApi (Google Flights)** | Real fares for the dates and travellers | Airports, dates, number of travellers | No flight is charged; the slip links to live fares | `SERPAPI_API_KEY` |
+| **SerpApi (Google Flights)** | Real fares for the dates and travellers | Airports, dates, number of travellers | A fare listed online, else a distance estimate, tagged "est." on the slip | `SERPAPI_API_KEY` |
 | **Duffel** | Airline offers and booking | Route, dates; traveller and passport details at booking | Google Flights fares only; `BOOKING_LIVE` unset means price-only | `DUFFEL_API_KEY` |
 | **LiteAPI** | Live hotel rates and booking | Destination, dates, guests; traveller at booking | Rates listed online, labelled; estimates labelled | `LITEAPI_API_KEY` |
 | **OpenStreetMap** (Nominatim, Overpass, OSRM) | Geocoding, places, road routes | Place names and coordinates | Three Overpass mirrors and two routing servers race; straight lines between stops as a last resort | — |
