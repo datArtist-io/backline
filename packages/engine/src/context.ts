@@ -198,7 +198,7 @@ export function createContext(env: Record<string, string | undefined>, opts: { l
       osm: e.MAPS === "off" ? null : new OsmClient({ userAgent: e.OSM_USER_AGENT, email: e.OSM_CONTACT_EMAIL }),
       // Live keys give real fares and rates; real tickets and rooms are only bought with BOOKING_LIVE=1.
       hotels: e.LITEAPI_API_KEY ? (e.BOOKING_LIVE === "1" || e.LITEAPI_API_KEY.startsWith("sand_") ? new LiteApiProvider({ apiKey: e.LITEAPI_API_KEY }) : new PriceOnlyLiteApi({ apiKey: e.LITEAPI_API_KEY })) : null,
-      googleFlights: e.SERPAPI_API_KEY ? new GoogleFlightsClient({ apiKey: e.SERPAPI_API_KEY }) : null,
+      googleFlights: e.SERPAPI_API_KEY ? new GoogleFlightsClient({ apiKey: e.SERPAPI_API_KEY, cacheSeconds: 6 * 3600 }) : null,
       flights: e.DUFFEL_API_KEY ? (e.BOOKING_LIVE === "1" || e.DUFFEL_API_KEY.startsWith("duffel_test_") ? new DuffelClient({ token: e.DUFFEL_API_KEY }) : new PriceOnlyDuffel({ token: e.DUFFEL_API_KEY })) : null,
       uber: e.UBER_CLIENT_ID && e.UBER_CLIENT_SECRET && e.UBER_ENV === "production" ? new UberClient({ clientId: e.UBER_CLIENT_ID, clientSecret: e.UBER_CLIENT_SECRET, scope: e.UBER_SCOPE }) : null,
     };

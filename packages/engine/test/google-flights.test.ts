@@ -30,3 +30,12 @@ describe("Google Flights fares", () => {
     await expect(bad.fare({ from: "LOS", to: "FCO", date: "2026-11-20", adults: 1, currency: "USD" })).rejects.toThrow(/429/);
   });
 });
+
+describe("saving searches", () => {
+  it("asks Next.js to keep the answer when a cache time is set", async () => {
+    let init: RequestInit & { next?: { revalidate?: number } } = {};
+    const c = new GoogleFlightsClient({ apiKey: "k", cacheSeconds: 21600, fetch: (async (_u: string, i: RequestInit) => { init = i; return new Response(JSON.stringify(answer)); }) as never });
+    await c.fare({ from: "LOS", to: "FCO", date: "2026-11-20", adults: 2, currency: "USD" });
+    expect(init.next?.revalidate).toBe(21600);
+  });
+});

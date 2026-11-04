@@ -594,7 +594,11 @@ export function codeBudget(trip: TripRequest, stay: Place | null, flight: TripFl
     else if (travel?.origin && travel.km && travel.km >= 500) {
       const live = (travel.options ?? []).find((o) => o.live && o.priceMin != null && o.currency);
       if (live) out.push({ item: `Flights, ${who}, return`, amount: Math.round((live.priceMin! + (live.returnPrice ?? live.priceMin!)) * people), currency: live.currency!, basis: "Google Flights fares for your dates" });
-      else out.push({ item: `Flights, ${who}, return`, amount: null, currency: "USD", basis: "compare live fares for your dates; no fare is guessed" });
+      else {
+        const listed = (travel.options ?? []).find((o) => o.mode === "flight" && (o.priceMin != null || o.priceMax != null) && o.currency);
+        if (listed) out.push({ item: `Flights, ${who}, return`, amount: Math.round(((listed.priceMin ?? listed.priceMax!) + (listed.priceMax ?? listed.priceMin!)) * people), currency: listed.currency!, basis: `fare listed on ${listed.site ?? "the web"}; the live fare replaces it` });
+        else out.push({ item: `Flights, ${who}, return`, amount: Math.round(flightEstimate(travel.km) * 2 * people), currency: "USD", basis: "estimate from distance; the live Google Flights fare replaces it" });
+      }
     }
   }
   if (trip.needs.includes("stay") && stay) {
@@ -1013,6 +1017,21 @@ export function flightsSearchUrl(origin: string, destination: string, date: stri
  * for everyone, as two tickets: out on the first day and back on the last. Fares are per person one way.
  * With no listed fare for a long route, the fare is estimated from distance and labelled so. Pure.
  */
+/**
+ * One-way economy fare in USD from distance, for when no fare source answered. Calibrated on real
+ * one-way fares: Atlanta–New York (~1,200 km) ≈ 225, Lagos–Rome (~4,000 km) ≈ 560, Atlanta–Singapore
+ * (~16,000 km) ≈ 1,100. Always labelled as an estimate; a live fare replaces it. Pure.
+ */
+export function flightEstimate(km: number): number {
+  return Math.round(80 + 0.12 * Math.min(km, 4000) + 0.045 * Math.max(0, km - 4000));
+}
+
+/**
+ * Getting there and back on the slip, out and back for everyone. The fare, best first: the live Google
+ * Flights fare for these dates; a fare listed online for the route; an estimate from the distance. Every
+ * one but the live fare says on the slip that it's not the live price, and a live fare replaces it as
+ * soon as one is found. Pure.
+ */
 export function travelActions(t: TripTravelOutput | undefined, trip: TripRequest, can: { pay: boolean }): Omit<TripAction, "id">[] {
   if (!t?.origin || !t.destination) return [];
   const opts = (t.options ?? []).filter((o) => o.mode !== "car");
@@ -1020,46 +1039,31 @@ export function travelActions(t: TripTravelOutput | undefined, trip: TripRequest
   const people = Math.max(1, trip.adults);
   const range = (o: TravelOption) => (o.priceMin != null || o.priceMax != null) && o.currency ? `${o.priceMin != null && o.priceMax != null && o.priceMin !== o.priceMax ? `${Math.round(o.priceMin)}–${Math.round(o.priceMax)}` : Math.round((o.priceMin ?? o.priceMax)!)} ${o.currency} pp one way${o.live ? "" : " (listed)"}` : null;
   const options = opts.slice(0, 4).map((o) => ({ title: o.title, mode: o.mode, duration: o.duration, price: range(o), site: o.site, url: o.url, best: Boolean(o.best) }));
-  // Only a real fare for these dates is ever charged: a "from" price on a listing or a distance estimate
-  // is shown, not paid. Without one, the person compares live fares themselves.
   const live = opts.find((o) => o.live && o.priceMin != null && o.currency);
-  if (!live) {
-    const far = (t.km ?? 0) >= 500 || opts.some((o) => o.mode === "flight");
-    if (!far && !opts.length) return [];
-    return [
-      {
-        kind: "book_travel",
-        channel: "link",
-        title: `Compare live ${far ? "fares" : "tickets"}: ${from} → ${to}${trip.startDate ? `, ${fmtDate(trip.startDate)}` : ""}`,
-        placeId: null,
-        placeName: far ? "Google Flights" : (opts[0]?.site ?? null),
-        to: null,
-        url: far ? flightsSearchUrl(t.origin, t.destination, trip.startDate) : (opts[0]?.url ?? null),
-        subject: "No live fare for your dates yet, so nothing is charged for it",
-        body: null,
-        callOpening: null,
-        callBrief: null,
-        mode: "you",
-        recommended: true,
-        missing: null,
-        offerId: null,
-        price: null,
-        options: options.length ? options : undefined,
-      },
-    ];
-  }
-  const how = live.mode === "flight" ? "Flight" : `${live.mode[0].toUpperCase()}${live.mode.slice(1)}`;
+  const listed = live ? null : (opts.find((o) => o.best && (o.priceMin != null || o.priceMax != null) && o.currency) ?? opts.find((o) => (o.priceMin != null || o.priceMax != null) && o.currency));
+  const far = (t.km ?? 0) >= 500 || opts.some((o) => o.mode === "flight");
+  type Fare = { out: number; back: number; currency: string; title: string; mode: string; url: string | null; note: string | null };
+  const mid = (o: TravelOption) => ((o.priceMin ?? o.priceMax!) + (o.priceMax ?? o.priceMin!)) / 2;
+  const fare: Fare | null = live
+    ? { out: live.priceMin!, back: live.returnPrice ?? live.priceMin!, currency: live.currency!, title: live.title, mode: live.mode, url: live.url, note: [live.duration, live.note].filter(Boolean).join(" · ") || null }
+    : listed
+      ? { out: mid(listed), back: mid(listed), currency: listed.currency!, title: listed.title, mode: listed.mode, url: listed.url ?? flightsSearchUrl(t.origin, t.destination, trip.startDate), note: `Fare listed${listed.site ? ` on ${listed.site}` : " online"}, not yet the live price for your dates` }
+      : far && t.km
+        ? { out: flightEstimate(t.km), back: flightEstimate(t.km), currency: "USD", title: `Flight ${from} → ${to}`, mode: "flight", url: flightsSearchUrl(t.origin, t.destination, trip.startDate), note: "Estimated fare: the live Google Flights fare replaces it when found" }
+        : null;
+  if (!fare) return [];
+  const how = fare.mode === "flight" ? "Flight" : `${fare.mode[0].toUpperCase()}${fare.mode.slice(1)}`;
   const leg = (dir: "out" | "back") => {
-    const each = dir === "back" && live.returnPrice != null ? live.returnPrice : live.priceMin!;
+    const each = dir === "out" ? fare.out : fare.back;
     return {
       kind: "book_travel" as const,
       channel: "reserve" as const,
       title: `${how} ${dir === "out" ? `out: ${from} → ${to}` : `back: ${to} → ${from}`}, ${people} ticket${people === 1 ? "" : "s"}${(dir === "out" ? trip.startDate : trip.endDate) ? `, ${fmtDate(dir === "out" ? trip.startDate : trip.endDate)}` : ""}`,
       placeId: null,
-      placeName: live.title,
+      placeName: fare.title,
       to: null,
-      url: dir === "out" ? live.url : flightsSearchUrl(t.destination!, t.origin!, trip.endDate),
-      subject: [live.title, live.duration, live.note].filter(Boolean).join(" · "),
+      url: dir === "out" ? fare.url : flightsSearchUrl(t.destination!, t.origin!, trip.endDate),
+      subject: live ? [fare.title, fare.note].filter(Boolean).join(" · ") : fare.note,
       body: null,
       callOpening: null,
       callBrief: null,
@@ -1067,7 +1071,7 @@ export function travelActions(t: TripTravelOutput | undefined, trip: TripRequest
       recommended: true,
       missing: null,
       offerId: null,
-      price: { total: Math.round(each * people), currency: live.currency! },
+      price: { total: Math.round(each * people), currency: fare.currency },
       options: dir === "out" ? options : undefined,
     };
   };

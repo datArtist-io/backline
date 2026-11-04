@@ -8,6 +8,10 @@
 - New docs: API reference, third-party services, deployment, runbook (with a show-day checklist), testing, and decision records for the agent, prices, demo checkout, Qloo and the 3D city. The architecture doc describes the agent as it is now. Security: disclosure policy, incident response, public keys.
 - GitHub: contributing guide, code of conduct, issue and pull request templates, and CI (type check and tests on every push and pull request).
 
+### Flights always on the slip, live fare when there is one
+- Getting there and back is always on the payment slip. The fare, best first: the live Google Flights fare for the dates; a fare listed online for the route; an estimate from the distance (recalibrated on real fares: Lagos–Rome about $560 one way, not $297). Anything but the live fare carries an "est." tag on the slip and says the live fare replaces it, and the agent calls it an estimate. Turning SerpApi on (or it answering again) swaps in the live fare by itself.
+- Google Flights answers are kept for 6 hours (Next.js data cache), so practising the same trip doesn't spend searches.
+
 ### Slip and trip polish
 - The 3D city keeps filling in. Google refuses tiles for a while when too many are asked for in a minute (the trip's preload asks for thousands), and a refused tile was never asked for again, so parts of the city stopped loading. Refused tiles are now asked for again after a pause (4 s, doubling to a minute), and the city only falls back to satellite if its root fails three times.
 - The trip opens in the right theme from the first paint. It drew in light for the seconds the scripts took to load (grey buttons and a grey bar on the dark page), then switched; the saved or system theme is now set on the page before it draws.
@@ -31,7 +35,7 @@
 
 ### Flight prices are real or not charged
 - Fares come from Google Flights (through SerpApi, `SERPAPI_API_KEY`): the actual price for this route, these dates and this many travellers, out and back priced separately, from every airport in the city. Among flights within 40% of the quickest journey, the cheapest is picked, so a 30-hour detour never wins on price.
-- No guessed fare is ever charged. A "from" price on a listing or a distance estimate (the $297 Lagos–Rome on the slip) is no longer paid: without a real fare the slip shows "Compare live fares" with a Google Flights link, the budget line says no fare was guessed, and listed prices are marked "(listed)".
+- (Superseded later the same day: flights stay on the slip with a labelled estimate.) Without a real fare the slip showed "Compare live fares" instead of a price.
 - Tests: Google Flights fare picking and request, live-only charging (engine 427).
 
 ## 2026-11-03

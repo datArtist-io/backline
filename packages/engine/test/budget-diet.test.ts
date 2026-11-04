@@ -56,8 +56,10 @@ describe("the budget is computed, never written by the model", () => {
     expect(live[2]).toMatchObject({ item: "Food and drinks, 7 days", amount: 1400 });
     const gf = codeBudget(trip, stay, null, { origin: "Atlanta", km: 16024, options: [{ mode: "flight", live: true, priceMin: 1200, returnPrice: 1100, currency: "USD" }] } as never);
     expect(gf[0]).toMatchObject({ amount: (1200 + 1100) * 2, basis: "Google Flights fares for your dates" });
-    const none = codeBudget(trip, stay, null, { origin: "Atlanta", km: 16024, options: [{ mode: "flight", priceMin: 900, currency: "USD", site: "x.com" }] } as never);
-    expect(none[0].amount).toBeNull();
-    expect(none[0].basis).toMatch(/no fare is guessed/);
+    const listed = codeBudget(trip, stay, null, { origin: "Atlanta", km: 16024, options: [{ mode: "flight", priceMin: 900, currency: "USD", site: "x.com" }] } as never);
+    expect(listed[0]).toMatchObject({ amount: 900 * 2 * 2, basis: "fare listed on x.com; the live fare replaces it" });
+    const est = codeBudget(trip, stay, null, { origin: "Atlanta", km: 16024, options: [] } as never);
+    expect(est[0].basis).toMatch(/estimate from distance/);
+    expect(est[0].amount).toBeGreaterThan(4000);
   });
 });

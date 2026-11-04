@@ -645,6 +645,8 @@ export function ActionsCheckpoint({
   };
   const paid = actions.filter((a) => picked.includes(a.id) && a.mode === "auto" && a.price && (a.channel === "reserve" || a.channel === "call"));
   const totalUsdCents = paid.reduce((n, a) => n + (local(a.price!.total, a.price!.currency) ?? 0), 0);
+  // A fare that isn't the live price for these dates yet (listed online or from the distance): always marked.
+  const estimated = (a: TripAction) => a.kind === "book_travel" && /estimat|not yet the live price/i.test(a.subject ?? "");
   const show = (a: TripAction) => {
     if (!a.price) return null;
     const cents = w ? local(a.price.total, a.price.currency) : null;
@@ -736,7 +738,7 @@ export function ActionsCheckpoint({
                         <button type="button" className={`ck-row${on ? " on" : ""}`} aria-pressed={on} onClick={() => toggle(a.id)}>
                           <span className="ck-tick" aria-hidden="true" />
                           <span className="ck-txt"><b>{a.title}</b>{look && line(a) ? <small>{line(a)}</small> : null}</span>
-                          <em>{show(a)}</em>
+                          <em title={estimated(a) ? (a.subject ?? undefined) : undefined}>{estimated(a) && <small className="ck-est">est.</small>}{show(a)}</em>
                         </button>
                       </li>
                     );

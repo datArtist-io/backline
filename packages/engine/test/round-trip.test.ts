@@ -1,6 +1,6 @@
 // The whole round trip: hotel availability by taste and budget, getting there and back, rides.
 import { describe, expect, it, vi } from "vitest";
-import { chooseStay, plannedActions, ridesAction, travelActions, tripExecute, withStayChoice } from "../src/skills/trip";
+import { chooseStay, flightEstimate, plannedActions, ridesAction, travelActions, tripExecute, withStayChoice } from "../src/skills/trip";
 import { normalizeTrip } from "../src/trip-request";
 import { ctxWith } from "./helpers";
 
@@ -56,19 +56,26 @@ describe("getting there and back", () => {
     expect(out.options?.find((o) => o.best)?.title).toMatch(/Ethiopian/);
     expect(out.mode).toBe("auto");
   });
-  it("never charges a listed 'from' price: without a live fare it links to live fares instead", () => {
-    const legs = travelActions(travel, trip, { pay: true });
-    expect(legs).toHaveLength(1);
-    expect(legs[0].price).toBeNull();
-    expect(legs[0].mode).toBe("you");
-    expect(legs[0].title).toMatch(/Compare live fares/);
-    expect(legs[0].options?.[0].price).toMatch(/\(listed\)/);
+  it("without a live fare, uses the fare listed for the route and says it isn't the live price", () => {
+    const [out, back] = travelActions(travel, trip, { pay: true });
+    expect(out.price).toEqual({ total: 700 * 2, currency: "USD" });
+    expect(back.price).toEqual({ total: 700 * 2, currency: "USD" });
+    expect(out.subject).toMatch(/not yet the live price/);
+    expect(out.options?.[0].price).toMatch(/\(listed\)/);
   });
-  it("never guesses a long route's fare from distance", () => {
+  it("without any fare source, estimates from the distance and labels it", () => {
     const legs = travelActions({ ...(travel as object), options: [] } as never, trip, { pay: true });
-    expect(legs).toHaveLength(1);
-    expect(legs[0].price).toBeNull();
+    expect(legs).toHaveLength(2);
+    expect(legs[0].price!.total).toBe(flightEstimate(3990) * 2);
+    expect(legs[0].subject).toMatch(/Estimated fare: the live Google Flights fare replaces it/);
     expect(legs[0].url).toMatch(/google\.com\/travel\/flights/);
+  });
+  it("estimates long routes at realistic one-way fares", () => {
+    expect(flightEstimate(3990)).toBeGreaterThan(500);
+    expect(flightEstimate(3990)).toBeLessThan(620);
+    expect(flightEstimate(16024)).toBeGreaterThan(1000);
+    expect(flightEstimate(16024)).toBeLessThan(1200);
+    expect(flightEstimate(1200)).toBeLessThan(250);
   });
   it("offers nothing for a short route with no listed fare", () => {
     expect(travelActions({ ...(travel as object), km: 120, options: [] } as never, trip, { pay: true })).toEqual([]);

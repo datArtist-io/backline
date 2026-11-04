@@ -1131,6 +1131,7 @@ button:hover .ki-stop .ki-plane, .eq-card:hover .ki-stop .ki-plane { animation: 
 .ck-txt small { font-size: 12.5px; color: #5a6070; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ck-row em { font-style: normal; font-weight: 700; font-size: 14px; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .ck-also { margin: 10px 0 4px; }
+.ck-est { margin-right: 6px; padding: 1px 6px; border-radius: 999px; font-size: 10.5px; font-weight: 700; font-style: normal; letter-spacing: 0.02em; color: #8a5a00; background: rgba(255, 176, 32, 0.16); vertical-align: 1px; }
 .ck-homes { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin: 6px 2px 2px; font-size: 12.5px; color: #5a6070; }
 .ck-homes a { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 999px; font-weight: 600; color: #14171c; text-decoration: none; background: rgba(123, 92, 255, 0.08); }
 .ck-homes a:hover, .ck-homes a:focus-visible { background: rgba(123, 92, 255, 0.16); }

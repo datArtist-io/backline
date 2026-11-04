@@ -21,6 +21,7 @@ import { foldText, withTimeout } from "../util";
 import { travelFor, type TripTravelOutput } from "./trip-travel";
 import { flightsFor, type TripFlightsOutput } from "./flights";
 import { eventsFor, type TripEvent } from "./trip-events";
+import { flightEstimate } from "./trip";
 
 // ---------- shapes ----------
 
@@ -904,16 +905,18 @@ export function tripTools(ctx: SkillContext, s: TripAgentState): AnyTool<TripAge
         return `- ${o.mode}: ${o.title}${o.duration ? `, ${o.duration}` : ""}: ${price}`;
       });
       if (flight) lines.unshift(`- flight (bookable now): ${flight.airline ?? "airline"}, ${Math.round(flight.total)} ${flight.currency} for everyone, return`);
-      const total = flight ? { amount: flight.total, currency: flight.currency } : live ? { amount: (live.priceMin! + (live.returnPrice ?? live.priceMin!)) * people, currency: live.currency! } : null;
+      const est = !flight && !live && travel.data.km && travel.data.km >= 500 ? flightEstimate(travel.data.km) : null;
+      const total = flight ? { amount: flight.total, currency: flight.currency } : live ? { amount: (live.priceMin! + (live.returnPrice ?? live.priceMin!)) * people, currency: live.currency! } : est ? { amount: est * 2 * people, currency: "USD" } : null;
+      const label = !flight && !live && est ? " (an ESTIMATE from the distance, no live fare yet: call it an estimate, never a price)" : "";
       const b = tr.budget;
       const budgetLine = total
         ? b?.amount && b.scope !== "per_night" && b.currency === total.currency
-          ? `Flights for ${people}, return: ${Math.round(total.amount)} ${total.currency}. That leaves about ${Math.round(b.amount - total.amount)} ${b.currency} of the ${b.amount} ${b.currency} budget for the stay, food and outings${b.amount - total.amount < b.amount * 0.35 ? ": tight, so lean to cheaper stays (update_trip priceTier)" : ""}.`
-          : `Flights for ${people}, return: ${Math.round(total.amount)} ${total.currency}.`
-        : "No live fare for these dates: the payment slip will link to live fares and charge nothing for flights. Don't quote a fare.";
+          ? `Flights for ${people}, return: ${Math.round(total.amount)} ${total.currency}${label}. That leaves about ${Math.round(b.amount - total.amount)} ${b.currency} of the ${b.amount} ${b.currency} budget for the stay, food and outings${b.amount - total.amount < b.amount * 0.35 ? ": tight, so lean to cheaper stays (update_trip priceTier)" : ""}.`
+          : `Flights for ${people}, return: ${Math.round(total.amount)} ${total.currency}${label}.`
+        : "No fare found for these dates.";
       return {
         observation: [`Getting from ${travel.data.origin ?? originOf()} to ${travel.data.destination ?? tr.destination}${travel.data.km ? ` (${Math.round(travel.data.km)} km)` : ""}:`, ...(lines.length ? lines : ["- nothing found"]), budgetLine].join("\n"),
-        summary: total ? `Live fare: ${Math.round(total.amount).toLocaleString("en")} ${total.currency} return for ${people}` : opts.length ? `${opts.length} ways there; no live fare for these dates` : "No travel options found",
+        summary: total ? `${est && !live && !flight ? "Estimated fare" : "Live fare"}: ${Math.round(total.amount).toLocaleString("en")} ${total.currency} return for ${people}` : opts.length ? `${opts.length} ways there; no live fare for these dates` : "No travel options found",
       };
     },
   });

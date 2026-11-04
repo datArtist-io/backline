@@ -37,7 +37,13 @@ export function pickFare(json: unknown, currency: string): GoogleFare | null {
 
 export class GoogleFlightsClient {
   readonly name = "Google Flights";
-  constructor(private readonly config: { apiKey: string; timeoutMs?: number; fetch?: typeof fetch }) {
+  constructor(private readonly config: {
+    apiKey: string;
+    timeoutMs?: number;
+    fetch?: typeof fetch;
+    /** Reuse an answer for the same route, dates and travellers this long (Next.js data cache), to save searches. */
+    cacheSeconds?: number;
+  }) {
     if (!config.apiKey) throw new Error("GoogleFlightsClient requires an API key");
   }
 
@@ -56,7 +62,10 @@ export class GoogleFlightsClient {
     });
     const f = this.config.fetch ?? fetch;
     const timeout = AbortSignal.timeout(this.config.timeoutMs ?? 15000);
-    const res = await f(`https://serpapi.com/search.json?${p}`, { signal: q.signal ? AbortSignal.any([q.signal, timeout]) : timeout });
+    const signal = q.signal ? AbortSignal.any([q.signal, timeout]) : timeout;
+    // A practice run of the same trip shouldn't spend another search (the free plan has 250 a month).
+    const cache = this.config.cacheSeconds ? { next: { revalidate: this.config.cacheSeconds } } : {};
+    const res = await f(`https://serpapi.com/search.json?${p}`, { signal, ...cache } as RequestInit);
     if (!res.ok) throw new Error(`Google Flights returned ${res.status}`);
     return pickFare(await res.json(), q.currency);
   }
