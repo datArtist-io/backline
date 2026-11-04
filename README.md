@@ -130,18 +130,22 @@ npm run dev                                  # http://localhost:3000
 
 ## Documentation
 
-- **[System specification](docs/SYSTEM.md)** — definitions, lifecycle, sources, accuracy policy, consent, calls, payments, data, failure modes
-- **[Verification log](docs/VERIFICATION.md)** — live checks against independent sources, findings and fixes
-- **[Expedition design](docs/EXPERIENCE.md)** — the 3D experience, design system, motion and the research behind it
-- **[Changelog](docs/CHANGELOG.md)**
-- **[Launch film](launch-film/README.md)** — how the 42-second film is built and rendered
-- [Product requirements](docs/PRD.md)
-- [Feature specifications](docs/FEATURES.md)
-- [Architecture](docs/ARCHITECTURE.md)
-- [Security](SECURITY.md)
-- [Qloo API notes](docs/qloo-api-notes.md)
-- [Quality assurance](docs/QA.md)
-- [Roadmap](docs/ROADMAP.md)
+**Product**
+- [System specification](docs/SYSTEM.md): definitions, lifecycle, sources, accuracy policy, consent, calls, payments, data, failure modes
+- [Product requirements](docs/PRD.md) · [Feature specifications](docs/FEATURES.md) · [Roadmap](docs/ROADMAP.md)
+- [Expedition design](docs/EXPERIENCE.md): the 3D experience, design system and motion
+- [Launch film](launch-film/README.md)
+
+**Engineering**
+- [Architecture](docs/ARCHITECTURE.md) · [Decision records](docs/adr/README.md)
+- [API reference](docs/API.md) · [Third-party services](docs/INTEGRATIONS.md) · [Qloo API notes](docs/qloo-api-notes.md)
+- [Deployment](docs/DEPLOYMENT.md) · [Runbook](docs/RUNBOOK.md) · [Sign-in setup](docs/SETUP-AUTH.md)
+- [Testing](docs/TESTING.md) · [Quality assurance](docs/QA.md) · [Verification log](docs/VERIFICATION.md)
+- [Changelog](docs/CHANGELOG.md)
+
+**Policies**
+- [Security](SECURITY.md) · [Privacy notice](https://backline-beta-one.vercel.app/privacy) · [Terms of use](https://backline-beta-one.vercel.app/terms)
+- [Contributing](CONTRIBUTING.md) · [Code of conduct](CODE_OF_CONDUCT.md) · [License](LICENSE)
 
 ## Credits and data
 

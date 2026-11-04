@@ -2,6 +2,12 @@
 
 ## 2026-11-04
 
+### Documentation and policies
+- Terms of use at `/terms` (AI use, how prices work, approval, the demo wallet, refunds and cancellations, fair use, liability), linked from the footer and the privacy notice.
+- The privacy notice is current: every service that receives data (Google Flights through SerpApi, Google's 3D tiles, Groq, Anthropic, Persona, Telnyx, Vercel), cookies and storage, the calendar link, deleting a whole account, and that accounts are for adults.
+- New docs: API reference, third-party services, deployment, runbook (with a show-day checklist), testing, and decision records for the agent, prices, demo checkout, Qloo and the 3D city. The architecture doc describes the agent as it is now. Security: disclosure policy, incident response, public keys.
+- GitHub: contributing guide, code of conduct, issue and pull request templates, and CI (type check and tests on every push and pull request).
+
 ### Slip and trip polish
 - Your phone fills itself on the payment slip: from your account, or the number you used last on this browser. It was only fetched when the name or email was missing, so signed-in people always saw an empty box. A number typed on the slip is saved to the account.
 - Fly the trip is steadier: about 1.8 seconds per km, 15 to 36 seconds a day, with a longer beat at each stop (9 to 24 rushed past the buildings).

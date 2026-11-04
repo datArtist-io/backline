@@ -20,7 +20,9 @@ flowchart LR
   U[Sentence] --> P[Planner<br/>mission + trip + tastes]
   P --> T[trip.taste<br/>Qloo]
   T --> A[trip.agent<br/>ReAct loop]
-  A --> L[trip.plan<br/>days + budget]
+  A --> V[trip.travel · trip.flights · trip.events<br/>reuse the agent's lookups]
+  A --> L[trip.plan<br/>days + budget in code]
+  V --> L
   L --> R[trip.routes<br/>roads + rides]
   R --> X[trip.actions]
   X -->|approve| E[trip.execute]
@@ -28,8 +30,8 @@ flowchart LR
 
 1. **Planner** (`missions.ts`). The model routes the sentence to a mission and extracts the trip: destination, dates, people, budget, needs, a landmark, a celebrity to plan like (`inspiredBy`) and the things they say they love (`likes`). Anything the user didn't say is dropped (`groundTrip`). Without a model, a keyword parser does the same job.
 2. **Taste** (`skills/taste.ts`). See section 3.
-3. **Agent** (`skills/trip-agent.ts`). A JSON ReAct loop (`agent/runtime.ts`) with tools: `update_trip`, `locate`, `search_places`, `check_places`, `research`, `read_document`. Limits: 8 turns, 18 calls, 90 seconds. If the model stalls, a scripted autopilot finishes the job, and a final pass makes sure everything the user needs was found. Hotels are sorted into four lanes (premium, closest, best value, lowest price) with prices only where one is really listed.
-4. **Plan** (`skills/trip.ts`). The model writes the days, budget and tips from the agent's picks, using short ids that are mapped back, so it can't invent places. A template plan covers model failures.
+3. **Agent** (`skills/trip-agent.ts`). A JSON ReAct loop (`agent/runtime.ts`): each turn the model reasons in one sentence, calls up to three tools, reads the results and decides the next step. Tools: `update_trip`, `locate`, `search_places`, `check_places`, `find_travel` (real Google Flights fares, weighed against the budget), `find_events`, `research`, `read_document`. Limits: 10 turns, 24 calls, 90 seconds, with a last finish-only turn. A tool failing twice in a row is switched off; a finish missing something is sent back once; if the model fails three times in a row, a scripted autopilot finishes with the same tools, and a final pass makes sure everything the user needs was found. Why: [ADR 0001](adr/0001-react-agent-core.md). Hotels are sorted into four lanes (premium, closest, best value, lowest price) with prices only where one is really listed.
+4. **Plan** (`skills/trip.ts`). The model writes the days and tips from the agent's picks, using short ids that are mapped back, so it can't invent places. The budget is rebuilt in code from live fares and rates ([ADR 0002](adr/0002-prices-in-code.md)). A template plan covers model failures.
 5. **Routes** (`skills/trip-routes.ts`). Each day's stops are routed on real roads (OSRM), with ride fares between stops and the round trip from the user's home city.
 6. **Actions and execute.** Hotel booking and payment through LiteAPI (live rates, prebook, book), reservation emails, calls and a calendar file, approved by the user first (or straight through in "Just do it"). Payment happens only at the approved price and within budget (a swapped hotel keeps the same limit); card details never pass through Backline. Signed-out visitors get no paid, emailed or called actions, and a request already booked in the last six hours (looked up in the person's saved trips) is not booked again unless they tap Run again.
 

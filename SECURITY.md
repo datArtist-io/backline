@@ -2,13 +2,13 @@
 
 ## Reporting a vulnerability
 
-Email the maintainer (see the GitHub profile) with steps to reproduce. Please don't open a public issue.
+Email the maintainer (see the GitHub profile) with steps to reproduce. Please don't open a public issue. You'll get a reply within 3 days, and a fix or a plan within 14 for anything serious. Testing in good faith (your own account, no harm to others' data or to the service, no automated scanning at volume) won't be pursued; please give us time to fix before disclosing.
 
 ## What we protect
 
 | Asset | Why it matters |
 |---|---|
-| API keys (Qloo, Nebius, Claude, Tavily, Supabase, Resend, Vapi) | Abuse costs money and can get keys revoked |
+| API keys (Qloo, Nebius, Groq, Claude, Tavily, SerpApi, Duffel, LiteAPI, Google Maps, Supabase, Resend, Vapi, Persona) | Abuse costs money and can get keys revoked |
 | What people tell the planner (requests, documents, preferences) | Plans can reveal where someone will be and when |
 | Qloo data | Licensed for the hackathon; must not be published |
 | Account details (name, contact, date of birth, trips, memories) | Personal data; trips reveal where someone will be and when |
@@ -18,7 +18,7 @@ Email the maintainer (see the GitHub profile) with steps to reproduce. Please do
 
 | Threat | Control |
 |---|---|
-| **Leaked secrets** | Keys live only in the hosting provider's settings and the git-ignored `apps/web/.env.local`. Environment variables are validated at start-up. Keys are used only on the server and never sent to the browser. |
+| **Leaked secrets** | Keys live only in the hosting provider's settings and the git-ignored `apps/web/.env.local`. Environment variables are validated at start-up. Keys are used only on the server and never sent to the browser, except the ones made to be public (`NEXT_PUBLIC_*`: the Google Map Tiles key, restricted to this site; Vapi's public key; Persona's template id). |
 | **Prompt injection** (a web page, document or request tells the model what to do) | Web text, documents and the request are passed to the model as quoted data with a rule that they can't change instructions. The agent's tools are fixed and validated; it can't fetch arbitrary URLs. Outputs are parsed with Zod. |
 | **Invented places, prices or contacts** | The agent can pick only ids its searches returned. Emails and phone numbers from the web are kept only if they appear in the cited page; hotel prices only if their page is among the search results. |
 | **Actions the user didn't want** | Emails, calls and reservations run only after one approval of the whole trip (sealed to the exact plan shown), within per-mission limits (4 emails, 8 calls, 1 room reservation). Hotel payment goes through the booking provider's account payment method, only at the approved price and within the trip's budget; a higher price stops for approval. Card details never pass through Backline. Calls say they're from an AI assistant. With sign-in switched on, only a signed-in person can have anything paid, emailed or called: everyone else gets the plan and links. The same request isn't booked twice within six hours unless the person taps Run again. Automatic booking covers one traveller and one room; a swapped hotel keeps the approved price limit. |
@@ -44,6 +44,10 @@ Email the maintainer (see the GitHub profile) with steps to reproduce. Please do
 - Signed out: plans are built per request and aren't stored on the server; preferences stay in the browser.
 - Signed in: details, a compact record of each finished trip (bookings, days, budget) and what the agent remembers (tastes named, cities visited, hotels stayed at) are stored in the person's Supabase rows. Raw Qloo responses are never stored.
 - Logs contain no keys, personal details or Qloo payloads.
+
+## Incident response
+
+See [docs/RUNBOOK.md](docs/RUNBOOK.md#incidents): turn off what's at risk, rotate keys, tell the people affected (and the data protection authority within 72 hours if personal data was exposed), and record the fix.
 
 ## Release checklist
 
