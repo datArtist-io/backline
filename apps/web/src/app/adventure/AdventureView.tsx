@@ -15,7 +15,6 @@ import { KIND_COLOR, KIND_LABEL, KIND_NOUN, hoursOf, type AdventureModel, type D
 import Codex from "./Codex";
 import Space from "./Space";
 import "./adventure.css";
-import CurrencySwitch from "./CurrencySwitch";
 
 const Earth = dynamic(() => import("./Earth"), { ssr: false });
 const World = dynamic(() => import("./World"), { ssr: false });
@@ -583,7 +582,6 @@ export default function AdventureView({
             </div>
           )}
           <nav className="eq-doors" aria-label="Trip">
-            <CurrencySwitch />
             <button type="button" className={sheet === "guide" ? "on" : ""} onClick={() => setSheet((s) => (s === "guide" ? null : "guide"))}>
               Field guide{intelPending ? <span className="eq-dot" aria-label="still gathering" /> : null}
             </button>

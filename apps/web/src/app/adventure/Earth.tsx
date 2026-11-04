@@ -1187,16 +1187,16 @@ export default function Earth(props: EarthProps) {
       layer.travelling = true;
       s.bearing = map.getBearing();
     }
-    // Brisk, like a film's travelling shot: about a second per km, between 9 and 24 seconds a day, with
-    // a short beat at each stop. (It was up to 46 seconds a day, which dragged.)
-    const dur = Math.max(9, Math.min(24, 5 + c.km * 1.1));
+    // A steady travelling shot: about 1.8 seconds per km, 15 to 36 seconds a day, with a beat at each
+    // stop to take it in. (Up to 46 seconds dragged; 9 to 24 rushed past the buildings.)
+    const dur = Math.max(15, Math.min(36, 6 + c.km * 1.8));
     if (s.dwell > 0) s.dwell -= dt;
     else {
       prog.t = Math.min(1, prog.t + dt / dur);
       const stop = route.stops[s.nextStop];
       if (stop && prog.t >= stop.at) {
         prog.t = stop.at;
-        s.dwell = 1.1;
+        s.dwell = 1.6;
         s.nextStop++;
         p.onArrive(stop.nodeId, route.day);
       }

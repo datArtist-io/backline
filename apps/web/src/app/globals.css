@@ -1655,6 +1655,10 @@ a { color: inherit; text-decoration: none; }
 .ck-secure svg { flex: none; color: #2e9d6a; }
 .ck-secure a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
 .account-acts { display: flex; gap: 8px; flex-wrap: wrap; }
+.acc-cur { gap: 6px; cursor: default; }
+.acc-cur span { color: var(--muted, #5a6070); font-weight: 500; }
+.acc-cur select { font: inherit; font-weight: 700; color: var(--ink); background: transparent; border: 0; padding: 0 2px; cursor: pointer; }
+.acc-cur select:focus-visible { outline: 2px solid rgba(123, 92, 255, 0.6); outline-offset: 2px; border-radius: 4px; }
 
 /* Private monitor (/ops) */
 .ops { max-width: 1180px; margin: 0 auto; padding: 32px 16px 80px; font-size: 14px; color: var(--ink); }

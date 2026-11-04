@@ -11,6 +11,7 @@ import TravelDocuments from "./TravelDocuments";
 import Verify from "../mission/Verify";
 import WalletPanel from "../mission/Wallet";
 import { toYou } from "@backline/engine/you";
+import { CURRENCIES, useDisplayCurrency } from "@/lib/currency";
 
 type Account = { user: Me; profile: Profile; memories: Memory[]; trips: SavedTrip[]; searches: Search[] };
 
@@ -167,6 +168,7 @@ export default function AccountView() {
           </div>
         </div>
         <div className="account-acts">
+          <AccountCurrency />
           <a className="act" href="/security">Security</a>
           {/* Ends the session on every device, not just this one. */}
           <button type="button" className="act" onClick={out} title="Signs you out on every device">
@@ -400,3 +402,20 @@ const TABS = [
   { id: "prefs", label: "Preferences" },
   { id: "history", label: "History" },
 ] as const;
+
+/** The currency every price is shown in, everywhere (the wallet stays in US dollars underneath). */
+function AccountCurrency() {
+  const [c, set] = useDisplayCurrency();
+  return (
+    <label className="act acc-cur" title="Show prices in">
+      <span>Prices in</span>
+      <select value={c} onChange={(e) => set(e.target.value)} aria-label="Show prices in">
+        {[...new Set([c, ...CURRENCIES])].map((x) => (
+          <option key={x} value={x}>
+            {x}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}

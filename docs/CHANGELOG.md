@@ -2,6 +2,11 @@
 
 ## 2026-11-04
 
+### Slip and trip polish
+- Your phone fills itself on the payment slip: from your account, or the number you used last on this browser. It was only fetched when the name or email was missing, so signed-in people always saw an empty box. A number typed on the slip is saved to the account.
+- Fly the trip is steadier: about 1.8 seconds per km, 15 to 36 seconds a day, with a longer beat at each stop (9 to 24 rushed past the buildings).
+- The currency switch moved from the trip's top bar to your account ("Prices in"), next to Security. It still applies everywhere.
+
 ### The agent decides travel and events too
 - Getting there and what's on are now tools the ReAct agent chooses: `find_travel` (real Google Flights fares for the dates and travellers, plus trains and buses) and `find_events` (concerts, matches, festivals on the dates, ranked by taste). It reads the fare against the budget ("That leaves about $540 of the $3,000 budget: tight, so lean to cheaper stays") and plans around an event it found. The autopilot uses the same tools.
 - The steps after the agent reuse its answers (one lookup per run, shared), and only fetch themselves when the agent didn't, so nothing is asked twice and no fare search is wasted.

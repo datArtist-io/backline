@@ -1221,10 +1221,6 @@ button:hover .ki-stop .ki-plane, .eq-card:hover .ki-stop .ki-plane { animation: 
 @media (max-width: 860px) { .eq .eq-stopcard { bottom: calc(var(--dock-h, 150px) + 20px); } }
 
 /* Currency pill in the top bar: as compact as the doors beside it. */
-.eq-doors .eq-cur { position: relative; display: inline-flex; align-items: center; border-radius: 999px; }
-.eq-cur select { appearance: none; -webkit-appearance: none; font: inherit; font-size: 14px; font-weight: 600; color: var(--ink); background: transparent; border: 0; padding: 9px 28px 9px 14px; border-radius: 999px; cursor: pointer; }
-.eq-cur select:focus-visible { outline: 2px solid rgba(123, 92, 255, 0.6); outline-offset: 2px; }
-.eq-cur-caret { position: absolute; right: 12px; font-size: 10px; opacity: 0.6; pointer-events: none; }
 
 /* The trip's 3D city loading ahead of Fly the trip: one small pill under the top bar. */
 .eq-preload { margin: 0; padding: 6px 12px; border-radius: 999px; font-size: 12.5px; font-weight: 600; color: var(--ink); background: var(--glass, rgba(255, 255, 255, 0.82)); box-shadow: var(--rim, 0 0 0 1px rgba(16, 19, 43, 0.08)); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); transition: opacity 0.4s ease; }

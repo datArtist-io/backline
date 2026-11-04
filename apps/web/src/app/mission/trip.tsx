@@ -14,6 +14,8 @@ import { buildPptx, outline, printDocument, saveBlob, slidesHtml, tripDocumentHt
 import { EMAIL_MAX, mailtoUrl, plainText, telegramUrl, tripMessage, whatsappUrl, type ShareTrip } from "@/lib/share";
 import { Notes, Receipts } from "./sections";
 import { formatMoney } from "@/lib/currency";
+import { loadProfile } from "@/lib/profile";
+import { loadDetails, saveDetails } from "@/lib/auth-client";
 
 type R<T> = StepResult & { data: T };
 
@@ -600,15 +602,18 @@ export function ActionsCheckpoint({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
-  const [me, setMe] = useState<Profile>({ name: profile.name, email: profile.email, phone: profile.phone });
-  // Signed in: their account's name and email fill any gaps, so they never type what we already know.
+  // The phone they used last time on this browser fills in too.
+  const [me, setMe] = useState<Profile>({ name: profile.name, email: profile.email, phone: profile.phone || loadProfile().phone });
+  const signedIn = useRef(false);
+  // Signed in: their account's name, email and phone fill any gaps, so they never type what we already know.
   useEffect(() => {
-    if (me.name?.trim() && me.email?.trim()) return;
+    if (me.name?.trim() && me.email?.trim() && me.phone?.trim()) return;
     let live = true;
     fetch("/api/account", { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : null))
       .then((d: { user?: { name?: string | null; email?: string | null }; profile?: Profile } | null) => {
         if (!live || !d) return;
+        signedIn.current = Boolean(d.user);
         setMe((m) => ({
           ...m,
           name: m.name?.trim() || d.profile?.name || d.user?.name || m.name,
@@ -777,7 +782,12 @@ export function ActionsCheckpoint({
         </p>
         <footer className="cp-foot ck-foot">
           <button type="button" className="ck-look" onClick={() => (onLook ? onLook() : setLook((v) => !v))}>Take a look first</button>
-          <button type="button" className="go" disabled={busy || picked.length === 0 || missing || Boolean(short)} onClick={() => onConfirm(picked, { ...profile, ...me })}>
+          <button type="button" className="go" disabled={busy || picked.length === 0 || missing || Boolean(short)} onClick={() => {
+            // Kept on the account, so the next slip (on any device) already has the number.
+            const phone = me.phone?.trim();
+            if (signedIn.current && phone && phone !== profile.phone) void loadDetails(true).then((cur) => (cur.phone === phone ? true : saveDetails({ ...cur, phone }, true))).catch(() => {});
+            onConfirm(picked, { ...profile, ...me });
+          }}>
             {busy ? "Paying…" : paid.length ? `Approve & pay${w?.ready ? ` ${walletMoney(w)(totalUsdCents)}` : ""}` : "Approve"}
           </button>
         </footer>
