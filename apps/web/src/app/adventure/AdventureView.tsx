@@ -9,7 +9,7 @@ import type { StepProgress } from "@backline/engine";
 import { Vector3 } from "three";
 import type { Shared } from "./World";
 import type { Spot } from "./Earth";
-import { GOOGLE_KEY } from "./Earth";
+import { GOOGLE_KEY, HAS_TRAFFIC } from "./Earth";
 import { skyKind, type Sky } from "./world";
 import { KIND_COLOR, KIND_LABEL, KIND_NOUN, hoursOf, type AdventureModel, type DayRoute, type NodeKind, type QuestNode } from "./model";
 import Codex from "./Codex";
@@ -211,6 +211,7 @@ export default function AdventureView({
     if (hasLive) setSheet("live");
   }, [hasLive]);
   const [showTaste, setShowTaste] = useState(true);
+  const [traffic, setTraffic] = useState(false);
   const [introKey, setIntroKey] = useState(0);
   const [homeKey, setHomeKey] = useState(0);
   const [ready, setReady] = useState(false);
@@ -470,6 +471,7 @@ export default function AdventureView({
               introKey={introKey}
               homeKey={homeKey}
               showTaste={showTaste}
+              traffic={traffic}
               look={look}
               weather={weather}
               journey={journey}
@@ -771,6 +773,10 @@ export default function AdventureView({
                     {mode === "earth" && looks().map((l) => (
                       <button key={l} type="button" role="menuitemradio" aria-checked={look === l} className={look === l ? "on" : ""} onClick={() => setLook(l)}>{LOOK_LABEL[l]}</button>
                     ))}
+                    {mode === "earth" && HAS_TRAFFIC && (
+                      // Traffic lies on the roads, which the 3D buildings cover: turning it on shows the satellite city.
+                      <button type="button" role="menuitemcheckbox" aria-checked={traffic} className={traffic ? "on" : ""} onClick={() => { setTraffic((t) => !t); if (!traffic && look === "photoreal") setLook("real"); }}>Live traffic</button>
+                    )}
                     <button type="button" role="menuitemradio" aria-checked={mode === "taste"} className={mode === "taste" ? "on" : ""} onClick={() => setMode((m) => (m === "earth" ? "taste" : "earth"))}>Taste map</button>
                     <button type="button" role="menuitem" onClick={() => pickTheme(theme === "dark" ? "light" : "dark")}>{theme === "dark" ? "Light mode" : "Dark mode"}</button>
                     {onClassic && <button type="button" role="menuitem" onClick={onClassic}>Classic view</button>}

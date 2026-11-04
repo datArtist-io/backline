@@ -10,6 +10,7 @@ What each outside service does, what it receives, and what happens when it's mis
 | **Duffel** | Airline offers and booking | Route, dates; traveller and passport details at booking | Google Flights fares only; `BOOKING_LIVE` unset means price-only | `DUFFEL_API_KEY` |
 | **LiteAPI** | Live hotel rates and booking | Destination, dates, guests; traveller at booking | Rates listed online, labelled; estimates labelled | `LITEAPI_API_KEY` |
 | **OpenStreetMap** (Nominatim, Overpass, OSRM) | Geocoding, places, road routes | Place names and coordinates | Three Overpass mirrors and two routing servers race; straight lines between stops as a last resort | — |
+| **TomTom Traffic** | Live traffic flow on the city's roads | Map tile requests from the browser | No Live traffic switch | `NEXT_PUBLIC_TOMTOM_KEY` |
 | **Google Map Tiles** | Photoreal 3D city | Map tile requests from the browser | Satellite with terrain and 3D buildings | `NEXT_PUBLIC_GOOGLE_MAPS_KEY` |
 | **Tavily / Wikimedia / Claude search** | Web research, events, listed prices | Research questions (no personal details) | Wikivoyage fallback; a failing search is switched off for the run | `TAVILY_API_KEY`, `ANTHROPIC_API_KEY` |
 | **Supabase** | Accounts, trips, memories, wallet ledger | Account data (row-level security) | Works signed out; details stay in the browser | `NEXT_PUBLIC_SUPABASE_*`, `SUPABASE_*` |

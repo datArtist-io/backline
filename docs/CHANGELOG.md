@@ -2,6 +2,9 @@
 
 ## 2026-11-04
 
+### Live traffic
+- View → Live traffic (off by default): TomTom's live flow on the city's roads, green flowing, orange slow, red jammed, under the routes and pins. The 3D buildings cover the roads, so turning it on in the 3D city shows the satellite city. Needs `NEXT_PUBLIC_TOMTOM_KEY` (free plan, restricted to the site); without it the switch doesn't appear.
+
 ### Documentation and policies
 - Terms of use at `/terms` (AI use, how prices work, approval, the demo wallet, refunds and cancellations, fair use, liability), linked from the footer and the privacy notice.
 - The privacy notice is current: every service that receives data (Google Flights through SerpApi, Google's 3D tiles, Groq, Anthropic, Persona, Telnyx, Vercel), cookies and storage, the calendar link, deleting a whole account, and that accounts are for adults.

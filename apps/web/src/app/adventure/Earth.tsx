@@ -35,6 +35,8 @@ export type EarthProps = {
   introKey: number;
   homeKey: number;
   showTaste: boolean;
+  /** Live traffic on the roads (green flowing, orange slow, red jammed). */
+  traffic?: boolean;
   /** Real satellite imagery, or the painted game map. */
   look: "photoreal" | "real" | "painted";
   /** The sky to paint: the day's forecast and the hour on the clock. */
@@ -79,6 +81,9 @@ const pageKey = () => (typeof window === "undefined" ? "" : `${window.location.p
 const GLYPHS = process.env.NEXT_PUBLIC_MAP_GLYPHS || "https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf";
 /** Google Map Tiles API key: turns on Photoreal (Google Earth's 3D city models). */
 export const GOOGLE_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY || "";
+/** Live traffic (TomTom flow tiles), shown when the person turns Traffic on. Without a key there's no switch. */
+const TOMTOM_KEY = process.env.NEXT_PUBLIC_TOMTOM_KEY || "";
+export const HAS_TRAFFIC = Boolean(TOMTOM_KEY);
 const DEM = process.env.NEXT_PUBLIC_TERRAIN_TILES ?? "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png";
 
 const GOLD = "#f2cf7a";
@@ -596,6 +601,11 @@ export default function Earth(props: EarthProps) {
         },
       });
       map.addLayer({ id: "zone", type: "line", source: "zone", paint: { "line-color": GOLD, "line-width": 1.4, "line-dasharray": [2, 3], "line-opacity": ["interpolate", ["linear"], ["zoom"], 9, 0, 11, 0.8] } });
+      // Live traffic flow under the routes and pins: only drawn when the person turns it on.
+      if (TOMTOM_KEY) {
+        map.addSource("traffic", { type: "raster", tileSize: 256, minzoom: 6, maxzoom: 18, attribution: "Traffic © TomTom", tiles: ["a", "b", "c", "d"].map((h) => `https://${h}.api.tomtom.com/traffic/map/4/tile/flow/relative0/{z}/{x}/{y}.png?tileSize=256&key=${encodeURIComponent(TOMTOM_KEY)}`) });
+        map.addLayer({ id: "traffic", type: "raster", source: "traffic", minzoom: 8, layout: { visibility: "none" }, paint: { "raster-opacity": 0.92, "raster-fade-duration": 300 } });
+      }
       map.addLayer({ id: "route-glow", type: "line", source: "routes", layout: { "line-cap": "round", "line-join": "round" }, paint: { "line-color": ["get", "color"], "line-width": ["interpolate", ["linear"], ["zoom"], 10, 6, 16, 18], "line-blur": 8, "line-opacity": 0.35 } });
       map.addLayer({ id: "route", type: "line", source: "routes", layout: { "line-cap": "round", "line-join": "round" }, paint: { "line-color": ["get", "color"], "line-width": ["interpolate", ["linear"], ["zoom"], 10, 1.6, 16, 4.5], "line-opacity": 0.9 } });
       map.addLayer({ id: "trail", type: "line", source: "trail", layout: { "line-cap": "round", "line-join": "round" }, paint: { "line-color": "#ffffff", "line-width": ["interpolate", ["linear"], ["zoom"], 10, 3, 17, 8], "line-blur": 1, "line-opacity": 0.95 } });
@@ -786,6 +796,7 @@ export default function Earth(props: EarthProps) {
     // On the 3D city the routes are ribbons on the real streets (route-ribbons.ts); a flat line on top
     // would cut across every building.
     for (const id of ["route", "route-glow", "trail"]) if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", photo ? "none" : "visible");
+    if (map.getLayer("traffic")) map.setLayoutProperty("traffic", "visibility", p.traffic && !photo ? "visible" : "none");
     if (photoRef.current) photoRef.current.enabled = photo;
     // Google's tiles carry their own terrain; MapLibre's would lift the satellite through them.
     try {
@@ -1078,7 +1089,7 @@ export default function Earth(props: EarthProps) {
   useEffect(() => {
     styleState();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [props.selectedId, props.hoverId, props.activeDay, props.showTaste, props.look, props.weather.kind, props.weather.hour]);
+  }, [props.selectedId, props.hoverId, props.activeDay, props.showTaste, props.traffic, props.look, props.weather.kind, props.weather.hour]);
 
   // The request just got understood while the globe waits for home: give home its short moment now.
   useEffect(() => {
