@@ -195,7 +195,10 @@ export async function POST(req: Request) {
         if (ctx.calls && !ctx.callsLive) {
           const own = session ? toE164(profile.phone ?? null, DIAL[(req.headers.get("x-vercel-ip-country") ?? "").toUpperCase()]) : null;
           // Checked here, but only counted when a call is actually placed: planning or approving isn't a call.
-          ctx.callDemoTo = session ? (own && callsLeft(session.user.id) ? own : null) : supabaseConfig() ? null : ctx.callDemoTo;
+          // No phone on the account: the demo line (CALL_DEMO_TO, the owner's phone) rings instead, so the
+          // payment slip never has to ask for a number.
+          const line = own ?? ctx.callDemoTo ?? null;
+          ctx.callDemoTo = session ? (line && callsLeft(session.user.id) ? line : null) : supabaseConfig() ? null : ctx.callDemoTo;
           if (session && ctx.calls) {
             const inner = ctx.calls;
             const uid = session.user.id;

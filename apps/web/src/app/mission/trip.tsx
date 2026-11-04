@@ -630,8 +630,9 @@ export function ActionsCheckpoint({
   }, []);
   const needsDetails = actions.some((a) => picked.includes(a.id) && a.mode === "auto");
   const demoCall = Boolean(demoLine) && actions.some((a) => picked.includes(a.id) && a.channel === "call" && a.mode === "auto");
-  const phoneOk = /^\+?[\d\s().-]{8,20}$/.test(me.phone?.trim() ?? "");
-  const missing = needsDetails && (!me.name?.trim() || !me.email?.trim() || (demoCall && !phoneOk));
+  // Name and email come from the account; the box only shows when one is missing. In this demo the calls
+  // ring the account's phone (or the demo line), so a phone isn't asked for here.
+  const missing = needsDetails && (!me.name?.trim() || !me.email?.trim());
   const toggle = (id: string) => setPicked((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]));
   const { w } = useWallet();
   const [look, setLook] = useState(false);
@@ -766,7 +767,7 @@ export function ActionsCheckpoint({
             </details>
           )}
           {priced.length > 0 && <button type="button" className="ck-toggle" onClick={() => setLook((v) => !v)} aria-expanded={look}>{look ? "Fewer details" : "Show details for each payment"}</button>}
-          {needsDetails && (
+          {missing && (
             <div className="me">
               <p className="sub">Who I&rsquo;m booking for</p>
               <div className="me-row">

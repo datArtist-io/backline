@@ -25,6 +25,7 @@
 - Fixed: the plane had stopped flying in. Where you fly from came from the getting-there step, which now waits for the agent (about 30 s), and the globe stops waiting after 7. A small first step (`trip.home`) now pins the departure city within a second or two.
 
 ### Slip and trip polish
+- "Who I'm booking for" is gone from the payment slip when the account already has a name and email; it only appears when one is missing. A phone is no longer asked for: demo calls ring the account's phone, else the demo line (`CALL_DEMO_TO`).
 - Pressing send on the home page no longer leaves a half-finished frame (headline and buttons gone, blobs at full colour) on screen while the trip loads: the page settles into the trip's own night sky with "Planning your trip", and the trip opens into it.
 - The 3D city keeps filling in. Google refuses tiles for a while when too many are asked for in a minute (the trip's preload asks for thousands), and a refused tile was never asked for again, so parts of the city stopped loading. Refused tiles are now asked for again after a pause (4 s, doubling to a minute), and the city only falls back to satellite if its root fails three times.
 - The trip opens in the right theme from the first paint. It drew in light for the seconds the scripts took to load (grey buttons and a grey bar on the dark page), then switched; the saved or system theme is now set on the page before it draws.
