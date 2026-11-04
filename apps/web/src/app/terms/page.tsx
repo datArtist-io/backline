@@ -5,7 +5,7 @@ import { BRAND } from "@/lib/brand";
 
 export const metadata: Metadata = { title: "Terms of use" };
 
-const contact = process.env.NEXT_PUBLIC_CONTACT_EMAIL;
+const contact = process.env.NEXT_PUBLIC_CONTACT_EMAIL || "backline.trips@gmail.com";
 
 export default function TermsPage() {
   return (

@@ -2,7 +2,7 @@
 
 ## Reporting a vulnerability
 
-Email the maintainer (see the GitHub profile) with steps to reproduce. Please don't open a public issue. You'll get a reply within 3 days, and a fix or a plan within 14 for anything serious. Testing in good faith (your own account, no harm to others' data or to the service, no automated scanning at volume) won't be pursued; please give us time to fix before disclosing.
+Email **backline.trips@gmail.com** with steps to reproduce. Please don't open a public issue. You'll get a reply within 3 days, and a fix or a plan within 14 for anything serious. Testing in good faith (your own account, no harm to others' data or to the service, no automated scanning at volume) won't be pursued; please give us time to fix before disclosing.
 
 ## What we protect
 

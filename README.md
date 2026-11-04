@@ -126,7 +126,7 @@ npm run dev                                  # http://localhost:3000
 | `SUPABASE_SECRET_KEY` | Server-only Supabase key for usage totals in the monitor |
 | `ADMIN_EMAILS` | Accounts that can open the private monitor at `/ops` (comma-separated) |
 | `SUPABASE_URL` | Same project URL, read on the server |
-| `NEXT_PUBLIC_SITE_URL`, `NEXT_PUBLIC_CONTACT_EMAIL` | Public site URL and privacy contact |
+| `NEXT_PUBLIC_SITE_URL`, `NEXT_PUBLIC_CONTACT_EMAIL` | Public site URL and privacy contact (defaults to backline.trips@gmail.com) |
 
 ## Documentation
 
