@@ -9,6 +9,7 @@
 - GitHub: contributing guide, code of conduct, issue and pull request templates, and CI (type check and tests on every push and pull request).
 
 ### Flights always on the slip, live fare when there is one
+- Live: Singapore from Atlanta for two returned a Google Flights fare (Alaska + JAL, 2 stops, 28 h 50 min, $926 out and $816 back a person, $3,484 for two), chosen by the agent with no "est.". Pages that name no way, time or price (a Wikipedia airport page, a city guide) are no longer listed as ways to get there.
 - Live fares no longer depend on Duffel: the main airports of ~140 cities are built in (Atlanta ATL, Singapore SIN, London all five), and Duffel's lookup is used only for the rest. With Duffel's test key, the airport lookup was the step that failed and every trip fell back to "est.".
 - When Google Flights fails, the reason is kept (in the trip's gaps and the server log) instead of disappearing, and `/api/health` shows whether the SerpApi key works and how many searches are left (that check costs no search).
 - Getting there and back is always on the payment slip. The fare, best first: the live Google Flights fare for the dates; a fare listed online for the route; an estimate from the distance (recalibrated on real fares: Lagos–Rome about $560 one way, not $297). Anything but the live fare carries an "est." tag on the slip and says the live fare replaces it, and the agent calls it an estimate. Turning SerpApi on (or it answering again) swaps in the live fare by itself.

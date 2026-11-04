@@ -1034,7 +1034,8 @@ export function flightEstimate(km: number): number {
  */
 export function travelActions(t: TripTravelOutput | undefined, trip: TripRequest, can: { pay: boolean }): Omit<TripAction, "id">[] {
   if (!t?.origin || !t.destination) return [];
-  const opts = (t.options ?? []).filter((o) => o.mode !== "car");
+  // Ways there worth showing: not driving, and not a page that names no way, time or price.
+  const opts = (t.options ?? []).filter((o) => o.mode !== "car" && !(o.mode === "other" && !o.duration && o.priceMin == null && o.priceMax == null));
   const from = t.origin.split(",")[0], to = t.destination.split(",")[0];
   const people = Math.max(1, trip.adults);
   const range = (o: TravelOption) => (o.priceMin != null || o.priceMax != null) && o.currency ? `${o.priceMin != null && o.priceMax != null && o.priceMin !== o.priceMax ? `${Math.round(o.priceMin)}–${Math.round(o.priceMax)}` : Math.round((o.priceMin ?? o.priceMax)!)} ${o.currency} pp one way${o.live ? "" : " (listed)"}` : null;

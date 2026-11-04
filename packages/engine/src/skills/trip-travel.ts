@@ -308,7 +308,8 @@ async function travelCompute(ctx: SkillContext, input: BriefInput): Promise<{ da
       : Promise.resolve(null),
   ]);
   if (!fare || !base.data.origin) return fareError && base.data.origin ? { ...base, data: { ...base.data, gaps: [...base.data.gaps, `Live fare (Google Flights: ${fareError})`] } } : base;
-  const rest = base.data.options.filter((o) => o.mode !== "flight").map((o) => ({ ...o, best: false }));
+  // Next to a real fare, only real alternatives: a train or bus with a time or a price, not a guide page.
+  const rest = base.data.options.filter((o) => o.mode !== "flight" && o.mode !== "other" && (o.duration || o.priceMin != null || o.priceMax != null)).map((o) => ({ ...o, best: false }));
   return { ...base, data: { ...base.data, options: [fare, ...rest] } };
 }
 
