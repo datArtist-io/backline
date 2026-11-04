@@ -8,6 +8,8 @@ import { UNTRUSTED_WEB_RULE, languageRule, quoteWeb, webEvidence } from "../grou
 import type { TasteOutput } from "./taste";
 import { agentOf, tripDates } from "./trip";
 import { withTimeout } from "../util";
+import type { TripAgentOutput } from "./trip-agent";
+import { shared, tripKey } from "./shared";
 
 export const EVENT_KINDS = ["concert", "festival", "sport", "theatre", "comedy", "exhibition", "market", "food", "nightlife", "tour", "other"] as const;
 
@@ -163,8 +165,21 @@ export const tripEvents: Skill<BriefInput, TripEventsOutput> = {
   timeoutMs: 110_000,
   output: eventsOutput,
   async run(ctx, input, deps) {
-    const a = agentOf(deps);
-    const taste = deps["trip.taste"]?.data as TasteOutput | undefined;
+    // The agent usually looked for events itself (find_events); this reuses that answer.
+    return eventsFor(ctx, input, agentOf(deps), deps["trip.taste"]?.data as TasteOutput | undefined);
+  },
+};
+
+type EventsResult = { data: TripEventsOutput; evidence: Evidence[]; notes: string[] };
+type EventsAsk = Pick<TripAgentOutput, "trip"> & { where: { city: Pick<NonNullable<TripAgentOutput["where"]["city"]>, "name" | "country"> | null } };
+
+/** What's on during the trip, looked up once per run (the agent's tool and this step share it). */
+export function eventsFor(ctx: SkillContext, input: BriefInput, a: EventsAsk, taste: TasteOutput | undefined): Promise<EventsResult> {
+  return shared(input, tripKey("events", a.trip, a.where.city?.name ?? ""), () => eventsCompute(ctx, input, a, taste));
+}
+
+async function eventsCompute(ctx: SkillContext, input: BriefInput, a: EventsAsk, taste: TasteOutput | undefined): Promise<EventsResult> {
+  {
     const city = a.where.city ? [a.where.city.name, a.where.city.country].filter(Boolean).join(", ") : a.trip.destination;
     const dates = tripDates(a.trip.startDate, a.trip.endDate);
     const none = (gaps: string[]) => ({ data: { city, from: dates[0] ?? null, to: dates[dates.length - 1] ?? null, events: [], listings: [], gaps }, evidence: [] as Evidence[], notes: [] as string[] });
@@ -273,5 +288,5 @@ export const tripEvents: Skill<BriefInput, TripEventsOutput> = {
       ctx.log.warn("Trip events failed", { error: String(err) });
       return { data: { city, from, to, events: [], listings, gaps: ["Dated events for your trip"] }, evidence: [], notes: [] };
     }
-  },
-};
+  }
+}

@@ -2,6 +2,12 @@
 
 ## 2026-11-04
 
+### The agent decides travel and events too
+- Getting there and what's on are now tools the ReAct agent chooses: `find_travel` (real Google Flights fares for the dates and travellers, plus trains and buses) and `find_events` (concerts, matches, festivals on the dates, ranked by taste). It reads the fare against the budget ("That leaves about $540 of the $3,000 budget: tight, so lean to cheaper stays") and plans around an event it found. The autopilot uses the same tools.
+- The steps after the agent reuse its answers (one lookup per run, shared), and only fetch themselves when the agent didn't, so nothing is asked twice and no fare search is wasted.
+- The trace names the loop (reason, act, observe) and labels the new tools; the README describes the agent and its tools.
+- Tests: the agent's fare reasoning, reuse by the fixed steps, the model choosing the tool, autopilot, per-run sharing (engine 434).
+
 ### Flight prices are real or not charged
 - Fares come from Google Flights (through SerpApi, `SERPAPI_API_KEY`): the actual price for this route, these dates and this many travellers, out and back priced separately, from every airport in the city. Among flights within 40% of the quickest journey, the cheapest is picked, so a 30-hour detour never wins on price.
 - No guessed fare is ever charged. A "from" price on a listing or a distance estimate (the $297 Lagos–Rome on the slip) is no longer paid: without a real fare the slip shows "Compare live fares" with a Google Flights link, the budget line says no fare was guessed, and listed prices are marked "(listed)".

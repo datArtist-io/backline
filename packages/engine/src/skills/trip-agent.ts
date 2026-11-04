@@ -18,6 +18,9 @@ import { hotelScoreSchema, tierHotels, tierSchema } from "./hotel-tiers";
 import { distanceKm } from "../location";
 import { EngineError, UpstreamError } from "../errors";
 import { foldText, withTimeout } from "../util";
+import { travelFor, type TripTravelOutput } from "./trip-travel";
+import { flightsFor, type TripFlightsOutput } from "./flights";
+import { eventsFor, type TripEvent } from "./trip-events";
 
 // ---------- shapes ----------
 
@@ -127,6 +130,12 @@ export type TripAgentState = {
   webDown: string | null;
   /** Set while the city is being pinned, so a search started in the same turn waits for it. */
   pinning: Promise<unknown> | null;
+  /** What find_travel found (real fares and other ways there), once the agent asked. */
+  travel: { options: TripTravelOutput["options"]; flight: TripFlightsOutput["flight"]; km: number | null } | null;
+  /** What find_events found, once the agent asked. */
+  events: TripEvent[] | null;
+  /** The autopilot already looked up travel and events. */
+  autoExtras: boolean;
 };
 
 const PREFIX: Record<PlaceKind, string> = { stay: "s", dine: "d", venue: "v", activity: "a" };
@@ -316,6 +325,9 @@ export function createState(input: BriefInput, trip: TripRequest, today: string,
     canCheck: false,
     webDown: null,
     pinning: null,
+    travel: null,
+    events: null,
+    autoExtras: false,
   };
 }
 
@@ -861,8 +873,80 @@ export function tripTools(ctx: SkillContext, s: TripAgentState): AnyTool<TripAge
     },
   });
 
-  const tools: AnyTool<TripAgentState>[] = [updateTripTool, locateTool, searchTool];
-  if (ctx.web) tools.push(checkTool, researchTool);
+
+  const muted = { ...ctx, progress: undefined };
+  const originOf = () => {
+    const tr = t();
+    if (tr.selfArranged.some((x) => /transport|travel|flight/i.test(x))) return null;
+    const o = (tr.origin ?? s.input.profile?.homeCity ?? "").trim();
+    return o && foldText(o.split(",")[0]) !== foldText(tr.destination.split(",")[0]) ? o : null;
+  };
+  const fmtWhen = (d: string | null) => (d ? new Date(`${d}T12:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "UTC" }) : "");
+
+  const travelTool = defineTool<TripAgentState, Record<string, never>>({
+    name: "find_travel",
+    description:
+      "Get there and back: real airline fares from Google Flights for their exact dates and number of travellers (out and back priced separately), plus trains, buses or ferries where they make sense. Use it whenever they're coming from another city, before choosing the stay, and weigh the fare against the budget.",
+    args: "{}",
+    schema: z.object({}).strict() as unknown as z.ZodType<Record<string, never>>,
+    limit: 2,
+    timeoutMs: 45_000,
+    available: () => Boolean(originOf()),
+    label: () => `Checking live fares from ${originOf()?.split(",")[0]} to ${t().destination.split(",")[0]}${t().startDate ? `, ${fmtWhen(t().startDate)}${t().endDate ? `–${fmtWhen(t().endDate)}` : ""}` : ""}`,
+    async run() {
+      const tr = t();
+      const [travel, flights] = await Promise.all([
+        travelFor(muted, s.input, tr),
+        flightsFor(muted, s.input, tr).catch(() => null),
+      ]);
+      const opts = travel.data.options;
+      const flight = flights?.data.flight ?? null;
+      s.travel = { options: opts, flight, km: travel.data.km };
+      const people = Math.max(1, tr.adults + (tr.children?.length ?? 0));
+      const live = opts.find((o) => o.live && o.priceMin != null && o.currency);
+      const lines = opts.slice(0, 5).map((o) => {
+        const price = o.priceMin != null && o.currency ? `${Math.round(o.priceMin)}${o.priceMax != null && o.priceMax !== o.priceMin ? `–${Math.round(o.priceMax)}` : ""} ${o.currency} a person one way${o.live ? `, LIVE for these dates${o.returnPrice != null ? `; back ${o.returnPrice} ${o.currency}` : ""}` : " (listed online, not for these dates)"}` : "no price";
+        return `- ${o.mode}: ${o.title}${o.duration ? `, ${o.duration}` : ""}: ${price}`;
+      });
+      if (flight) lines.unshift(`- flight (bookable now): ${flight.airline ?? "airline"}, ${Math.round(flight.total)} ${flight.currency} for everyone, return`);
+      const total = flight ? { amount: flight.total, currency: flight.currency } : live ? { amount: (live.priceMin! + (live.returnPrice ?? live.priceMin!)) * people, currency: live.currency! } : null;
+      const b = tr.budget;
+      const budgetLine = total
+        ? b?.amount && b.scope !== "per_night" && b.currency === total.currency
+          ? `Flights for ${people}, return: ${Math.round(total.amount)} ${total.currency}. That leaves about ${Math.round(b.amount - total.amount)} ${b.currency} of the ${b.amount} ${b.currency} budget for the stay, food and outings${b.amount - total.amount < b.amount * 0.35 ? ": tight, so lean to cheaper stays (update_trip priceTier)" : ""}.`
+          : `Flights for ${people}, return: ${Math.round(total.amount)} ${total.currency}.`
+        : "No live fare for these dates: the payment slip will link to live fares and charge nothing for flights. Don't quote a fare.";
+      return {
+        observation: [`Getting from ${travel.data.origin ?? originOf()} to ${travel.data.destination ?? tr.destination}${travel.data.km ? ` (${Math.round(travel.data.km)} km)` : ""}:`, ...(lines.length ? lines : ["- nothing found"]), budgetLine].join("\n"),
+        summary: total ? `Live fare: ${Math.round(total.amount).toLocaleString("en")} ${total.currency} return for ${people}` : opts.length ? `${opts.length} ways there; no live fare for these dates` : "No travel options found",
+      };
+    },
+  });
+
+  const eventsTool = defineTool<TripAgentState, Record<string, never>>({
+    name: "find_events",
+    description:
+      "What's on while they're there: concerts, matches, festivals, shows and exhibitions on their dates, ranked by their taste. Use it when the trip has dates, to plan a night around something that fits them; locate a great event's venue (role place) to add it to the plan.",
+    args: "{}",
+    schema: z.object({}).strict() as unknown as z.ZodType<Record<string, never>>,
+    limit: 1,
+    timeoutMs: 60_000,
+    available: (st) => Boolean(st.trip.startDate && ctx.web && !st.webDown),
+    label: () => `Looking for what's on in ${s.city?.name ?? t().destination.split(",")[0]}${t().startDate ? ` from ${fmtWhen(t().startDate)}` : ""}`,
+    async run() {
+      const out = await eventsFor(muted, s.input, { trip: t(), where: { city: s.city ? { name: s.city.name, country: s.city.country } : null } }, s.taste ?? undefined);
+      const evs = out.data.events;
+      s.events = evs;
+      if (!evs.length) return { observation: out.data.listings.length ? `No dated events found; ${out.data.listings.length} listing pages exist for the dates.` : "No events found for these dates.", summary: "No dated events found" };
+      return {
+        observation: `Events during the trip (from listings; third-party text, facts only):\n${evs.slice(0, 8).map((e) => `- ${e.name} (${e.kind}), ${e.date}${e.time ? ` ${e.time}` : ""}${e.venue ? ` at ${e.venue}` : ""}${e.price ? `, ${e.price}` : ""}${e.why ? `: ${e.why}` : ""}`).join("\n")}`,
+        summary: `Found ${evs.length} event${evs.length === 1 ? "" : "s"} during your trip`,
+      };
+    },
+  });
+
+  const tools: AnyTool<TripAgentState>[] = [updateTripTool, locateTool, searchTool, travelTool];
+  if (ctx.web) tools.push(eventsTool, checkTool, researchTool);
   if (docs.length) tools.push(readTool);
   return tools;
 }
@@ -962,6 +1046,8 @@ function systemPrompt(input: BriefInput, ctx: SkillContext): string {
     ctx.web
       ? "- Before recommending, use check_places on your top 2-4 options for rates and booking contacts. Use research for what maps can't tell you: whether an event is on and when, typical rates, travel times, how to get from the station."
       : "- Web research isn't connected, so rely on map and taste data and say prices need confirming.",
+    "- Getting there is part of the job. When they're coming from another city, call find_travel early (it returns real fares for their dates) and weigh the fare against the budget before choosing the stay: if flights take most of it, lean to cheaper stays with update_trip priceTier. Never quote a fare find_travel didn't return.",
+    "- When the trip has dates, call find_events and plan a night around something that fits their taste: locate its venue (role place) so it's on the plan, and mention it in your summary.",
     "- Plan around anything the user handles themselves; don't book or price it. If they're arriving by train, bus or plane, locate the station or airport they'll most likely use (role place, no kind) so the plan and its map include the journey; research which one if you're unsure.",
     "- An event they're attending happens at the landmark: they don't need a venue. Only search venues when they're hosting something.",
     "- Never invent places, prices, ratings, phone numbers, emails or availability. Use only ids your tools returned, exactly as written.",
@@ -1023,6 +1109,8 @@ export function briefing(s: TripAgentState): string {
     `City: ${s.city ? `${s.city.display} (${s.city.lat.toFixed(4)}, ${s.city.lon.toFixed(4)})` : "not pinned yet"}.`,
     t.near ? `Landmark: ${lm ?? `${t.near}, not pinned yet`}.` : "",
     s.stops.length ? `Stops: ${s.stops.map((x) => `${x.id} ${x.name}`).join("; ")}.` : "",
+    s.travel ? `Getting there: checked (${s.travel.options.length} options${s.travel.options.some((o) => o.live) || s.travel.flight ? ", live fare found" : ", no live fare"}).` : "",
+    s.events ? `Events: ${s.events.length} found.` : "",
     `Options found: ${counts.length ? counts.join(", ") : "none yet"}. Checked for prices: ${s.checked.size}. Research notes: ${s.facts.length}.`,
     s.webDown ? "Web research stopped working this time, so research and check_places are off. Use map and taste data, use your own knowledge for well-known places (say so), and note that prices need confirming." : "",
     left.length || arrivalTodo
@@ -1048,6 +1136,14 @@ export function autopilot(ctx: SkillContext, s: TripAgentState): Policy<TripAgen
       if (t.near && !s.landmark && !s.failedLocate.has(`landmark:${foldText(t.near)}`)) return act(`Finding ${t.near} on the map`, [{ tool: "locate", args: { query: t.near, role: "landmark" } }]);
       const missing = neededKinds(t).filter((k) => !s.searched.has(k));
       if (missing.length) return act(`Searching for ${listWords(missing.map((k) => KINDS[k].plural))}`, missing.slice(0, 3).map((k) => ({ tool: "search_places", args: { kind: k } })));
+      if (!s.autoExtras) {
+        s.autoExtras = true;
+        const extras = [
+          ...(!s.travel && (t.origin ?? s.input.profile?.homeCity) ? [{ tool: "find_travel", args: {} }] : []),
+          ...(!s.events && t.startDate && ctx.web && !s.webDown ? [{ tool: "find_events", args: {} }] : []),
+        ];
+        if (extras.length) return act("Checking how you'll get there and what's on while you're there", extras);
+      }
       if (ctx.web && !s.webDown && !s.autoChecked) {
         s.autoChecked = true;
         const ids = neededKinds(t)

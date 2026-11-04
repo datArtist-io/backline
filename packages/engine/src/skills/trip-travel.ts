@@ -7,6 +7,8 @@ import type { WebResult } from "../clients/web";
 import { UNTRUSTED_WEB_RULE, languageRule, quoteWeb, webEvidence } from "../grounding";
 import { withTimeout } from "../util";
 import { CURRENCIES } from "../trip-request";
+import type { TripRequest } from "../types";
+import { shared, tripKey } from "./shared";
 
 export const MODES = ["flight", "train", "bus", "car", "ferry", "other"] as const;
 export type TravelMode = (typeof MODES)[number];
@@ -263,23 +265,40 @@ export const tripTravel: Skill<BriefInput, TripTravelOutput> = {
   id: "trip.travel",
   title: "Working out how to get there",
   dependsOn: [],
+  // After the agent: it usually asked for this itself (find_travel), so this reuses its answer, for the
+  // trip as the agent understood it. Run alone only when the agent didn't.
+  optionalDeps: ["trip.agent"],
   timeoutMs: 70_000,
   output: travelOutput,
-  async run(ctx, input) {
-    const [base, fare] = await Promise.all([
-      travelBase(ctx, input),
-      input.trip?.destination && (input.trip.origin ?? input.profile?.homeCity)
-        ? googleFare(ctx, input, (input.trip.origin ?? input.profile?.homeCity)!, input.trip.destination).catch((err) => {
-            ctx.log.warn("Google Flights fare failed", { error: String(err) });
-            return null;
-          })
-        : Promise.resolve(null),
-    ]);
-    if (!fare || !base.data.origin) return base;
-    const rest = base.data.options.filter((o) => o.mode !== "flight").map((o) => ({ ...o, best: false }));
-    return { ...base, data: { ...base.data, options: [fare, ...rest] } };
+  async run(ctx, input, deps) {
+    const trip = (deps["trip.agent"]?.data as { trip?: TripRequest } | undefined)?.trip ?? input.trip;
+    return travelFor(ctx, input, trip);
   },
 };
+
+/** Getting there and back for this trip, looked up once per run (the agent's tool and this step share it). */
+export function travelFor(ctx: SkillContext, input: BriefInput, trip: TripRequest | null | undefined): Promise<{ data: TripTravelOutput; evidence: Evidence[]; notes: string[] }> {
+  const one = { ...input, trip: trip ?? input.trip };
+  const t = one.trip;
+  const origin = t?.origin ?? input.profile?.homeCity ?? null;
+  if (!t) return travelCompute(ctx, one);
+  return shared(input, tripKey("travel", { ...t, origin }), () => travelCompute(ctx, one));
+}
+
+async function travelCompute(ctx: SkillContext, input: BriefInput): Promise<{ data: TripTravelOutput; evidence: Evidence[]; notes: string[] }> {
+  const [base, fare] = await Promise.all([
+    travelBase(ctx, input),
+    input.trip?.destination && (input.trip.origin ?? input.profile?.homeCity)
+      ? googleFare(ctx, input, (input.trip.origin ?? input.profile?.homeCity)!, input.trip.destination).catch((err) => {
+          ctx.log.warn("Google Flights fare failed", { error: String(err) });
+          return null;
+        })
+      : Promise.resolve(null),
+  ]);
+  if (!fare || !base.data.origin) return base;
+  const rest = base.data.options.filter((o) => o.mode !== "flight").map((o) => ({ ...o, best: false }));
+  return { ...base, data: { ...base.data, options: [fare, ...rest] } };
+}
 
 async function travelBase(ctx: SkillContext, input: BriefInput): Promise<{ data: TripTravelOutput; evidence: Evidence[]; notes: string[] }> {
   {

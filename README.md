@@ -12,10 +12,26 @@ Built for the [Qloo Agentic Hackathon](https://qloo.devpost.com/). Live at **[ba
 |---|---|---|---|
 | 1 | **Understand** | Nemotron (Nebius) reads the request; dates resolved on the calendar; origin from what you said, your home city, or your connection | The globe flies to your destination within seconds, from your city |
 | 2 | **Taste** | Qloo resolves what you love to entities and tags, and maps where that taste lives in the city (heatmap, taste zone) | Qloo's taste rises over the real city as glowing columns; "Because you love …" |
-| 3 | **Research** | A ReAct agent searches Qloo places, OpenStreetMap, live hotel rates, web sources; field guide from Open-Meteo, holidays, exchange rates, cited notes | Pins drop onto real streets; every pick shows its Qloo affinity and rank |
+| 3 | **Research** | A ReAct agent decides each step: Qloo places, OpenStreetMap, live hotel rates, real Google Flights fares, events on your dates, web sources; field guide from Open-Meteo, holidays, exchange rates, cited notes | Pins drop onto real streets; every pick shows its Qloo affinity and rank |
 | 4 | **Plan** | Hour-by-hour plan using only listed places; real road routes | Day routes drawn on the streets; "Fly the trip" plays each day |
 | 5 | **Approve** | One checkout for the whole trip: every booking, the total in your currency, your wallet before and after | "Approve & pay" or "Take a look first" |
 | 6 | **Execute** | Each booking prepaid from the Backline Wallet, then confirmed by a real Vapi voice call, one at a time, day by day; hotel and flight booking; emails; automatic refunds | A live Bookings panel: you → agent → business, the call as a conversation, a receipt for every payment |
+
+## How the agent works (ReAct)
+
+Research and choosing is one agent loop, not a fixed pipeline ([agent/runtime.ts](packages/engine/src/agent/runtime.ts)). Each turn the model **reasons** (one sentence, streamed to the screen), **acts** (up to 3 tool calls in parallel), and **observes** the results, then decides the next step, until it chooses to finish or a budget (8 turns, 18 calls, 90 s) runs out.
+
+| Tool | What it does |
+|---|---|
+| `update_trip` | Corrects its understanding of the trip (dates, budget, price level) |
+| `locate` | Pins the city, a landmark, or a named place on the real map |
+| `search_places` | Qloo places ranked by the person's taste, plus OpenStreetMap |
+| `check_places` | Rates and booking contacts for its top picks |
+| `find_travel` | Real Google Flights fares for the dates and travellers, plus trains and buses; weighed against the budget |
+| `find_events` | Concerts, matches, festivals on the dates, ranked by taste |
+| `research` / `read_document` | The web, and the person's attached files |
+
+It checks itself: a finish that misses something (no hotel, over budget, arrival station not on the map) is sent back once. Model output is untrusted: tool names and arguments are validated, repeated calls are answered from memory. If the model stops answering, an autopilot finishes with the same tools. The steps after the agent (plan, routes, payment slip) reuse what it found, and prices always come from code, never from the model. Every run's full trace (thought, tool, arguments, result) is under "How the agent worked".
 
 ## Talk to it
 
@@ -72,7 +88,7 @@ npm run dev                                  # http://localhost:3000
 | Command | What it does |
 |---|---|
 | `npm run dev` | Start the web app |
-| `npm test` | Engine and web unit tests (synthetic data, no network): 427 + 47 |
+| `npm test` | Engine and web unit tests (synthetic data, no network): 434 + 47 |
 | `npm run typecheck` | Type-check every workspace |
 | `npm run check` | Verify API keys and Qloo capabilities |
 | `npm run check:locations` | Venue coverage across 24 locations worldwide |

@@ -4,6 +4,8 @@
 import { z } from "zod";
 import type { BriefInput, Skill, TripRequest } from "../types";
 import { bestFlight, type FlightOffer } from "../clients/duffel";
+import type { SkillContext } from "../types";
+import { shared, tripKey } from "./shared";
 
 const legSchema = z.object({ from: z.string(), fromName: z.string().nullable(), to: z.string(), toName: z.string().nullable(), departs: z.string(), arrives: z.string(), carrier: z.string().nullable(), flight: z.string().nullable(), stops: z.number(), minutes: z.number().nullable() });
 export const flightSchema = z.object({
@@ -46,10 +48,27 @@ export const tripFlights: Skill<BriefInput, TripFlightsOutput> = {
   id: "trip.flights",
   title: "Finding flights",
   dependsOn: [],
+  // After the agent, reusing its find_travel lookup when it made one.
+  optionalDeps: ["trip.agent"],
   timeoutMs: 45_000,
   output: flightsOutput,
-  async run(ctx, input) {
-    const t = input.trip;
+  async run(ctx, input, deps) {
+    const trip = (deps["trip.agent"]?.data as { trip?: TripRequest } | undefined)?.trip ?? input.trip;
+    return flightsFor(ctx, input, trip);
+  },
+};
+
+type FlightsResult = { data: z.infer<typeof flightsOutput>; evidence: never[]; notes: string[] };
+
+/** The airline offers for this trip, looked up once per run. */
+export function flightsFor(ctx: SkillContext, input: BriefInput, trip: TripRequest | null | undefined): Promise<FlightsResult> {
+  const t = trip ?? input.trip;
+  if (!t) return flightsCompute(ctx, input, t);
+  return shared(input, tripKey("flights", { ...t, origin: flightOrigin(t, input.profile?.homeCity) }), () => flightsCompute(ctx, input, t));
+}
+
+async function flightsCompute(ctx: SkillContext, input: BriefInput, t: TripRequest | null | undefined): Promise<FlightsResult> {
+  {
     const none = (notes: string[] = []) => ({ data: { flight: null, compared: 0, from: null, to: null, sandbox: Boolean(ctx.flights?.sandbox) }, evidence: [], notes });
     if (!t || !ctx.flights) return none();
     // Duffel's test airline returns made-up flights and fares. Never show those as a real option; the "getting there" step covers it.
@@ -69,5 +88,5 @@ export const tripFlights: Skill<BriefInput, TripFlightsOutput> = {
       evidence: [],
       notes: flight ? [] : [`No flights from ${from.name} to ${to.name} on those dates.`],
     };
-  },
-};
+  }
+}

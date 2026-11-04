@@ -40,6 +40,8 @@ const ICON: Record<string, string> = {
   locate: "⌖",
   search_places: "⌕",
   check_places: "✓",
+  find_travel: "✈",
+  find_events: "♪",
   research: "◎",
   read_document: "¶",
   update_trip: "✎",

@@ -13,6 +13,8 @@ const TOOL_LABEL: Record<string, string> = {
   check_places: "Check prices and contacts",
   research: "Research the web",
   read_document: "Read your document",
+  find_travel: "Live fares and ways there",
+  find_events: "What's on during the trip",
 };
 
 const secs = (ms: number) => (ms < 1000 ? `${ms} ms` : `${(ms / 1000).toFixed(1)} s`);
@@ -38,7 +40,7 @@ export default function AgentTrace({ agent }: { agent: TripAgentOutput }) {
       <div className="lg trace">
         <button type="button" className="trace-head" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
           <span>
-            <span className="trace-kicker">How the agent worked</span>
+            <span className="trace-kicker">How the agent worked · reason, act, observe</span>
             <span className="trace-title" id="trace-title">
               {trace.length} decisions · {tools} tool calls{checks ? ` · ${checks} self-check${checks > 1 ? "s" : ""}` : ""} · {secs(agent.stats.ms)}
             </span>
