@@ -1223,5 +1223,3 @@ button:hover .ki-stop .ki-plane, .eq-card:hover .ki-stop .ki-plane { animation: 
 /* Currency pill in the top bar: as compact as the doors beside it. */
 
 /* The trip's 3D city loading ahead of Fly the trip: one small pill under the top bar. */
-.eq-preload { margin: 0; padding: 6px 12px; border-radius: 999px; font-size: 12.5px; font-weight: 600; color: var(--ink); background: var(--glass, rgba(255, 255, 255, 0.82)); box-shadow: var(--rim, 0 0 0 1px rgba(16, 19, 43, 0.08)); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); transition: opacity 0.4s ease; }
-.eq-preload.is-ready { color: #0f7a4a; }

@@ -5,6 +5,7 @@
 ### Slip and trip polish
 - Your phone fills itself on the payment slip: from your account, or the number you used last on this browser. It was only fetched when the name or email was missing, so signed-in people always saw an empty box. A number typed on the slip is saved to the account.
 - Fly the trip is steadier: about 1.8 seconds per km, 15 to 36 seconds a day, with a longer beat at each stop (9 to 24 rushed past the buildings).
+- The 3D city still loads ahead of Fly the trip, but quietly: the "Preparing 3D city" pill is gone.
 - The currency switch moved from the trip's top bar to your account ("Prices in"), next to Security. It still applies everywhere.
 
 ### The agent decides travel and events too
