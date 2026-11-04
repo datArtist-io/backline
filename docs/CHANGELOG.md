@@ -14,6 +14,7 @@
 
 ### A real airliner flies the journey in
 - The plane is a detailed jet (shaded fuselage and swept wings, two engines, a tail in Backline's colours) with real navigation lights: red on the left wingtip, green on the right, a white tail strobe. It's about four times the old icon, grows as it climbs, and its own silhouette falls away beneath it as a shadow.
+- Fixed: the plane had stopped flying in. Where you fly from came from the getting-there step, which now waits for the agent (about 30 s), and the globe stops waiting after 7. A small first step (`trip.home`) now pins the departure city within a second or two.
 - Fixed: it pointed north for a moment at take-off and landing (its heading came from two identical points) and then snapped round; it now starts on its heading and turns smoothly. It no longer stretches near the edge of the globe (it was laid onto the surface; it now faces the screen).
 
 ### Slip and trip polish

@@ -106,4 +106,4 @@ export { withMatch } from "./skills/places";
 export { likesIn, suggestDestinations } from "./missions";
 export { areaName } from "./clients/osm";
 
-export type { TripTravelOutput, TravelOption, TravelMode } from "./skills/trip-travel";
+export type { TripTravelOutput, TravelOption, TravelMode, TripHomeOutput } from "./skills/trip-travel";

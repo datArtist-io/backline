@@ -390,3 +390,32 @@ async function travelBase(ctx: SkillContext, input: BriefInput): Promise<{ data:
     }
   }
 }
+
+const homeOutput = z.object({
+  origin: z.string().nullable(),
+  from: z.object({ lat: z.number(), lon: z.number() }).nullable(),
+  to: z.object({ lat: z.number(), lon: z.number() }).nullable(),
+  km: z.number().nullable(),
+});
+export type TripHomeOutput = z.infer<typeof homeOutput>;
+
+/**
+ * Where they're flying from, on the map, within a second or two of the request: the plane needs it to
+ * fly in while the agent is still researching (fares and ways there come later, from the agent).
+ */
+export const tripHome: Skill<BriefInput, TripHomeOutput> = {
+  id: "trip.home",
+  title: "Finding where you're coming from",
+  dependsOn: [],
+  timeoutMs: 12_000,
+  output: homeOutput,
+  async run(ctx, input) {
+    const t = input.trip;
+    const origin = (t?.origin ?? input.profile?.homeCity ?? "").trim();
+    const none = { data: { origin: null, from: null, to: null, km: null }, evidence: [] as Evidence[], notes: [] as string[] };
+    if (!t?.destination || !origin || city(origin) === city(t.destination) || !ctx.osm) return none;
+    const [a, b] = await Promise.all([ctx.osm.geocode(origin, { limit: 1, signal: ctx.signal }), ctx.osm.geocode(t.destination, { limit: 1, signal: ctx.signal })]).catch(() => [[], []] as const);
+    if (!a[0]) return none;
+    return { data: { origin, from: { lat: a[0].lat, lon: a[0].lon }, to: b[0] ? { lat: b[0].lat, lon: b[0].lon } : null, km: b[0] ? haversineKm(a[0], b[0]) : null }, evidence: [], notes: [] };
+  },
+};

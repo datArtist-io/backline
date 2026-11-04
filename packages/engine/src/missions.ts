@@ -24,7 +24,7 @@ import { tripFlights } from "./skills/flights";
 import { tripRoutes } from "./skills/trip-routes";
 import { tripIntel } from "./skills/trip-intel";
 import { tripEvents } from "./skills/trip-events";
-import { tripTravel } from "./skills/trip-travel";
+import { tripHome, tripTravel } from "./skills/trip-travel";
 
 export const ALL_SKILLS: Skill<BriefInput, unknown>[] = [
   artistResolve,
@@ -56,6 +56,7 @@ export const ALL_SKILLS: Skill<BriefInput, unknown>[] = [
   tripIntel,
   tripEvents,
   tripTravel,
+  tripHome,
   tripActions,
   tripExecute,
 ] as Skill<BriefInput, unknown>[];
@@ -95,7 +96,7 @@ export const MISSIONS: Record<MissionType, MissionDef> = {
     type: "plan",
     label: "Plan and book",
     goal: (p) => (p.eventType ? `Plan your ${p.eventType}${p.destination ? ` in ${p.destination}` : ""}` : `Plan your trip${p.destination ? ` to ${p.destination}` : ""}`),
-    skills: ["trip.taste", "trip.flights", "trip.travel", "trip.agent", "trip.events", "trip.plan", "trip.routes", "trip.intel", "trip.actions", "trip.execute"],
+    skills: ["trip.taste", "trip.home", "trip.flights", "trip.travel", "trip.agent", "trip.events", "trip.plan", "trip.routes", "trip.intel", "trip.actions", "trip.execute"],
     checkpoints: [
       {
         id: "actions",
