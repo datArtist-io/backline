@@ -689,6 +689,8 @@ export const actionSchema = z.object({
 export type TripAction = z.infer<typeof actionSchema>;
 const actionsOutput = z.object({
   actions: z.array(actionSchema),
+  /** The trip's budget against what's ticked to pay, after leaving optional extras unticked to fit. */
+  budget: z.object({ amount: z.number(), currency: z.string(), total: z.number(), trimmed: z.array(z.string()) }).nullable().optional(),
   /** Demo mode: AI calls ring this test line (someone plays the business), not the business itself. */
   demoLine: z.string().nullable().optional(),
 });
@@ -969,6 +971,15 @@ export function flightsSearchUrl(origin: string, destination: string, date: stri
  * for everyone, as two tickets: out on the first day and back on the last. Fares are per person one way.
  * With no listed fare for a long route, the fare is estimated from distance and labelled so. Pure.
  */
+/**
+ * One-way economy fare in USD from distance. Long-haul costs far less per km than a short hop: the old
+ * flat 0.12 USD/km put Atlanta–Singapore at ~2,000 USD each way, double the real ~800–1,000. Pure.
+ * Atlanta–New York (~1,200 km) ≈ 150, Atlanta–Barcelona (~7,400 km) ≈ 465, Atlanta–Singapore (~16,000 km) ≈ 900.
+ */
+export function flightEstimate(km: number): number {
+  return Math.round(50 + 0.08 * Math.min(km, 1500) + 0.05 * Math.max(0, km - 1500));
+}
+
 export function travelActions(t: TripTravelOutput | undefined, trip: TripRequest, can: { pay: boolean }): Omit<TripAction, "id">[] {
   if (!t?.origin || !t.destination) return [];
   const opts = (t.options ?? []).filter((o) => o.mode !== "car");
@@ -976,8 +987,8 @@ export function travelActions(t: TripTravelOutput | undefined, trip: TripRequest
   let pick: TravelOption | undefined = priced.find((o) => o.best) ?? [...priced].sort((x, y) => (x.priceMin ?? x.priceMax ?? 0) - (y.priceMin ?? y.priceMax ?? 0))[0];
   let estimated = false;
   if (!pick && t.km && t.km >= 500) {
-    // No source listed a fare: a distance-based economy estimate (about 80 USD + 0.12 USD a km, ±20%).
-    const mid = 80 + 0.12 * t.km;
+    // No source listed a fare: a distance-based economy estimate, one way, ±20%.
+    const mid = flightEstimate(t.km);
     pick = { mode: "flight", title: `Flights ${t.origin.split(",")[0]} → ${t.destination.split(",")[0]}`, duration: null, priceMin: Math.round(mid * 0.8), priceMax: Math.round(mid * 1.2), currency: "USD", note: null, url: flightsSearchUrl(t.origin, t.destination, trip.startDate), site: "Google Flights", verified: false, best: true };
     estimated = true;
   }
@@ -1181,6 +1192,9 @@ export const tripActions: Skill<BriefInput, TripActionsOutput> = {
     }));
     const actions = [...first, ...ordered, ...tickets].map((x, i) => ({ ...x, id: `a${i + 1}` })) as TripAction[];
     const notes: string[] = [];
+    const budget = fitBudget(actions, a.trip);
+    if (budget?.trimmed.length) notes.push(`To stay within your ${fmtMoney(budget.amount, budget.currency)} budget, I left ${listWordsOf(budget.trimmed)} unticked. Tick them back on the slip if you'd like them.`);
+    else if (budget && budget.total > budget.amount) notes.push(`Flights and your stay alone come to ${fmtMoney(budget.total, budget.currency)}, over your ${fmtMoney(budget.amount, budget.currency)} budget.`);
     const check = (deps["trip.plan"].data as TripPlanOutput).stayCheck;
     if (check?.note) notes.push(check.note);
     if (ctx.signedOut) notes.push("Sign in and I'll book, pay, email and call for you. Until then, everything opens in your own apps.");
@@ -1190,9 +1204,39 @@ export const tripActions: Skill<BriefInput, TripActionsOutput> = {
     }
     const demoLine = ctx.calls && !ctx.callsLive ? (ctx.callDemoTo ?? "your phone") : null;
     if (demoLine && actions.some((x) => x.channel === "call" && x.mode === "auto")) notes.push("Demo mode: booking calls ring your own phone, and you play the business.");
-    return { data: { actions, demoLine }, evidence: [], notes };
+    return { data: { actions, demoLine, budget }, evidence: [], notes };
   },
 };
+
+const listWordsOf = (xs: string[]) => (xs.length <= 1 ? (xs[0] ?? "") : `${xs.slice(0, -1).join(", ")} and ${xs[xs.length - 1]}`);
+
+/**
+ * Keep what's ticked to pay within a total budget: optional extras are unticked, the dearest table
+ * bookings first, then the planned extras, then rides, until it fits. Flights and the stay are never
+ * dropped; the person can tick anything back. Amounts in another currency than the budget's are left
+ * out of the sum. Mutates the recommended flags and returns the result, or null without a total budget. Pure apart from that.
+ */
+export function fitBudget(actions: TripAction[], trip: TripRequest): { amount: number; currency: string; total: number; trimmed: string[] } | null {
+  const b = trip.budget;
+  if (!b.amount || b.scope === "per_night") return null;
+  const cur = b.currency.toUpperCase();
+  const paid = (a: TripAction) => a.recommended && a.mode === "auto" && a.price && a.price.currency.toUpperCase() === cur;
+  let total = actions.filter(paid).reduce((n, a) => n + a.price!.total, 0);
+  const trimmed: string[] = [];
+  const optional = [
+    ...actions.filter((a) => a.kind === "reserve_table").sort((x, y) => (y.price?.total ?? 0) - (x.price?.total ?? 0)),
+    ...actions.filter((a) => a.kind === "planned"),
+    ...actions.filter((a) => a.kind === "book_rides"),
+  ];
+  for (const a of optional) {
+    if (total <= b.amount) break;
+    if (!paid(a)) continue;
+    a.recommended = false;
+    total -= a.price!.total;
+    trimmed.push(a.kind === "reserve_table" ? (a.placeName ?? "a table") : a.kind === "book_rides" ? "the rides" : (a.placeName ?? a.title));
+  }
+  return { amount: b.amount, currency: cur, total: Math.round(total * 100) / 100, trimmed };
+}
 
 // ---------- trip.execute ----------
 

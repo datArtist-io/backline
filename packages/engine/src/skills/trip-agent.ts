@@ -6,7 +6,7 @@
 import { z } from "zod";
 import type { BriefInput, Evidence, Skill, SkillContext, StepProgress, TripRequest } from "../types";
 import { defineTool, modelPolicy, runAgent, type AgentRun, type AnyTool, type Decision, type FallbackReason, type Policy, type ToolOutput } from "../agent/runtime";
-import { KINDS, PLACE_KINDS, SOURCE_BUDGET_MS, attachOffers, checkPlaces, fitStayStyle, lookFor, stayKindFilter, placeEvidence, placeSchema, scorePlace, searchByName, searchNear, type Place, type PlaceKind } from "./places";
+import { KINDS, PLACE_KINDS, SOURCE_BUDGET_MS, attachOffers, checkPlaces, dietOk, fitStayStyle, lookFor, stayKindFilter, placeEvidence, placeSchema, scorePlace, searchByName, searchNear, type Place, type PlaceKind } from "./places";
 import type { GeoHit } from "../clients/osm";
 import type { QlooEntity } from "../clients/qloo";
 import type { HotelOffer } from "../clients/hotels";
@@ -336,10 +336,23 @@ const focusOf = (s: TripAgentState) => s.landmark ?? zoneOf(s) ?? s.city;
 const tasteBased = (s: Pick<TripAgentState, "signals" | "tagSignals">) => s.signals.length + s.tagSignals.length > 0;
 
 /** Re-measure and re-score a place against the current focus point. */
+const CUISINE = /\b(italian|korean|japanese|chinese|cantonese|sichuan|thai|vietnamese|indian|pakistani|malay|indonesian|filipino|mexican|peruvian|brazilian|argentin\w*|french|spanish|tapas|portuguese|greek|turkish|lebanese|middle eastern|moroccan|ethiopian|nigerian|ghanaian|west african|african|caribbean|jamaican|american|southern|soul food|seafood|sushi|ramen|pizza|bbq|barbecue|steak|vegan|vegetarian|halal|dim sum|hawker)\b/gi;
+
+/** Cuisines they asked for, from what they love ("Italian and Korean food"). */
+export function cuisinesOf(t: Pick<TripRequest, "likes" | "purpose">, goal = ""): string[] {
+  const text = [...(t.likes ?? []), goal].join(" ");
+  return [...new Set((text.match(CUISINE) ?? []).map((c) => c.toLowerCase()))].slice(0, 4);
+}
+
+/** Their food rules: saved in Preferences and said in this request ("no pork"). */
+function dietOf(s: TripAgentState): string[] {
+  return [...new Set([...(s.input.profile?.dietary ?? []), ...(s.trip.dietary ?? [])].map((d) => d.trim().toLowerCase()).filter(Boolean))];
+}
+
 function rescore(s: TripAgentState, p: Place): Place {
   const focus = focusOf(s);
   const d = focus && p.lat != null && p.lon != null ? round1(distanceKm(focus, { lat: p.lat, lon: p.lon })) : (p.distanceKm ?? null);
-  const scored = scorePlace({ ...p, distanceKm: d }, { priceTier: s.trip.priceTier, dietary: p.kind === "dine" ? s.input.profile?.dietary : undefined, tasteBased: tasteBased(s), nearBonus: Boolean(s.landmark), tasteLabel: tasteLabel(s.trip, s.taste) });
+  const scored = scorePlace({ ...p, distanceKm: d }, { priceTier: s.trip.priceTier, dietary: p.kind === "dine" ? dietOf(s) : undefined, tasteBased: tasteBased(s), nearBonus: Boolean(s.landmark), tasteLabel: tasteLabel(s.trip, s.taste) });
   return p.kind === "stay" ? fitStayStyle(scored, s.trip.stayStyle) : scored;
 }
 
@@ -698,8 +711,11 @@ export function tripTools(ctx: SkillContext, s: TripAgentState): AnyTool<TripAge
       const local = isLandmark || anchor !== s.city;
       // Hotels always cover at least 5 km: a better hotel a short ride away beats the nearest one.
       let radius = round1(Math.max(a.kind === "stay" ? 5 : 0, a.radiusKm ?? (local ? spec.nearKm : spec.cityKm)));
+      // Restaurants lean to the cuisines they asked for, even when the agent didn't spell them out.
+      const cuisines = a.kind === "dine" ? cuisinesOf(t(), s.input.request ?? "") : [];
+      const query = [a.query ?? "", ...cuisines].join(" ").trim() || null;
       const search = (radiusKm: number) =>
-        searchNear(ctx, { kind: a.kind, anchor, radiusKm, signals: s.signals, tagSignals: s.tagSignals, priceTier: t().priceTier, dietary: s.input.profile?.dietary, query: a.query ?? null, nearBonus: isLandmark, take: 15, tasteLabel: tasteLabel(t(), s.taste), stayStyle: t().stayStyle });
+        searchNear(ctx, { kind: a.kind, anchor, radiusKm, signals: s.signals, tagSignals: s.tagSignals, priceTier: t().priceTier, dietary: dietOf(s), query, nearBonus: isLandmark, take: 15, tasteLabel: tasteLabel(t(), s.taste), stayStyle: t().stayStyle });
       const t0 = Date.now();
       // Hotels: everything within 5 km, plus the highly rated or upmarket ones out to 10 km, since a
       // much better hotel a short ride further often beats the nearest one.
@@ -941,6 +957,7 @@ function systemPrompt(input: BriefInput, ctx: SkillContext): string {
     "- When there's a landmark, search around it: being close matters most. Walking distance is under 1.5 km.",
     "- Their taste has been read through Qloo (see \"Their taste\"). Without a landmark, searches already centre on the part of town where that taste is strongest, so don't locate that area yourself. Lean your picks and reasons on it: say which places fit their taste and why.",
     "- Compare options with the budget. Price level 1 is cheap, 4 is luxury. Say when something is above budget.",
+    "- Cuisines they name (\"Italian and Korean food\") are what most meals should be; search restaurants with that cuisine as query, and don't fill the days with other cuisines. Food rules (\"no pork\", halal, vegetarian) are absolute: never pick or plan a meal at a place built around what they don't eat.",
     "- Stays aren't only hotels. When they want a whole home (Airbnb-style apartment, house or villa), a hostel, a guest house or B&B, a boutique hotel or a resort (see \"Wants to stay in\"), pick that kind: search_places for stays already ranks it first, and query can add words like \"apartment\", \"villa\" or \"hostel\". Whole homes are booked by the user on Airbnb or Vrbo through the links in the plan; say so in your summary.",
     ctx.web
       ? "- Before recommending, use check_places on your top 2-4 options for rates and booking contacts. Use research for what maps can't tell you: whether an event is on and when, typical rates, travel times, how to get from the station."
@@ -1249,7 +1266,9 @@ export async function finalize(
   const lists = {} as Record<PlaceKind, Place[]>;
   // A hotel found again as a restaurant or a sight (Park Plaza tagged as dining) is shown once, as a stay.
   const stayNames = new Set(byFit(s, "stay").map((p) => foldText(p.name)));
-  const notAStay = (k: PlaceKind) => (p: Place) => k === "stay" || k === "venue" || !stayNames.has(foldText(p.name));
+  // Food rules hold to the end: nothing that breaks them is shown or planned, however it was found.
+  const diet = dietOf(s);
+  const notAStay = (k: PlaceKind) => (p: Place) => (k !== "dine" || dietOk(p, diet)) && (k === "stay" || k === "venue" || !stayNames.has(foldText(p.name)));
   for (const k of PLACE_KINDS) picks[k] = picks[k].filter((id) => { const p = s.places.get(id); return !p || notAStay(k)(p); });
   for (const k of PLACE_KINDS) {
     const chosen = picks[k].map((id) => s.places.get(id)).filter((p): p is Place => Boolean(p)).filter(notAStay(k));

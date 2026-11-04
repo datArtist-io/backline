@@ -955,6 +955,8 @@ button:hover .ki-stop .ki-plane, .eq-card:hover .ki-stop .ki-plane { animation: 
 .ck-sum span { font-size: 15px; font-weight: 600; }
 .ck-sum .is-short { color: #b3261e; }
 .ck-warn { color: #b3261e; font-size: 14px; margin: 4px 0 8px; }
+.ck-budget { margin: 2px 0 8px; font-size: 13px; font-weight: 600; color: #0f7a4a; }
+.ck-budget.is-over { color: #b3261e; }
 .ck-peek { list-style: none; margin: 8px 0 12px; padding: 0; display: grid; gap: 6px; }
 .ck-peek li { display: flex; justify-content: space-between; gap: 12px; font-size: 14.5px; padding: 8px 0; border-bottom: 1px solid #e7e3d9; }
 .ck-peek li span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

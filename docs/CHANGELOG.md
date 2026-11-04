@@ -6,6 +6,13 @@
 - Photoreal 3D now loads Google's buildings on the globe view. MapLibre gave no camera height there, so the tile loader never went past the root and the map fell back to satellite.
 - Buildings appear solid (the fade-in froze half-transparent when the map went idle) and stand at street level: the ground is probed over a small grid, and readings from coarse far tiles are ignored.
 
+### Budget, food rules and cuisines honoured
+- Flights estimated from distance cost far less per km on long routes: Atlanta–Singapore was priced at ~$2,000 each way per person (a $10,681 slip on a $7,000 budget); it's now ~$900, in line with real fares.
+- A total budget is kept on the payment slip: if what's ticked runs over, optional extras are unticked (dearest table bookings first, then extras, then rides) and the plan says which; flights and the stay are never dropped. The slip shows "Your budget $7,000 · $X to spare" or "over by $X".
+- Food rules are read from the request ("no pork", halal, kosher, vegetarian, vegan, nut or shellfish allergy, no alcohol) and are absolute: places built around what they don't eat (tonkotsu ramen, bak kut teh, rib houses, charcuterie; steakhouses for vegetarians) are dropped from every list and plan. Halal-tagged places always pass.
+- Cuisines they name ("Italian and Korean food") steer the restaurant search and count for more in ranking.
+- Tests: food rules, flight estimates, the budget guard and cuisines (engine 422).
+
 ### The 3D city is ready before you fly the trip
 - After landing, Backline loads the whole trip's 3D city in the background: virtual cameras along every day's route, set up exactly like Fly the trip's camera (zoom 16.1, tilt 64°, facing along the route), a few at a time, every few hundred metres (at most 100 viewpoints), each loading the street ahead (1.8 km) rather than the horizon. A small pill shows "Preparing 3D city · 40%", then "3D city ready".
 - Buildings that have been seen stay in memory for the trip on laptops and desktops (up to about 1.2 GB), instead of being freed the moment they leave the screen; flying back no longer reloads them. Phones keep the library's smaller defaults.

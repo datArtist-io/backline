@@ -242,7 +242,8 @@ export function scorePlace(p: Place, opts: { priceTier: number | null; dietary?:
   if (opts.query) {
     const words = foldText(opts.query).split(" ").filter((w) => w.length > 2);
     const hay = foldText(`${p.name} ${p.tags.join(" ")}`);
-    if (words.length && words.some((w) => hay.includes(w))) fit += 0.1;
+    // What they asked for by name (a cuisine, "rooftop") is a real preference, not a tie-breaker.
+    if (words.length && words.some((w) => hay.includes(w))) fit += 0.22;
   }
   // Something the agent can actually contact or book is worth more.
   if (p.phone || p.email || p.website) fit += 0.05;
@@ -343,6 +344,25 @@ export function stayKindFilter(style: StayStyle | undefined, planned: Pick<Place
   return want ? (p) => stayKindOf(p) === want : () => true;
 }
 
+/** Places built around pork: ramen (tonkotsu broth), bak kut teh, char siu, rib houses, charcuterie, and chains known for it. */
+const PORK_PLACE = /\b(pork|ramen|tonkotsu|bak ?kut ?teh|char ?siu|siu ?yuk|lechon|porchetta|chicharr\w*|carnitas|samgyeopsal|tonkatsu|bacon|ribs?|rib ?house|hog|swine|pigs?|piggy|babi|cerdo|schwein\w*|sausages?|wurst|charcuterie|salumeria|salumi|prosciutto|jam[oó]n|ippudo|nantsuttei|ichiran|morganfield'?s)\b/i;
+/** Places built around meat. */
+const MEAT_PLACE = /\b(steak ?house|steaks?|churrascaria|bbq|barbecue|barbeque|grill ?house|smokehouse|burgers?|shawarma|kebab|yakiniku|korean bbq|butcher)\b/i;
+
+/**
+ * Food rules are rules, not preferences: a place built around what they don't eat is dropped, not
+ * just ranked lower ("no pork" never gets a tonkotsu ramen shop). Halal-tagged places always pass. Pure.
+ */
+export function dietOk(p: Pick<Place, "name" | "tags">, dietary: string[] | undefined): boolean {
+  if (!dietary?.length) return true;
+  const hay = `${p.name} ${p.tags.join(" ")}`;
+  const rules = dietary.map((d) => d.toLowerCase());
+  if (/halal/i.test(hay)) return true;
+  if ((rules.includes("no pork") || rules.includes("halal") || rules.includes("kosher")) && PORK_PLACE.test(hay)) return false;
+  if ((rules.includes("vegetarian") || rules.includes("vegan")) && (MEAT_PLACE.test(hay) || PORK_PLACE.test(hay))) return false;
+  return true;
+}
+
 export type NearResult = { places: Place[]; counts: { qloo: number; osm: number; merged: number }; failures: string[] };
 
 const round1 = (n: number) => Math.round(n * 10) / 10;
@@ -427,6 +447,7 @@ export async function searchNear(ctx: SkillContext, s: NearSearch): Promise<Near
     // A hotel or resort isn't a restaurant or a thing to do (Qloo and the map tag many of them as both).
     .filter((p) => s.kind === "stay" || s.kind === "venue" || !LODGING_NAME.test(p.name) || NOT_JUST_LODGING.test(p.name))
     .filter((p) => s.kind !== "activity" || !EATERY_NAME.test(p.name) || SIGHT_NAME.test(p.name))
+    .filter((p) => s.kind !== "dine" || dietOk(p, s.dietary))
     .map((p) => scorePlace(p, { priceTier: s.priceTier, dietary: s.kind === "dine" ? s.dietary : undefined, tasteBased: s.signals.length + (s.tagSignals?.length ?? 0) > 0, nearBonus: s.nearBonus, query: s.query, tasteLabel: s.tasteLabel }))
     .map((p) => (s.kind === "stay" ? fitStayStyle(p, s.stayStyle) : p))
     .sort((a, b) => b.fit - a.fit)

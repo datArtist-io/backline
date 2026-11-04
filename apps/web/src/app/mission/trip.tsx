@@ -573,6 +573,7 @@ const SLIP_GROUPS: { id: string; label: string; icon: string; kinds: TripAction[
 
 export function ActionsCheckpoint({
   actions,
+  budget = null,
   demoLine = null,
   profile,
   busy,
@@ -580,6 +581,8 @@ export function ActionsCheckpoint({
   onLook,
 }: {
   actions: TripAction[];
+  /** The trip's total budget, so the slip says whether what's ticked fits. */
+  budget?: { amount: number; currency: string } | null;
   /** "Take a look first": back to the trip to vet it before paying. */
   onLook?: () => void;
   /** Demo mode: the line calls actually ring. */
@@ -695,6 +698,16 @@ export function ActionsCheckpoint({
               <div><small>After</small><span className={short ? "is-short" : ""}>{walletMoney(w)(w.balance - totalUsdCents)}</span></div>
             </div>
           )}
+          {w?.ready && budget && priced.length > 0 && (() => {
+            const cap = local(budget.amount, budget.currency);
+            if (cap == null) return null;
+            const left = cap - totalUsdCents;
+            return (
+              <p className={`ck-budget${left < 0 ? " is-over" : ""}`}>
+                Your budget {walletMoney(w)(cap)} · {left < 0 ? `over by ${walletMoney(w)(-left)}` : `${walletMoney(w)(left)} to spare`}
+              </p>
+            );
+          })()}
           {short && <p className="ck-warn">Your wallet is short for everything ticked. Untick something or add funds in your wallet.</p>}
           <div className="ck-slip">
             {groups.map((g) => (

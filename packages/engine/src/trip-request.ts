@@ -59,6 +59,8 @@ export const rawTripSchema = z.object({
   likes: looseList,
   /** hotel, home (Airbnb-style apartment/house/villa), hostel, guesthouse (B&B), boutique, resort, mixed. */
   stayStyle: looseStr,
+  /** What they can't or won't eat: "no pork", "halal", "vegetarian", "nut allergy". */
+  dietary: looseList,
 });
 export type RawTrip = z.infer<typeof rawTripSchema>;
 
@@ -83,6 +85,7 @@ export const tripRequestSchema = z.object({
   /** Children travelling, by age (rooms and rates are priced for them too). */
   children: z.array(z.number()).optional(),
   stayStyle: z.enum(["hotel", "home", "hostel", "guesthouse", "boutique", "resort", "mixed"]).optional(),
+  dietary: z.array(z.string()).optional(),
   assumptions: z.array(z.string()),
 });
 
@@ -104,6 +107,25 @@ export function stayStyleIn(text: string): StayStyle | null {
   const said = text.replace(/\b(?:not?|without|avoid|hate|don'?t (?:want|like))\s+(?:an?\s+|the\s+)?[\w-]+(?:\s+[\w-]+)?/gi, " ");
   for (const [re, style] of STAY_WORDS) if (re.test(said)) return style;
   return null;
+}
+
+/** Food rules said in words, in a fixed form the place search understands. Pure. */
+const DIET_WORDS: [RegExp, string][] = [
+  [/\b(no|without|avoid\w*|don'?t eat|doesn'?t eat|not eating|free of)\s+(?:any\s+)?pork\b|\bpork[- ]free\b/i, "no pork"],
+  [/\bhalal\b/i, "halal"],
+  [/\bkosher\b/i, "kosher"],
+  [/\bvegan\b/i, "vegan"],
+  [/\bvegetarian|\bveggie\b|\b(no|don'?t eat)\s+meat\b/i, "vegetarian"],
+  [/\bpescatarian\b/i, "pescatarian"],
+  [/\b(no|without|avoid\w*)\s+(?:any\s+)?(?:alcohol|drinking)\b|\bteetotal|\bsober\b/i, "no alcohol"],
+  [/\bgluten[- ]free\b|\bcoeliac|\bceliac\b/i, "gluten-free"],
+  [/\b(nut|peanut)s?\b[^.]{0,12}\ballerg|\ballerg\w*\b[^.]{0,20}\b(nut|peanut)s?\b|\bnut[- ]free\b/i, "nut allergy"],
+  [/\b(shellfish|seafood)\b[^.]{0,12}\ballerg|\ballerg\w*\b[^.]{0,20}\b(shellfish|seafood)\b|\b(no|without)\s+(?:any\s+)?shellfish\b/i, "no shellfish"],
+  [/\b(no|without|avoid\w*|don'?t eat)\s+(?:any\s+)?beef\b/i, "no beef"],
+];
+
+export function dietaryIn(text: string): string[] {
+  return DIET_WORDS.filter(([re]) => re.test(text)).map(([, d]) => d);
 }
 
 const asStyle = (v: unknown): StayStyle | null => {
@@ -220,6 +242,10 @@ export function groundTrip(raw: RawTrip | null | undefined, text: string, opts: 
   if (opts.near && out.near && !saidIn(text, out.near)) out.near = null;
   // The kind of stay: what they said wins; a model's guess stays only if it's a kind we know.
   out.stayStyle = stayStyleIn(text) ?? asStyle(out.stayStyle);
+  // Food rules: what they said, plus any the model read that are in our fixed list.
+  const said = dietaryIn(text);
+  const known = new Set(DIET_WORDS.map(([, d]) => d));
+  out.dietary = [...new Set([...said, ...(out.dietary ?? []).map((d) => d.trim().toLowerCase()).filter((d) => known.has(d))])];
   if (out.origin && !saidIn(text, out.origin)) out.origin = null;
   // Only skip booking something when they said they'd handle it; models fill this in from "from Lagos".
   if (out.selfArranged?.length && !SELF_HANDLED.test(text)) out.selfArranged = [];
@@ -319,6 +345,7 @@ export function normalizeTrip(raw: RawTrip | null | undefined, fallbackDestinati
     inspiredBy: raw?.inspiredBy?.replace(/[<>"]/g, "").trim().slice(0, 60) || null,
     likes: [...new Set((raw?.likes ?? []).map((l) => l.replace(/[<>"]/g, "").trim().slice(0, 50)).filter(Boolean))].slice(0, 5),
     stayStyle,
+    ...(raw?.dietary?.length ? { dietary: [...new Set(raw.dietary.map((d) => d.trim().toLowerCase()).filter(Boolean))].slice(0, 6) } : {}),
     assumptions,
   };
 }
@@ -370,6 +397,7 @@ export function rawFromTrip(t: TripRequest): RawTrip {
     inspiredBy: t.inspiredBy ?? null,
     likes: t.likes ?? [],
     stayStyle: t.stayStyle ?? null,
+    dietary: t.dietary ?? [],
   };
 }
 
@@ -437,6 +465,7 @@ export function describeTrip(t: TripRequest): string {
     t.purpose ? `Purpose: ${t.purpose}.` : "",
     t.event ? `Hosting: ${t.event.type}${t.event.guests ? ` for ${t.event.guests} guests` : ""}${t.event.date ? ` on ${fmt(t.event.date)}` : ""}.` : "",
     t.likes?.length ? `Loves: ${t.likes.join(", ")}.` : "",
+    t.dietary?.length ? `Food rules (never break these in any pick or meal): ${t.dietary.join(", ")}.` : "",
     t.inspiredBy ? `Wants the plan to follow ${t.inspiredBy}'s taste (places fans of ${t.inspiredBy} love).` : "",
     t.origin ? `Travelling from ${t.origin}.` : "",
     t.travelMode ? `Travelling by ${t.travelMode}${t.selfArranged.includes("transport") ? " (the user is arranging and paying for it)" : ""}.` : "",

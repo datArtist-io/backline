@@ -288,6 +288,8 @@ export type TripRequest = {
   children?: number[];
   /** The kind of place to stay (hotel by default). */
   stayStyle?: StayStyle;
+  /** Food rules from the request: "no pork", "halal", "vegetarian"… */
+  dietary?: string[];
   /** Things the agent assumed because the request didn't say. Shown to the user. */
   assumptions: string[];
 };
