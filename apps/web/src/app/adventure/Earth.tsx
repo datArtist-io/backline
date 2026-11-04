@@ -911,6 +911,8 @@ export default function Earth(props: EarthProps) {
       FLOWN.add(pageKey());
       const path = greatCircle(from, dest);
       const far = kmBetween(from, dest);
+      // The route label waits for touch-down, from the moment the globe turns to home.
+      box.current?.classList.add("is-flying");
       // Turn the globe to home (no cut), then fly.
       const lead = map.getZoom() < 5 ? 1300 : 0;
       if (lead) map.easeTo({ center: [from.lon, from.lat], zoom: gz(far > 4000 ? 2.1 : 3.0), pitch: 0, bearing: 0, duration: lead, easing: (x) => 1 - Math.pow(1 - x, 3) });

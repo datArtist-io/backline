@@ -1204,9 +1204,11 @@ button:hover .ki-stop .ki-plane, .eq-card:hover .ki-stop .ki-plane { animation: 
 }
 
 /* While the plane flies in, the route label steps aside, then fades back after touch-down. */
-.eq-journey-pin { transition: opacity 1.2s ease; }
-.is-arrived .eq-journey-pin { opacity: 0; pointer-events: none; }
-.is-flying .eq-journey-pin { opacity: 0; }
+/* The map sets an inline opacity on each marker (to hide those behind the globe), which beats a class
+   on the marker itself, so the label inside is what's hidden: during the flight, and after landing. */
+.eq-journey-pin .eq-journey { transition: opacity 1.2s ease; }
+.is-arrived .eq-journey-pin .eq-journey { opacity: 0; }
+.is-flying .eq-journey-pin .eq-journey { opacity: 0; transition: opacity .3s ease; }
 
 /* Before the steps are known: placeholder dots in the same spot, so nothing jumps when they arrive. */
 .eq-chapters.is-skeleton li { opacity: 0.35; }
