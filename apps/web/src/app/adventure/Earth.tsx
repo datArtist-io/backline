@@ -3,7 +3,6 @@
 // imagery, terrain and 3D buildings. A Three.js layer shares its camera and depth buffer, so the
 // game sits in the real city: light beacons over every place the agent picked, Qloo's taste rising
 // out of the streets as glowing columns, and a traveller who flies each day's route.
-import { easeHeading, planeHtml } from "./plane";
 import maplibregl, { type CustomLayerInterface, type GeoJSONSource, type Map as MlMap, type Marker, type StyleSpecification } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import * as THREE from "three";
@@ -595,13 +594,13 @@ export default function Earth(props: EarthProps) {
       map.addLayer({ id: "route-glow", type: "line", source: "routes", layout: { "line-cap": "round", "line-join": "round" }, paint: { "line-color": ["get", "color"], "line-width": ["interpolate", ["linear"], ["zoom"], 10, 6, 16, 18], "line-blur": 8, "line-opacity": 0.35 } });
       map.addLayer({ id: "route", type: "line", source: "routes", layout: { "line-cap": "round", "line-join": "round" }, paint: { "line-color": ["get", "color"], "line-width": ["interpolate", ["linear"], ["zoom"], 10, 1.6, 16, 4.5], "line-opacity": 0.9 } });
       map.addLayer({ id: "trail", type: "line", source: "trail", layout: { "line-cap": "round", "line-join": "round" }, paint: { "line-color": "#ffffff", "line-width": ["interpolate", ["linear"], ["zoom"], 10, 3, 17, 8], "line-blur": 1, "line-opacity": 0.95 } });
-      map.addLayer({ id: "arc-glow", type: "line", source: "arc", layout: { "line-cap": "round" }, paint: { "line-width": 12, "line-blur": 8, "line-opacity": 0.6, "line-opacity-transition": { duration: 2200, delay: 0 }, "line-gradient": ["interpolate", ["linear"], ["line-progress"], 0, "rgba(188,214,255,0)", 0.6, "rgba(188,214,255,0.35)", 1, "rgba(220,234,255,0.95)"] } });
+      map.addLayer({ id: "arc-glow", type: "line", source: "arc", layout: { "line-cap": "round" }, paint: { "line-color": "#bcd6ff", "line-width": 9, "line-blur": 7, "line-opacity": 0.45, "line-opacity-transition": { duration: 2200, delay: 0 } } });
       map.addLayer({
         id: "arc",
         type: "line",
         source: "arc",
         layout: { "line-cap": "round" },
-        paint: { "line-width": 3, "line-opacity": 1, "line-opacity-transition": { duration: 2200, delay: 0 }, "line-gradient": ["interpolate", ["linear"], ["line-progress"], 0, "rgba(255,255,255,0.08)", 0.55, "rgba(255,255,255,0.5)", 1, "#ffffff"] },
+        paint: { "line-width": 2.4, "line-opacity": 1, "line-opacity-transition": { duration: 2200, delay: 0 }, "line-gradient": ["interpolate", ["linear"], ["line-progress"], 0, "rgba(255,255,255,0.08)", 0.55, "rgba(255,255,255,0.5)", 1, "#ffffff"] },
       });
       map.addLayer(layer);
       try {
@@ -849,7 +848,7 @@ export default function Earth(props: EarthProps) {
     state.current.arcFade = 0;
     try {
       map?.setPaintProperty("arc", "line-opacity", on ? 1 : 0);
-      map?.setPaintProperty("arc-glow", "line-opacity", on ? 0.6 : 0);
+      map?.setPaintProperty("arc-glow", "line-opacity", on ? 0.45 : 0);
     } catch {
       /* the map is being rebuilt */
     }
@@ -930,8 +929,7 @@ export default function Earth(props: EarthProps) {
       // cruise and comes back down on approach; the plane climbs (grows, its shadow drifts away) and
       // descends, leaving a fading contrail; home and the destination pulse at take-off and touch-down.
       const t0 = performance.now();
-      // Long enough to enjoy: 5 to 7.5 seconds, longer for a longer flight.
-      const dur = Math.round(Math.min(7500, Math.max(5000, 4400 + far * 0.5)));
+      const dur = Math.round(Math.min(6500, Math.max(4200, 3600 + far * 0.45)));
       const zFrom = gz(far > 4000 ? 2.1 : 3.0);
       const zTo = gz(far > 4000 ? 2.9 : 3.8);
       const climb = far > 4000 ? 0.9 : far > 1500 ? 0.6 : 0.35;
@@ -960,34 +958,27 @@ export default function Earth(props: EarthProps) {
       planeRef.current?.remove();
       const pe = document.createElement("div");
       pe.className = "eq-plane-pin";
-      pe.innerHTML = planeHtml();
-      // Upright to the screen (not laid on the globe, which stretched it near the edge), turned to its heading.
-      const plane = new maplibregl.Marker({ element: pe, anchor: "center", rotationAlignment: "map", pitchAlignment: "viewport" }).setLngLat(pts[0]).addTo(map);
-      // Its heading from the first stretch of the path (it pointed north for a frame at take-off).
-      let hdg = heading(pts[0], pts[Math.min(pts.length - 1, 2)]);
-      plane.setRotation(hdg);
+      pe.innerHTML = `<div class="eq-plane-shadow" aria-hidden="true"></div><div class="eq-plane"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M12 1.6c.9 0 1.5 1.1 1.5 2.4v5.3l8 4.7v2.2l-8-2.4v4.8l2.6 2v1.7L12 21.2l-4.1 1.1v-1.7l2.6-2v-4.8l-8 2.4V14l8-4.7V4c0-1.3.6-2.4 1.5-2.4z" fill="currentColor"/></svg></div>`;
+      const plane = new maplibregl.Marker({ element: pe, anchor: "center", rotationAlignment: "map", pitchAlignment: "map" }).setLngLat(pts[0]).addTo(map);
       planeRef.current = plane;
       pulse(pts[0][0], pts[0][1], "is-home");
       // The route label waits until touch-down, so it never sits on top of the plane.
       box.current?.classList.add("is-flying");
-      // Smootherstep: eases out of take-off and into the landing with no jolt at either end.
-      const smooth = (f: number) => f * f * f * (f * (f * 6 - 15) + 10);
+      const smooth = (f: number) => (f < 0.5 ? 4 * f * f * f : 1 - Math.pow(-2 * f + 2, 3) / 2);
       let ended = false;
       const step = () => {
         if (ended) return;
         const f = Math.min(1, (performance.now() - t0) / dur);
         const u = smooth(f);
         const pos = at(u);
-        const ahead = at(Math.min(1, u + 0.012));
-        const behind = at(Math.max(0, u - 0.012));
+        const ahead = at(Math.min(1, u + 0.01));
+        const behind = at(Math.max(0, u - 0.01));
         // Contrail: the path flown so far, its tail fading (line-gradient on the layer).
         const n = Math.max(1, Math.floor(u * (pts.length - 1)));
         arc.setData(fc([line([...pts.slice(0, n + 1), pos])]));
         const alt = Math.sin(Math.PI * u);
         pe.style.setProperty("--alt", alt.toFixed(3));
-        // Ahead and behind can be the same point at the very ends; keep the last heading then.
-        if (Math.abs(ahead[0] - behind[0]) + Math.abs(ahead[1] - behind[1]) > 1e-6) hdg = easeHeading(hdg, heading(behind, ahead), 0.25);
-        if (planeRef.current === plane) plane.setLngLat(pos).setRotation(hdg);
+        if (planeRef.current === plane) plane.setLngLat(pos).setRotation(heading(behind, ahead));
         // The camera rides a little ahead of the plane, pulling back at cruise.
         const lead = at(Math.min(1, u + 0.06));
         if (!s.user) map.jumpTo({ center: [pos[0] + (lead[0] - pos[0]) * 0.5, pos[1] + (lead[1] - pos[1]) * 0.5], zoom: zFrom + (zTo - zFrom) * u - climb * alt, pitch: 0, bearing: 0 });

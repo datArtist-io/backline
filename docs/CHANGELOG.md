@@ -15,11 +15,9 @@
 - Getting there and back is always on the payment slip. The fare, best first: the live Google Flights fare for the dates; a fare listed online for the route; an estimate from the distance (recalibrated on real fares: Lagos–Rome about $560 one way, not $297). Anything but the live fare carries an "est." tag on the slip and says the live fare replaces it, and the agent calls it an estimate. Turning SerpApi on (or it answering again) swaps in the live fare by itself.
 - Google Flights answers are kept for 6 hours (Next.js data cache), so practising the same trip doesn't spend searches.
 
-### The flight in, smoother
-- The simple white plane stays (a detailed airliner was tried and dropped). The flight is a little longer (5 to 7.5 s) and eases out of take-off and into landing with no jolt (smootherstep), and its white contrail glows brighter toward the plane.
-- Fixed: the "Lagos → Rome" label sat on the flight path while the plane flew under it. The label's entrance animation held it fully visible (fill-mode both) over the rule hiding it; the label now hides from the moment the globe turns to take-off and appears at touch-down.
+### The flight in
+- The flight is back exactly as it was in the morning (the motion and look changes made during the day were reverted).
 - Fixed: the plane had stopped flying in. Where you fly from came from the getting-there step, which now waits for the agent (about 30 s), and the globe stops waiting after 7. A small first step (`trip.home`) now pins the departure city within a second or two.
-- Fixed: it pointed north for a moment at take-off and landing (its heading came from two identical points) and then snapped round; it now starts on its heading and turns smoothly. It no longer stretches near the edge of the globe (it was laid onto the surface; it now faces the screen).
 
 ### Slip and trip polish
 - Pressing send on the home page no longer leaves a half-finished frame (headline and buttons gone, blobs at full colour) on screen while the trip loads: the page settles into the trip's own night sky with "Planning your trip", and the trip opens into it.
