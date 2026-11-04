@@ -402,7 +402,7 @@ export async function runAgent<S, F>(o: RunAgentOptions<S, F>): Promise<AgentRun
         }
         return end("finished", parsed.data);
       }
-      turn.note = "You didn't call a tool or finish. Do one or the other.";
+      turn.note = "You didn't call a tool or finish. Tool results are never pending: everything that came back is under \"Work so far\". Call a tool or finish.";
       decisions[decisions.length - 1].note = "no tool and no finish";
       if (by === "autopilot") return end("policy_failed");
       continue;

@@ -1037,6 +1037,7 @@ function systemPrompt(input: BriefInput, ctx: SkillContext): string {
     "",
     "How you work:",
     "- Work in small steps. Each turn, tell the user in one short, plain sentence what you're doing, then call up to 3 tools. Batch calls that don't depend on each other.",
+    "- Tools finish before your next turn: their results are always under \"Work so far\". Never wait or reply without a tool call or a finish.",
     "- First pin the destination city with locate, and the landmark if they want to be near one. For an ambiguous name like Lagos (Nigeria or Portugal), use the country in the request, the trip's currency, the user's home or the most likely place, and say which you chose.",
     "- When there's a landmark, search around it: being close matters most. Walking distance is under 1.5 km.",
     "- Their taste has been read through Qloo (see \"Their taste\"). Without a landmark, searches already centre on the part of town where that taste is strongest, so don't locate that area yourself. Lean your picks and reasons on it: say which places fit their taste and why.",

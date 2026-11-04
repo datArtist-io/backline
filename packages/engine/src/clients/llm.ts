@@ -90,6 +90,54 @@ export function repairJson(s: string): string {
     .replace(/]\s*\[/g, "],[");
 }
 
+/**
+ * Some providers (Groq) refuse a reply where the model wrote a native tool call instead of plain JSON,
+ * and return what it wrote as error.failed_generation. That is the decision it meant: recover it as
+ * {"thought", "actions"} so an agent turn isn't lost. Null when there's nothing usable. Pure.
+ */
+export function recoverToolCall(body: string): string | null {
+  let g: unknown;
+  try {
+    g = (JSON.parse(body) as { error?: { code?: string; failed_generation?: unknown } }).error?.failed_generation;
+  } catch {
+    return null;
+  }
+  if (typeof g !== "string" || !g.trim()) return null;
+  const actions: { tool: string; args: Record<string, unknown> }[] = [];
+  const take = (x: unknown) => {
+    if (!x || typeof x !== "object") return;
+    const o = x as Record<string, unknown>;
+    const fn = (o.function && typeof o.function === "object" ? o.function : o) as Record<string, unknown>;
+    const name = fn.name ?? o.tool;
+    let args = fn.arguments ?? fn.parameters ?? o.args ?? {};
+    if (typeof args === "string") {
+      try {
+        args = JSON.parse(args);
+      } catch {
+        args = {};
+      }
+    }
+    if (typeof name === "string" && name) actions.push({ tool: name, args: args && typeof args === "object" ? (args as Record<string, unknown>) : {} });
+  };
+  try {
+    const j = JSON.parse(g.trim());
+    if (Array.isArray(j)) j.forEach(take);
+    else if (j && typeof j === "object" && ("thought" in j || "actions" in j || "finish" in j)) return JSON.stringify(j);
+    else take(j);
+  } catch {
+    // <function=search_places>{"kind":"stay"}</function>
+    for (const m of g.matchAll(/<function=([\w.-]+)>\s*(\{[\s\S]*?\})\s*<\/function>/g)) {
+      try {
+        actions.push({ tool: m[1], args: JSON.parse(m[2]) });
+      } catch {
+        /* skip a malformed call */
+      }
+    }
+  }
+  if (!actions.length) return null;
+  return JSON.stringify({ thought: `Using ${[...new Set(actions.map((a) => a.tool.replace(/_/g, " ")))].join(" and ")}`, actions });
+}
+
 const MODEL_MISSING = /model[\s\S]{0,80}(not found|does not exist|doesn't exist|unknown|invalid|not supported|unavailable)|(no such|unknown) model/i;
 /** A provider refusing the chat_template_kwargs field. */
 const KWARGS_REFUSED = /chat_template|enable_thinking|extra (fields|inputs)|unrecognized|not permitted|unexpected (field|keyword|argument)/i;
@@ -189,8 +237,16 @@ export class LlmClient {
           throw new UpstreamError("llm", null, `LLM network error: ${(err as Error).message}`);
         }
         if (!res.ok) {
-          const body = (await res.text().catch(() => "")).slice(0, 300);
-          const missing = res.status === 404 || (res.status === 400 && MODEL_MISSING.test(body));
+          const full = await res.text().catch(() => "");
+          const body = full.slice(0, 300);
+          if (res.status === 400 && /tool_use_failed/.test(full)) {
+            const recovered = recoverToolCall(full);
+            if (recovered) {
+              this.record({ ...base, ms: Date.now() - t0, ok: true, status: res.status, finish: "tool_call", outChars: recovered.length, error: null });
+              return { content: recovered, finish: "stop" };
+            }
+          }
+          const missing = res.status === 404 || (res.status === 400 && !/tool_use_failed/.test(full) && MODEL_MISSING.test(body));
           this.record({ ...base, ms: Date.now() - t0, ok: false, status: res.status, finish: null, outChars: 0, error: body.replace(/\s+/g, " ").slice(0, 160) || `HTTP ${res.status}` });
           if (thinkOff && res.status === 400 && KWARGS_REFUSED.test(body)) {
             // The provider won't take the switch: remember, and ask again without it.

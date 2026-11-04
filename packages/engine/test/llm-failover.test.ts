@@ -41,3 +41,30 @@ describe("failover between AI providers", () => {
     expect(llm.lastUsed).toBe(0);
   });
 });
+
+describe("a native tool call the provider refused", () => {
+  it("is recovered as the agent's decision", async () => {
+    const { recoverToolCall } = await import("../src/clients/llm");
+    const body = (g: string) => JSON.stringify({ error: { message: "Tool choice is none, but model called a tool", code: "tool_use_failed", failed_generation: g } });
+    expect(JSON.parse(recoverToolCall(body('{"name": "search_places", "arguments": {"kind": "stay", "query": "jazz"}}'))!)).toEqual({ thought: "Using search places", actions: [{ tool: "search_places", args: { kind: "stay", query: "jazz" } }] });
+    expect(JSON.parse(recoverToolCall(body('[{"name":"locate","arguments":"{\\"query\\":\\"Rome\\",\\"role\\":\\"city\\"}"},{"name":"find_travel","parameters":{}}]'))!).actions.map((a: { tool: string }) => a.tool)).toEqual(["locate", "find_travel"]);
+    expect(JSON.parse(recoverToolCall(body('<function=check_places>{"ids":["s1"]}</function>'))!).actions[0]).toEqual({ tool: "check_places", args: { ids: ["s1"] } });
+    expect(JSON.parse(recoverToolCall(body('{"thought":"done","finish":{"summary":"x"}}'))!).finish).toEqual({ summary: "x" });
+    expect(recoverToolCall(body("just words"))).toBeNull();
+    expect(recoverToolCall("not json")).toBeNull();
+  });
+});
+
+describe("the client, when the provider refuses a tool call", () => {
+  afterEach(() => vi.unstubAllGlobals());
+  it("answers with the recovered call instead of failing the turn", async () => {
+    const { LlmClient } = await import("../src/clients/llm");
+    const refused = JSON.stringify({ error: { message: "Tool choice is none, but model called a tool", type: "invalid_request_error", code: "tool_use_failed", failed_generation: '{"name":"find_events","arguments":{}}' } });
+    const f = vi.fn(async () => new Response(refused, { status: 400 }));
+    vi.stubGlobal("fetch", f);
+    const llm = new LlmClient({ apiKey: "k", baseUrl: "https://llm.example/v1", models: { default: "m" } });
+    const out = await llm.json({ system: "s", user: "u", schema: z.record(z.unknown()) });
+    expect(out).toEqual({ thought: "Using find events", actions: [{ tool: "find_events", args: {} }] });
+    expect(f).toHaveBeenCalledTimes(1);
+  });
+});

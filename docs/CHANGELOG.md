@@ -7,7 +7,9 @@
 - The steps after the agent reuse its answers (one lookup per run, shared), and only fetch themselves when the agent didn't, so nothing is asked twice and no fare search is wasted.
 - The trace names the loop (reason, act, observe) and labels the new tools; the README describes the agent and its tools.
 - A tool that fails twice in a row is switched off for the rest of the run, and the model is told, so it works with what it has instead of spending its turns retrying (live, the out-of-credit web search used up all 8 turns and the autopilot had to finish). A provider asking for payment (402) counts as web research being down.
-- Tests: the agent's fare reasoning, reuse by the fixed steps, the model choosing the tool, autopilot, per-run sharing, switching off a failing tool (engine 435).
+- The model keeps control to the end. Live, the backup model on Groq sometimes wrote a native tool call instead of plain JSON; Groq refuses that with a 400 ("Tool choice is none, but model called a tool") and the autopilot took over after two. The call it meant is in the error, so it's now recovered and run as that turn's decision. That 400 is no longer mistaken for "model not available".
+- Turns where the model "waits for results" are gone: it's told tool results are never pending.
+- Tests: the agent's fare reasoning, reuse by the fixed steps, the model choosing the tool, autopilot, per-run sharing, switching off a failing tool, recovering refused tool calls (engine 437).
 
 ### Flight prices are real or not charged
 - Fares come from Google Flights (through SerpApi, `SERPAPI_API_KEY`): the actual price for this route, these dates and this many travellers, out and back priced separately, from every airport in the city. Among flights within 40% of the quickest journey, the cheapest is picked, so a 30-hour detour never wins on price.
