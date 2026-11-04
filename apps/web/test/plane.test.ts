@@ -8,8 +8,9 @@ describe("the plane", () => {
     expect(easeHeading(90, 90, 0.3)).toBe(90);
     expect(easeHeading(0, 180, 0)).toBe(0);
   });
-  it("carries its navigation lights and a shadow", () => {
+  it("is the simple white jet with a shadow", () => {
     const h = planeHtml();
-    for (const c of ["pl-red", "pl-green", "pl-strobe", "eq-plane-shadow"]) expect(h).toContain(c);
+    expect(h).toContain("eq-plane-shadow");
+    expect(h).toContain('fill="currentColor"');
   });
 });

@@ -595,13 +595,13 @@ export default function Earth(props: EarthProps) {
       map.addLayer({ id: "route-glow", type: "line", source: "routes", layout: { "line-cap": "round", "line-join": "round" }, paint: { "line-color": ["get", "color"], "line-width": ["interpolate", ["linear"], ["zoom"], 10, 6, 16, 18], "line-blur": 8, "line-opacity": 0.35 } });
       map.addLayer({ id: "route", type: "line", source: "routes", layout: { "line-cap": "round", "line-join": "round" }, paint: { "line-color": ["get", "color"], "line-width": ["interpolate", ["linear"], ["zoom"], 10, 1.6, 16, 4.5], "line-opacity": 0.9 } });
       map.addLayer({ id: "trail", type: "line", source: "trail", layout: { "line-cap": "round", "line-join": "round" }, paint: { "line-color": "#ffffff", "line-width": ["interpolate", ["linear"], ["zoom"], 10, 3, 17, 8], "line-blur": 1, "line-opacity": 0.95 } });
-      map.addLayer({ id: "arc-glow", type: "line", source: "arc", layout: { "line-cap": "round" }, paint: { "line-color": "#bcd6ff", "line-width": 9, "line-blur": 7, "line-opacity": 0.45, "line-opacity-transition": { duration: 2200, delay: 0 } } });
+      map.addLayer({ id: "arc-glow", type: "line", source: "arc", layout: { "line-cap": "round" }, paint: { "line-width": 12, "line-blur": 8, "line-opacity": 0.6, "line-opacity-transition": { duration: 2200, delay: 0 }, "line-gradient": ["interpolate", ["linear"], ["line-progress"], 0, "rgba(188,214,255,0)", 0.6, "rgba(188,214,255,0.35)", 1, "rgba(220,234,255,0.95)"] } });
       map.addLayer({
         id: "arc",
         type: "line",
         source: "arc",
         layout: { "line-cap": "round" },
-        paint: { "line-width": 2.4, "line-opacity": 1, "line-opacity-transition": { duration: 2200, delay: 0 }, "line-gradient": ["interpolate", ["linear"], ["line-progress"], 0, "rgba(255,255,255,0.08)", 0.55, "rgba(255,255,255,0.5)", 1, "#ffffff"] },
+        paint: { "line-width": 3, "line-opacity": 1, "line-opacity-transition": { duration: 2200, delay: 0 }, "line-gradient": ["interpolate", ["linear"], ["line-progress"], 0, "rgba(255,255,255,0.08)", 0.55, "rgba(255,255,255,0.5)", 1, "#ffffff"] },
       });
       map.addLayer(layer);
       try {
@@ -849,7 +849,7 @@ export default function Earth(props: EarthProps) {
     state.current.arcFade = 0;
     try {
       map?.setPaintProperty("arc", "line-opacity", on ? 1 : 0);
-      map?.setPaintProperty("arc-glow", "line-opacity", on ? 0.45 : 0);
+      map?.setPaintProperty("arc-glow", "line-opacity", on ? 0.6 : 0);
     } catch {
       /* the map is being rebuilt */
     }
@@ -928,7 +928,8 @@ export default function Earth(props: EarthProps) {
       // cruise and comes back down on approach; the plane climbs (grows, its shadow drifts away) and
       // descends, leaving a fading contrail; home and the destination pulse at take-off and touch-down.
       const t0 = performance.now();
-      const dur = Math.round(Math.min(6500, Math.max(4200, 3600 + far * 0.45)));
+      // Long enough to enjoy: 5 to 7.5 seconds, longer for a longer flight.
+      const dur = Math.round(Math.min(7500, Math.max(5000, 4400 + far * 0.5)));
       const zFrom = gz(far > 4000 ? 2.1 : 3.0);
       const zTo = gz(far > 4000 ? 2.9 : 3.8);
       const climb = far > 4000 ? 0.9 : far > 1500 ? 0.6 : 0.35;
@@ -967,7 +968,8 @@ export default function Earth(props: EarthProps) {
       pulse(pts[0][0], pts[0][1], "is-home");
       // The route label waits until touch-down, so it never sits on top of the plane.
       box.current?.classList.add("is-flying");
-      const smooth = (f: number) => (f < 0.5 ? 4 * f * f * f : 1 - Math.pow(-2 * f + 2, 3) / 2);
+      // Smootherstep: eases out of take-off and into the landing with no jolt at either end.
+      const smooth = (f: number) => f * f * f * (f * (f * 6 - 15) + 10);
       let ended = false;
       const step = () => {
         if (ended) return;

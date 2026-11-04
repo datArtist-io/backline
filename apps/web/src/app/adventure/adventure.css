@@ -1010,22 +1010,11 @@ button:hover .ki-stop .ki-plane, .eq-card:hover .ki-stop .ki-plane { animation: 
 /* The plane on the way in (rotation lives on the marker, the look on the inner element). */
 /* Altitude: the plane grows a little at cruise and its shadow falls away below it. */
 /* Take-off and touch-down: a soft ring that spreads and fades. */
-/* The airliner flying the journey in. --alt is 0 on the ground, 1 at cruise: it grows as it climbs,
-   and its shadow drifts off and softens. */
-.eq-plane-pin { --alt: 0; position: relative; width: 84px; height: 84px; pointer-events: none; z-index: 4; }
-.eq-plane, .eq-plane-shadow { position: absolute; inset: 0; line-height: 0; }
-.eq-plane svg, .eq-plane-shadow svg { width: 100%; height: 100%; display: block; overflow: visible; }
-.eq-plane { transform: scale(calc(.78 + var(--alt) * .42)); filter: drop-shadow(0 0 1px rgba(20, 28, 52, .5)) drop-shadow(0 0 14px rgba(188, 214, 255, .55)); transition: opacity .9s ease; will-change: transform; }
-.eq-plane-shadow { fill: #050b18; opacity: calc(.6 - var(--alt) * .28); filter: blur(calc(1.5px + var(--alt) * 3px)); transform: translate(calc(4px + var(--alt) * 22px), calc(6px + var(--alt) * 34px)) scale(calc(.76 + var(--alt) * .06)); }
-.eq-plane .pl-red, .eq-plane .pl-green { animation: pl-blink 1.4s steps(1, end) infinite; filter: drop-shadow(0 0 3px currentColor); }
-.eq-plane .pl-red { color: #ff3b4a; }
-.eq-plane .pl-green { color: #2bff88; animation-delay: .7s; }
-.eq-plane .pl-strobe { opacity: 0; animation: pl-strobe 1.1s linear infinite; filter: drop-shadow(0 0 4px #fff); }
-.eq-plane-pin.is-landed .eq-plane { opacity: 0; transform: scale(.5); transition: opacity .9s ease, transform .9s ease; }
-.eq-plane-pin.is-landed .eq-plane-shadow { opacity: 0; transition: opacity .6s ease; }
-@keyframes pl-blink { 0% { opacity: 1; } 55% { opacity: .25; } }
-@keyframes pl-strobe { 0%, 8% { opacity: 1; } 9%, 100% { opacity: 0; } }
-@media (prefers-reduced-motion: reduce) { .eq-plane .pl-red, .eq-plane .pl-green, .eq-plane .pl-strobe { animation: none; opacity: 1; } }
+.eq-plane-pin { --alt: 0; position: relative; pointer-events: none; z-index: 4; }
+.eq-plane { position: relative; line-height: 0; color: #fff; transform: scale(calc(1 + var(--alt) * .38)); filter: drop-shadow(0 2px 6px rgba(20, 30, 60, .55)) drop-shadow(0 0 12px rgba(188, 214, 255, .9)); transition: opacity .8s ease; will-change: transform; }
+.eq-plane-shadow { position: absolute; left: 50%; top: 50%; width: 18px; height: 18px; margin: -9px 0 0 -9px; border-radius: 50%; background: radial-gradient(closest-side, rgba(8, 14, 30, .5), transparent); transform: translate(calc(var(--alt) * 10px), calc(var(--alt) * 16px)) scale(calc(1 - var(--alt) * .35)); opacity: calc(.85 - var(--alt) * .45); pointer-events: none; }
+.eq-plane-pin.is-landed .eq-plane { opacity: 0; transform: scale(.4); transition: opacity .8s ease, transform .8s ease; }
+.eq-plane-pin.is-landed .eq-plane-shadow { opacity: 0; transition: opacity .5s ease; }
 .eq-pulse { width: 14px; height: 14px; border-radius: 50%; pointer-events: none; position: relative; }
 .eq-pulse::before, .eq-pulse::after { content: ""; position: absolute; inset: 0; border-radius: 50%; border: 2px solid rgba(188, 214, 255, .95); box-shadow: 0 0 14px rgba(188, 214, 255, .7); animation: eq-pulse 2.2s cubic-bezier(.2, .7, .3, 1) forwards; }
 .eq-pulse::after { animation-delay: .45s; }
