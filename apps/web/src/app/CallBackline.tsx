@@ -67,7 +67,8 @@ export default function CallBackline() {
         }
       }
       const live = tripsRef.current.some((t) => t.live);
-      timer = window.setTimeout(tick, live ? 4000 : 10000);
+      // A call in progress: check every 1.5 s, so hanging up shows the trip's Open straight away.
+      timer = window.setTimeout(tick, live ? 1500 : 10000);
     };
     // After the hero has settled: nothing here should compete with the first paint.
     timer = window.setTimeout(tick, 1200);

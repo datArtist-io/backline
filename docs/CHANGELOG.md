@@ -28,6 +28,7 @@
 - Fixed: the plane had stopped flying in. Where you fly from came from the getting-there step, which now waits for the agent (about 30 s), and the globe stops waiting after 7. A small first step (`trip.home`) now pins the departure city within a second or two.
 
 ### Slip and trip polish
+- The voice trip code sits centred in its box (the spacing after the last digit pushed it left). While a call is live, the list checks every 1.5 s (the server asks Vapi every second), so the trip's Open shows as soon as the caller hangs up.
 - A voice trip leaves the "Planned by voice" list on the home page once you've opened it (remembered on that browser); a call still in progress stays.
 - "Who I'm booking for" is gone from the payment slip when the account already has a name and email; it only appears when one is missing. A phone is no longer asked for: demo calls ring the account's phone, else the demo line (`CALL_DEMO_TO`).
 - Pressing send on the home page no longer leaves a half-finished frame (headline and buttons gone, blobs at full colour) on screen while the trip loads: the page settles into the trip's own night sky with "Planning your trip", and the trip opens into it.

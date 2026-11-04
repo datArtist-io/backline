@@ -1533,7 +1533,7 @@ a { color: inherit; text-decoration: none; }
 .callin-board ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; max-height: 330px; overflow: auto; }
 .callin-board li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 16px; background: rgba(255, 255, 255, 0.85); border: 1px solid rgba(16, 19, 43, 0.06); animation: callin-in .5s cubic-bezier(.2,.8,.2,1) both; }
 .callin-board li.is-live { border-color: rgba(123, 92, 255, 0.45); box-shadow: 0 0 0 3px rgba(123, 92, 255, 0.12); }
-.callin-code { font-weight: 800; font-size: 15px; letter-spacing: .14em; padding: 6px 10px; border-radius: 10px; color: #4a3ad6; background: rgba(123, 92, 255, 0.12); font-variant-numeric: tabular-nums; }
+.callin-code { display: inline-flex; align-items: center; justify-content: center; font-weight: 800; font-size: 15px; letter-spacing: .14em; padding: 6px 10px 6px calc(10px + .14em); border-radius: 10px; text-align: center; color: #4a3ad6; background: rgba(123, 92, 255, 0.12); font-variant-numeric: tabular-nums; }
 .callin-trip { min-width: 0; display: grid; }
 .callin-trip b { font-size: 15px; color: #10132b; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .callin-trip span { font-size: 13px; color: #5b5f7a; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

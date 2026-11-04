@@ -35,7 +35,9 @@ let boardCache: { at: number; items: BoardItem[] } = { at: 0, items: [] };
 
 export async function board(): Promise<BoardItem[]> {
   if (!vapiReady()) return [];
-  if (Date.now() - boardCache.at < 4000) return boardCache.items;
+  // While a call is live, re-ask Vapi every second, so the trip's Open shows the moment the caller hangs up.
+  const fresh = boardCache.items.some((i) => i.live) ? 1000 : 4000;
+  if (Date.now() - boardCache.at < fresh) return boardCache.items;
   const since = new Date(Date.now() - 48 * 3600_000).toISOString();
   const calls = await vapi<Record<string, unknown>[]>(`/call?limit=60&createdAtGt=${encodeURIComponent(since)}`).catch(() => null);
   const items: BoardItem[] = [];
