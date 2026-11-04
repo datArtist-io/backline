@@ -502,7 +502,7 @@ function countryHints(s: TripAgentState, query: string): string[] {
 // ---------- tools ----------
 
 /** A web-research failure that won't fix itself during this run: no quota, or no model for the key. */
-const webGone = (err: unknown): err is UpstreamError => err instanceof UpstreamError && err.service === "web" && (err.status === 404 || err.status === 403 || err.status === 401 || (err.status === 429 && /quota/i.test(err.message + err.userMessage)));
+const webGone = (err: unknown): err is UpstreamError => err instanceof UpstreamError && err.service === "web" && (err.status === 402 || err.status === 404 || err.status === 403 || err.status === 401 || (err.status === 429 && /quota/i.test(err.message + err.userMessage)));
 
 const kindEnum = z.enum(PLACE_KINDS);
 const FIELD_WORDS: Record<string, string> = {

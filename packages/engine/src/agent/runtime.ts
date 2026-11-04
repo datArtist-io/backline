@@ -52,6 +52,8 @@ export type Turn = { n: number; by: Policy<unknown>["name"]; thought: string; ca
 
 export type TurnView<S> = {
   turn: number;
+  /** Tools switched off for the rest of the run because they kept failing. */
+  off?: string[];
   state: S;
   turns: Turn[];
   budget: { turnsLeft: number; callsLeft: number; msLeft: number; parallel: number };
@@ -96,6 +98,8 @@ export type RunAgentOptions<S, F> = {
 };
 
 const AUTOPILOT_MAX_TURNS = 10;
+/** A tool that fails this many times in a row is switched off for the rest of the run. */
+const OFF_AFTER = 2;
 
 const clip = (s: string, max: number) => (s.length > max ? `${s.slice(0, max - 1)}…` : s);
 const clean = (s: unknown, max: number) => (typeof s === "string" ? clip(s.replace(/[\u0000-\u001f<>]/g, " ").replace(/\s+/g, " ").trim(), max) : "");
@@ -234,7 +238,8 @@ export function modelPolicy<S>(o: {
         o.briefing(view.state),
         "",
         "## Your tools",
-        renderTools(o.tools, view.state),
+        renderTools(o.tools.filter((t) => !view.off?.includes(t.name)), view.state),
+        view.off?.length ? `(${view.off.join(", ")} kept failing this run, so ${view.off.length === 1 ? "it's" : "they're"} off. Work with what you have.)` : "",
         "",
         "## Work so far",
         renderHistory(view.turns),
@@ -261,6 +266,9 @@ export async function runAgent<S, F>(o: RunAgentOptions<S, F>): Promise<AgentRun
   const turns: Turn[] = [];
   const seen = new Map<string, Call>();
   const used = new Map<string, number>();
+  /** Failures in a row, per tool; at OFF_AFTER the tool is off for the rest of the run. */
+  const failedRow = new Map<string, number>();
+  const off = new Set<string>();
   let calls = 0;
   let policy = o.policy;
   let usedFallback = false;
@@ -293,6 +301,7 @@ export async function runAgent<S, F>(o: RunAgentOptions<S, F>): Promise<AgentRun
     const tool = byName.get(a.tool);
     const fail = (msg: string): Call => ({ id, tool: a.tool, args: a.args, ok: false, observation: `Error: ${msg}`, summary: msg, ms: 0 });
     if (!tool) return fail(`There's no tool called "${a.tool}". Use one of: ${o.tools.filter((t) => usable(t, o.state)).map((t) => t.name).join(", ")}.`);
+    if (off.has(tool.name)) return fail(`${tool.name} kept failing this run, so it's off. Work with what you have.`);
     if (!usable(tool, o.state)) return fail(`${tool.name} isn't available right now. Use one of: ${o.tools.filter((t) => usable(t, o.state)).map((t) => t.name).join(", ")}.`);
     const parsed = tool.schema.safeParse(a.args ?? {});
     if (!parsed.success) return fail(`The arguments didn't fit (${zodIssues(parsed.error)}). Expected ${tool.args}.`);
@@ -316,6 +325,7 @@ export async function runAgent<S, F>(o: RunAgentOptions<S, F>): Promise<AgentRun
       const out = await withTimeout(tool.run(args, o.state, o.signal), Math.min(tool.timeoutMs ?? 30000, Math.max(3000, msLeft() + 5000)), tool.name);
       const call: Call = { id, tool: tool.name, args, ok: true, observation: clip(out.observation.trim() || "(nothing)", 2400), summary: clean(out.summary, 220) || "Done", ms: Date.now() - t0 };
       seen.set(key, call);
+      failedRow.set(tool.name, 0);
       emit({ kind: "saw", id, tool: tool.name, ok: true, text: call.summary, ms: call.ms, turn, by });
       return call;
     } catch (err) {
@@ -323,6 +333,12 @@ export async function runAgent<S, F>(o: RunAgentOptions<S, F>): Promise<AgentRun
       const ms = Date.now() - t0;
       o.log?.warn("Agent tool failed", { tool: tool.name, error: errText(err) });
       emit({ kind: "saw", id, tool: tool.name, ok: false, text: msg, ms, turn, by });
+      const row = (failedRow.get(tool.name) ?? 0) + 1;
+      failedRow.set(tool.name, row);
+      if (row >= OFF_AFTER && !off.has(tool.name)) {
+        off.add(tool.name);
+        emit({ kind: "note", text: `${tool.name.replace(/_/g, " ")} isn't responding, so I'm carrying on without it.` });
+      }
       return { id, tool: tool.name, args, ok: false, observation: `Error: ${msg}`, summary: msg, ms };
     }
   };
@@ -338,6 +354,7 @@ export async function runAgent<S, F>(o: RunAgentOptions<S, F>): Promise<AgentRun
     const by = policy.name;
     const view: TurnView<S> = {
       turn: n,
+      off: [...off],
       state: o.state,
       turns,
       budget: { turnsLeft: Math.max(0, o.limits.maxTurns - modelTurns - 1), callsLeft: Math.max(0, o.limits.maxCalls - calls), msLeft: msLeft(), parallel },

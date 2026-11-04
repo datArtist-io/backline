@@ -135,3 +135,20 @@ describe("the agent loop", () => {
     expect(run.stop).toBe("deadline");
   });
 });
+
+describe("a tool that keeps failing", () => {
+  it("is switched off after two failures in a row, and the model is told so", async () => {
+    const broken = echo("research", { run: vi.fn(async () => { throw new Error("402"); }) });
+    const policy = scripted([
+      { thought: "research twice", actions: [{ tool: "research", args: { q: "a" } }, { tool: "research", args: { q: "b" } }] },
+      { thought: "try again", actions: [{ tool: "research", args: { q: "c" } }] },
+    ]);
+    const events: StepProgress[] = [];
+    const run = await runAgent({ tools: [broken, echo("search")], state: { log: [] }, policy, finish, limits, emit: (p) => events.push(p) });
+    expect(broken.run).toHaveBeenCalledTimes(2);
+    expect(run.turns[1].calls[0].observation).toMatch(/kept failing this run, so it's off/);
+    expect(policy.decide.mock.calls[1][0].off).toEqual(["research"]);
+    expect(events.some((e) => e.kind === "note" && /research isn't responding/.test(e.text))).toBe(true);
+    expect(run.stop).toBe("finished");
+  });
+});
