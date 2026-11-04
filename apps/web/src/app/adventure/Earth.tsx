@@ -500,7 +500,15 @@ export default function Earth(props: EarthProps) {
   const box = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MlMap | null>(null);
   const layerRef = useRef<Scene3D | null>(null);
-  const photoRef = useRef<{ enabled: boolean; preload?: (views: PreloadView[], onProgress?: (f: number) => void) => void; cancelPreload?: () => void } | null>(null);
+  const photoRef = useRef<{
+    enabled: boolean;
+    preload?: (views: PreloadView[], onProgress?: (f: number) => void) => void;
+    cancelPreload?: () => void;
+    setRoutes?: (routes: { day: number; color: string; geo: [number, number][] }[]) => void;
+    setActiveDay?: (day: number | "all") => void;
+    setProgress?: (day: number | null, t: number | null) => void;
+  } | null>(null);
+  const ribbonRoutes = (m: AdventureModel | null | undefined) => (m?.routes ?? []).filter((r) => r.geo.length >= 2).map((r) => ({ day: r.day, color: r.color, geo: r.geo as [number, number][] }));
   const journeyRef = useRef<Marker | null>(null);
   // The plane that flies the arc on the way in.
   const planeRef = useRef<Marker | null>(null);
@@ -619,6 +627,8 @@ export default function Earth(props: EarthProps) {
             });
             photoRef.current = pr;
             map.addLayer(pr, "heat");
+            pr.setRoutes(ribbonRoutes(live.current.model));
+            pr.setActiveDay(live.current.activeDay);
             applyLook();
           })
           .catch((err) => console.warn("Photoreal tiles unavailable", err));
@@ -679,6 +689,7 @@ export default function Earth(props: EarthProps) {
     (map.getSource("heat") as GeoJSONSource)?.setData(fc((model?.heat ?? []).map((h) => ({ type: "Feature", properties: { w: h.w }, geometry: { type: "Point", coordinates: [h.lon, h.lat] } }))));
     (map.getSource("zone") as GeoJSONSource)?.setData(fc(model?.zone ? [line(circle(model.zone.lat, model.zone.lon, Math.max(0.4, model.zone.km)))] : []));
     (map.getSource("routes") as GeoJSONSource)?.setData(fc((model?.routes ?? []).filter((r) => r.geo.length >= 2).map((r) => line(r.geo, { day: r.day, color: r.color }))));
+    photoRef.current?.setRoutes?.(ribbonRoutes(model));
     // Markers: one per place, styled by CSS; the picks carry their name.
     const want = new Set((model?.nodes ?? []).map((n) => n.id));
     for (const [id, m] of markers.current) if (!want.has(id)) (m.m.remove(), markers.current.delete(id));
@@ -749,6 +760,7 @@ export default function Earth(props: EarthProps) {
     }
     const day = p.activeDay;
     const op = (on: number, off: number): maplibregl.ExpressionSpecification | number => (day === "all" ? on : ["case", ["==", ["get", "day"], day], on, off]);
+    photoRef.current?.setActiveDay?.(typeof day === "number" ? day : "all");
     map.setPaintProperty("route", "line-opacity", op(0.9, 0.12));
     map.setPaintProperty("route-glow", "line-opacity", op(0.35, 0.04));
     map.setLayoutProperty("heat", "visibility", p.showTaste ? "visible" : "none");
@@ -766,6 +778,9 @@ export default function Earth(props: EarthProps) {
     for (const l of GAME_LAYERS) if (map.getLayer(l.id)) map.setLayoutProperty(l.id, "visibility", real || photo ? "none" : "visible");
     for (const l of REAL_LAYERS) if (map.getLayer(l.id)) map.setLayoutProperty(l.id, "visibility", real ? "visible" : "none");
     map.setLayoutProperty("sat", "visibility", real || photo ? "visible" : "none");
+    // On the 3D city the routes are ribbons on the real streets (route-ribbons.ts); a flat line on top
+    // would cut across every building.
+    for (const id of ["route", "route-glow", "trail"]) if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", photo ? "none" : "visible");
     if (photoRef.current) photoRef.current.enabled = photo;
     // Google's tiles carry their own terrain; MapLibre's would lift the satellite through them.
     try {
@@ -1101,6 +1116,7 @@ export default function Earth(props: EarthProps) {
             layerRef.current.travelling = false;
             layerRef.current.clearTrail();
             (map.getSource("trail") as GeoJSONSource)?.setData(fc([]));
+            photoRef.current?.setProgress?.(null, null);
           }
           s.playDay = -2;
           if (s.orbit && !p.reduced && !map.isMoving()) map.setBearing(map.getBearing() + dt * 5);
@@ -1171,15 +1187,16 @@ export default function Earth(props: EarthProps) {
       layer.travelling = true;
       s.bearing = map.getBearing();
     }
-    // About 2 seconds per km, between 16 and 46 seconds a day, plus a pause at each stop.
-    const dur = Math.max(16, Math.min(46, 8 + c.km * 2.2));
+    // Brisk, like a film's travelling shot: about a second per km, between 9 and 24 seconds a day, with
+    // a short beat at each stop. (It was up to 46 seconds a day, which dragged.)
+    const dur = Math.max(9, Math.min(24, 5 + c.km * 1.1));
     if (s.dwell > 0) s.dwell -= dt;
     else {
       prog.t = Math.min(1, prog.t + dt / dur);
       const stop = route.stops[s.nextStop];
       if (stop && prog.t >= stop.at) {
         prog.t = stop.at;
-        s.dwell = 1.5;
+        s.dwell = 1.1;
         s.nextStop++;
         p.onArrive(stop.nodeId, route.day);
       }
@@ -1192,6 +1209,7 @@ export default function Earth(props: EarthProps) {
     if (Math.hypot(ahead.x - here.x, ahead.z - here.z) > 0.002) s.bearing += angleDiff(s.bearing, heading) * Math.min(1, dt * 1.2);
     map.jumpTo({ center: [lon, lat], zoom: 16.1, pitch: 64, bearing: s.bearing });
     layer.moveTraveller(lat, lon);
+    photoRef.current?.setProgress?.(route.day, prog.t);
     if (performance.now() - s.trailAt > 90) {
       s.trailAt = performance.now();
       const done: [number, number][] = [];

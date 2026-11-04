@@ -7,6 +7,7 @@ import type { CustomLayerInterface, Map as MlMap } from "maplibre-gl";
 import { TilesRenderer, WGS84_ELLIPSOID } from "3d-tiles-renderer";
 import { GLTFExtensionsPlugin, GoogleCloudAuthPlugin, TileCompressionPlugin, UnloadTilesPlugin } from "3d-tiles-renderer/plugins";
 import { DRACOLoader } from "three/examples/jsm/loaders/DRACOLoader.js";
+import { RouteRibbons, type RibbonRoute } from "./route-ribbons";
 
 const rad = (d: number) => (d * Math.PI) / 180;
 const deg = (r: number) => (r * 180) / Math.PI;
@@ -61,9 +62,27 @@ export class PhotorealLayer implements CustomLayerInterface {
   private enu = new THREE.Matrix4();
   private ray = new THREE.Raycaster();
 
+  /** The trip's routes, laid on the real streets and hidden behind real buildings. */
+  readonly ribbons = new RouteRibbons();
+
   constructor(private key: string, private onCredit: (text: string) => void, private onFail?: () => void) {
     this.holder.matrixAutoUpdate = false;
     this.scene.add(this.holder);
+    this.holder.add(this.ribbons.root);
+  }
+
+  setRoutes(routes: RibbonRoute[]) {
+    this.ribbons.setRoutes(routes, this.groundOffset);
+    this.map?.triggerRepaint();
+  }
+
+  setActiveDay(day: number | "all") {
+    this.ribbons.setActiveDay(day);
+    this.map?.triggerRepaint();
+  }
+
+  setProgress(day: number | null, t: number | null) {
+    this.ribbons.setProgress(day, t);
   }
 
   onAdd(map: MlMap, gl: WebGLRenderingContext | WebGL2RenderingContext) {
@@ -195,6 +214,7 @@ export class PhotorealLayer implements CustomLayerInterface {
 
   onRemove() {
     this.cancelPreload();
+    this.ribbons.dispose();
     this.tiles?.dispose();
     this.renderer?.dispose();
   }
@@ -232,6 +252,8 @@ export class PhotorealLayer implements CustomLayerInterface {
     if (this.queue.length || this.batch.length) this.stepPreload(c, w, h);
     this.scene.updateMatrixWorld();
     this.tiles.update();
+    // Routes: a few more street heights measured, and the ribbons as wide as the zoom needs.
+    this.ribbons.update(this.tiles.group, (40075016.7 * Math.cos(rad(c.lat))) / (512 * 2 ** map.getZoom()), performance.now());
 
     // Every so often, find the real ground around the centre so pins and routes sit on it. One ray
     // straight down lands on a rooftop over a skyline, which sank the whole city by that tower's

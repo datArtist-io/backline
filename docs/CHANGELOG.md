@@ -6,6 +6,12 @@
 - Photoreal 3D now loads Google's buildings on the globe view. MapLibre gave no camera height there, so the tile loader never went past the root and the map fell back to satellite.
 - Buildings appear solid (the fade-in froze half-transparent when the map went idle) and stand at street level: the ground is probed over a small grid, and readings from coarse far tiles are ignored.
 
+### Routes on the real streets, and a brisker flight
+- On the 3D city, routes are ribbons laid on the actual street height (measured from Google's tiles by casting rays straight down, a few points a frame, refined as finer tiles arrive) and depth-tested against the buildings, so a route passes behind a building instead of being painted across it. They widen with the zoom so they read from far out. The flat map lines are hidden on the 3D city and still used on the satellite and painted maps.
+- While a day is flown, only its route shows, and the flown stretch turns white along it.
+- Fly the trip is about twice as quick: roughly a second per km, 9 to 24 seconds a day (it was up to 46), with a shorter beat at each stop.
+- Tests: route point spacing (web 47).
+
 ### Real prices, whatever the model
 - Money never comes from the model. The plan's budget is rebuilt in code after the plan is written: flights from the live airline fare, else a fare listed online, else a distance estimate; the stay from its live rate, else the rate listed online, else an estimate for the price level; food from a fixed daily rate for the price level. Every line says where its number comes from. Only the food line is set aside on the slip (it used to turn any model-written line, like "Museum tickets $60", into a payment).
 - Live prices, demo checkout: with live Duffel and LiteAPI keys the search is real (airline fares, hotel rates), but nothing is bought unless `BOOKING_LIVE=1`. "Booking" returns a `DEMO-` reference at the live price, paid from the demo wallet, and says no ticket or room was issued. Holding a hotel rate only locks the price, so it stays real.
