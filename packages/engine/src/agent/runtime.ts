@@ -385,9 +385,9 @@ export async function runAgent<S, F>(o: RunAgentOptions<S, F>): Promise<AgentRun
       decisions.push({ n, by, ms: Date.now() - t0, ok: false, error: errText(err).slice(0, 240), actions: [], finish: false });
       o.log?.warn("Agent decision failed", { by, turn: n, error: errText(err) });
       if (o.signal?.aborted) return end("aborted");
-      if (by === "model" && failures >= 2 && switchToFallback("The model isn't answering well, so I'm finishing the job on autopilot.", "failures")) continue;
+      if (by === "model" && failures >= 3 && switchToFallback("The model isn't answering well, so I'm finishing the job on autopilot.", "failures")) continue;
       if (by === "model" && msLeft() < Math.min(40000, o.limits.deadlineMs * 0.35) && switchToFallback("Time is short, so I'm finishing the job on autopilot.", "time")) continue;
-      if (failures >= 2) return end("policy_failed");
+      if (failures >= (by === "model" ? 3 : 2)) return end("policy_failed");
       continue;
     }
 

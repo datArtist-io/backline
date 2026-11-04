@@ -97,9 +97,9 @@ describe("the agent loop", () => {
     expect(run.finish).toEqual({ ok: true });
   });
 
-  it("hands over to the fallback when the model fails twice", async () => {
+  it("hands over to the fallback when the model fails three times in a row", async () => {
     const events: StepProgress[] = [];
-    const model = scripted([new Error("timeout"), new Error("timeout")]);
+    const model = scripted([new Error("timeout"), new Error("timeout"), new Error("timeout")]);
     const auto = scripted([{ thought: "Autopilot here", actions: [{ tool: "a", args: { q: "x" } }] }, { thought: "Done", actions: [], finish: { ok: true } }], "autopilot");
     const run = await runAgent({ tools: [echo("a")], state: { log: [] }, policy: model, fallback: auto, finish, limits, emit: (e) => events.push(e) });
     expect(run).toMatchObject({ stop: "finished", usedFallback: true, fallbackReason: "failures" });
@@ -150,6 +150,16 @@ describe("the agent loop", () => {
     const policy = scripted(Array.from({ length: 20 }, () => ({ thought: "", actions: [{ tool: "slow", args: { q: String(Math.random()) } }] })));
     const run = await runAgent({ tools: [slow], state: { log: [] }, policy, finish, limits: { maxTurns: 20, maxCalls: 20, deadlineMs: 100 } });
     expect(run.stop).toBe("deadline");
+  });
+});
+
+describe("a model that misses now and then", () => {
+  it("keeps control through two misses in a row", async () => {
+    const model = scripted([new Error("empty"), new Error("empty"), { thought: "Back", actions: [], finish: { ok: true } }]);
+    const auto = scripted([], "autopilot");
+    const run = await runAgent({ tools: [echo("a")], state: { log: [] }, policy: model, fallback: auto, finish, limits });
+    expect(run).toMatchObject({ stop: "finished", usedFallback: false });
+    expect(auto.decide).not.toHaveBeenCalled();
   });
 });
 
