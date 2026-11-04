@@ -17,6 +17,7 @@
 
 ### The flight in
 - The flight is back exactly as it was in the morning (the motion and look changes made during the day were reverted).
+- Fixed: with a slower model the plane took off late. The globe waited a fixed 7 seconds for home, gave up and glided into the city, then the plane flew once home arrived (about 18 s in), pulling the camera back out. It now waits for the request to be understood (up to 40 s), then 3 seconds for home.
 - Fixed: the plane had stopped flying in. Where you fly from came from the getting-there step, which now waits for the agent (about 30 s), and the globe stops waiting after 7. A small first step (`trip.home`) now pins the departure city within a second or two.
 
 ### Slip and trip polish

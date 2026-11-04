@@ -473,6 +473,7 @@ export default function AdventureView({
               look={look}
               weather={weather}
               journey={journey}
+              understood={chapters.length > 0}
               pad={pad}
               onUserMove={onUserMove}
               onReady={() => setReady(true)}
