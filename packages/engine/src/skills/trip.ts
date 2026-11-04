@@ -19,6 +19,7 @@ import { rideFare } from "./rides";
 
 export { placeSchema, scorePlace, toPlace };
 import type { TasteOutput } from "./taste";
+import { isDemoRef } from "../clients/price-only";
 
 /** Signed out, prices and options are still looked up, but nothing is booked, paid, sent or called. */
 const withoutBooking = (c: SkillContext): SkillContext => (c.signedOut ? { ...c, hotels: null, flights: null, email: null, calls: null } : c);
@@ -157,14 +158,19 @@ export const tripPlan: Skill<BriefInput, TripPlanOutput> = {
   title: "Writing the plan",
   dependsOn: ["trip.agent"],
   // Events on during the trip go into the plan on their day, so it waits for them.
-  optionalDeps: ["trip.taste", "trip.flights", "trip.events"],
+  optionalDeps: ["trip.taste", "trip.flights", "trip.events", "trip.travel"],
   // A 14-day plan is a long piece of writing: room for it, and for the fast model to retry.
   timeoutMs: 180_000,
   output: planOutput,
   async run(ctx, input, deps) {
     const r = await writePlan(ctx, input, deps);
     const a = agentOf(deps);
-    return { ...r, data: withStayChoice(r.data, a.stays, a.trip) };
+    const plan = withStayChoice(r.data, a.stays, a.trip);
+    // Money never comes from the model: the budget is rebuilt from live fares and rates, prices listed
+    // online, or fixed estimates labelled as such, whichever model wrote the plan.
+    const flight = (deps["trip.flights"]?.data as TripFlightsOutput | undefined)?.flight ?? null;
+    const travel = deps["trip.travel"]?.data as TripTravelOutput | undefined;
+    return { ...r, data: { ...plan, budget: codeBudget(a.trip, a.stays.find((p) => p.id === plan.stayId) ?? null, flight, travel) } };
   },
 };
 
@@ -564,6 +570,44 @@ export function chooseStay(stays: Place[], stayId: string | null, trip: TripRequ
   if (!best || !planned) return { id: planned?.id ?? best?.id ?? null, note: null, from: null, checked: available.length };
   const why = planned.offer ? "is over your budget for these dates" : "has no rooms listed for your dates";
   return { id: best.id, note: `${planned.name} ${why}, so I picked ${best.name}: the best match for your taste with rooms available within budget.`, from: planned.id, checked: available.length };
+}
+
+/** Food and drinks per person per day, USD, by price level 1 to 4: a labelled estimate, not a quote. */
+export const FOOD_PER_DAY_USD = [0, 35, 60, 100, 180];
+
+/**
+ * The trip's budget, computed: flights from the live airline fare, else a fare listed online, else a
+ * distance estimate; the stay from its live rate, else the rate listed online, else an estimate for
+ * the price level; food from a fixed daily rate for the price level. Every line says where its number
+ * comes from. Things the person arranges themselves are left out. Pure.
+ */
+export function codeBudget(trip: TripRequest, stay: Place | null, flight: TripFlightsOutput["flight"] | null, travel: TripTravelOutput | undefined): TripPlanOutput["budget"] {
+  const out: TripPlanOutput["budget"] = [];
+  const nights = Math.max(1, tripDates(trip.startDate, trip.endDate).length - 1);
+  const days = nights + 1;
+  const people = Math.max(1, trip.adults + (trip.children?.length ?? 0));
+  const tier = trip.priceTier ?? 2;
+  const ownTransport = trip.selfArranged.some((x) => /transport|travel|flight/i.test(x));
+  const who = `${people} traveller${people === 1 ? "" : "s"}`;
+  if (!ownTransport) {
+    if (flight) out.push({ item: `Flights, ${who}, return`, amount: Math.round(flight.total), currency: flight.currency, basis: "live airline fare" });
+    else if (travel?.origin && travel.km && travel.km >= 500) {
+      const listed = (travel.options ?? []).find((o) => o.mode === "flight" && (o.priceMin != null || o.priceMax != null) && o.currency);
+      if (listed) {
+        const each = ((listed.priceMin ?? listed.priceMax!) + (listed.priceMax ?? listed.priceMin!)) / 2;
+        out.push({ item: `Flights, ${who}, return`, amount: Math.round(each * 2 * people), currency: listed.currency!, basis: `fare listed on ${listed.site}` });
+      } else out.push({ item: `Flights, ${who}, return`, amount: Math.round(flightEstimate(travel.km) * 2 * people), currency: "USD", basis: "estimate from distance; live fares when booking" });
+    }
+  }
+  if (trip.needs.includes("stay") && stay) {
+    const where = `${stay.name}, ${nights} night${nights === 1 ? "" : "s"}`;
+    if (stay.offer && !stay.offer.test) out.push({ item: where, amount: Math.round(stay.offer.total), currency: stay.offer.currency, basis: `live rate (${stay.offer.provider})` });
+    else if (stay.rate) out.push({ item: where, amount: Math.round(stay.rate.total ?? stay.rate.perNight * nights), currency: stay.rate.currency, basis: `rate listed on ${stay.rate.site}` });
+    else if (stay.offer?.test) out.push({ item: where, amount: Math.round(stay.offer.total), currency: stay.offer.currency, basis: "test-mode rate: not a real price" });
+    else out.push({ item: where, amount: ROOM_PER_NIGHT_USD[tier] * trip.rooms * nights, currency: "USD", basis: `estimate for price level ${tier} of 4` });
+  }
+  if (trip.needs.includes("dine")) out.push({ item: `Food and drinks, ${days} days`, amount: FOOD_PER_DAY_USD[tier] * people * days, currency: "USD", basis: `estimate: about $${FOOD_PER_DAY_USD[tier]} a person a day at price level ${tier}` });
+  return out;
 }
 
 /** Applies the availability check to a written plan: the swapped hotel replaces the planned one everywhere. Pure. */
@@ -1077,7 +1121,9 @@ const FOOD = /food|meal|dining|restaurant|eat|drink/i;
 export function plannedActions(plan: TripPlanOutput, reserved: { total: number; currency: string }[], can: { pay: boolean }): Omit<TripAction, "id">[] {
   const out: Omit<TripAction, "id">[] = [];
   for (const b of plan.budget) {
-    if (b.amount == null || b.amount <= 0 || COVERED.test(b.item)) continue;
+    // Only food is set aside: flights, the stay and rides are paid by their own bookings, and every
+    // budget line is computed (codeBudget), so a stay named "Casa Rosa, 6 nights" is never paid twice.
+    if (b.amount == null || b.amount <= 0 || COVERED.test(b.item) || !FOOD.test(b.item)) continue;
     let amount = b.amount;
     if (FOOD.test(b.item)) amount -= reserved.filter((r) => r.currency === b.currency).reduce((n, r) => n + r.total, 0);
     if (amount <= 0) continue;
@@ -1374,7 +1420,7 @@ export const tripExecute: Skill<BriefInput, TripExecuteOutput> = {
             actionId: a.id,
             status: "booked",
             ref: bookingRef(booked.reference ?? booked.orderId, `${flight.offerId}:${input.trip?.startDate ?? ""}`),
-            message: `Flight booked and paid: ${Math.round(booked.total ?? flight.total).toLocaleString("en")} ${booked.currency ?? flight.currency}, booking reference ${bookingRef(booked.reference ?? booked.orderId, `${flight.offerId}:${input.trip?.startDate ?? ""}`)}. The e-ticket goes to ${profile.email}.${test}`,
+            message: `Flight booked and paid: ${Math.round(booked.total ?? flight.total).toLocaleString("en")} ${booked.currency ?? flight.currency}, booking reference ${bookingRef(booked.reference ?? booked.orderId, `${flight.offerId}:${input.trip?.startDate ?? ""}`)}. ${isDemoRef(booked.reference) ? "Demo booking at the live airline fare: no ticket was issued." : `The e-ticket goes to ${profile.email}.`}${test}`,
             paid: fw?.ok ? { entryId: fw.id, total: booked.total ?? flight.total, currency: booked.currency ?? flight.currency, ref: bookingRef(booked.reference ?? booked.orderId, `${flight.offerId}:${input.trip?.startDate ?? ""}`) } : null,
           };
         }
@@ -1428,7 +1474,7 @@ export const tripExecute: Skill<BriefInput, TripExecuteOutput> = {
                 actionId: a.id,
                 status: "booked",
                 ref: bookingRef(booking.reference ?? booking.bookingId, `${held.holdId}:${bookedName}`),
-                message: `${swapped}${booking.status === "confirmed" ? "Booked and paid" : "Paid; the hotel is confirming"}: ${money(booking.total ?? held.total, booking.currency ?? held.currency)}, confirmation ${bookingRef(booking.reference ?? booking.bookingId, `${held.holdId}:${bookedName}`)}.${held.cancellation ? ` ${held.cancellation}.` : ""} The confirmation goes to ${guest.email}.${test}`,
+                message: `${swapped}${booking.status === "confirmed" ? "Booked and paid" : "Paid; the hotel is confirming"}: ${money(booking.total ?? held.total, booking.currency ?? held.currency)}, confirmation ${bookingRef(booking.reference ?? booking.bookingId, `${held.holdId}:${bookedName}`)}.${held.cancellation ? ` ${held.cancellation}.` : ""} ${isDemoRef(booking.reference) ? "Demo booking at the hotel's live rate: no room was reserved." : `The confirmation goes to ${guest.email}.`}${test}`,
                 paid: w?.ok ? { entryId: w.id, total: booking.total ?? held.total, currency: booking.currency ?? held.currency, ref: bookingRef(booking.reference ?? booking.bookingId, `${held.holdId}:${bookedName}`) } : null,
               };
             }

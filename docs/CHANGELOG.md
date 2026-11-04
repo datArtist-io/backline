@@ -6,6 +6,11 @@
 - Photoreal 3D now loads Google's buildings on the globe view. MapLibre gave no camera height there, so the tile loader never went past the root and the map fell back to satellite.
 - Buildings appear solid (the fade-in froze half-transparent when the map went idle) and stand at street level: the ground is probed over a small grid, and readings from coarse far tiles are ignored.
 
+### Real prices, whatever the model
+- Money never comes from the model. The plan's budget is rebuilt in code after the plan is written: flights from the live airline fare, else a fare listed online, else a distance estimate; the stay from its live rate, else the rate listed online, else an estimate for the price level; food from a fixed daily rate for the price level. Every line says where its number comes from. Only the food line is set aside on the slip (it used to turn any model-written line, like "Museum tickets $60", into a payment).
+- Live prices, demo checkout: with live Duffel and LiteAPI keys the search is real (airline fares, hotel rates), but nothing is bought unless `BOOKING_LIVE=1`. "Booking" returns a `DEMO-` reference at the live price, paid from the demo wallet, and says no ticket or room was issued. Holding a hotel rate only locks the price, so it stays real.
+- Tests: the computed budget (engine 424).
+
 ### Budget, food rules and cuisines honoured
 - Flights estimated from distance cost far less per km on long routes: Atlanta–Singapore was priced at ~$2,000 each way per person (a $10,681 slip on a $7,000 budget); it's now ~$900, in line with real fares.
 - A total budget is kept on the payment slip: if what's ticked runs over, optional extras are unticked (dearest table bookings first, then extras, then rides) and the plan says which; flights and the stay are never dropped. The slip shows "Your budget $7,000 · $X to spare" or "over by $X".

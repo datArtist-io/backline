@@ -49,3 +49,19 @@ describe("cuisines they ask for", () => {
     expect(cuisinesOf({ likes: [], purpose: null }, "a weekend in Rome, we love Nigerian and Thai")).toEqual(["nigerian", "thai"]);
   });
 });
+
+import { codeBudget } from "../src/skills/trip";
+describe("the budget is computed, never written by the model", () => {
+  const trip = { destination: "Singapore", startDate: "2026-12-10", endDate: "2026-12-16", adults: 2, rooms: 1, budget: { amount: 7000, currency: "USD", scope: "total" }, priceTier: 3, needs: ["stay", "dine"], selfArranged: [] } as never;
+  const stay = { id: "s1", name: "The Fullerton Bay Hotel", tags: [], offer: { offerId: "o", total: 1565.44, currency: "USD", perNight: 260, roomName: null, board: null, refundable: null, cancellation: null, provider: "LiteAPI" } } as never;
+  it("uses the live fare and rate, and labels estimates", () => {
+    const live = codeBudget(trip, stay, { total: 3410, currency: "USD" } as never, undefined);
+    expect(live[0]).toMatchObject({ amount: 3410, basis: "live airline fare" });
+    expect(live[1]).toMatchObject({ amount: 1565, basis: "live rate (LiteAPI)" });
+    expect(live[2]).toMatchObject({ item: "Food and drinks, 7 days", amount: 1400 });
+    const est = codeBudget(trip, stay, null, { origin: "Atlanta", km: 16024, options: [] } as never);
+    expect(est[0].basis).toMatch(/estimate from distance/);
+    expect(est[0].amount).toBeGreaterThan(3000);
+    expect(est[0].amount).toBeLessThan(4000);
+  });
+});

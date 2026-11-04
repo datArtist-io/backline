@@ -17,6 +17,7 @@ import type { HotelProvider } from "./clients/hotels";
 import { ChainedWebSearch } from "./clients/chain";
 import type { WebSearch } from "./clients/web";
 import type { Logger, SkillContext, UsageMeter } from "./types";
+import { PriceOnlyDuffel, PriceOnlyLiteApi } from "./clients/price-only";
 
 const envSchema = z.object({
   QLOO_API_KEY: z.string().min(10, "QLOO_API_KEY is missing"),
@@ -61,6 +62,8 @@ const envSchema = z.object({
   LITEAPI_API_KEY: z.string().optional(),
   /** Duffel token for flight search and booking. A test token (duffel_test_…) books on Duffel's test airline. */
   DUFFEL_API_KEY: z.string().optional(),
+  /** "1" lets live provider keys buy real tickets and rooms; otherwise live keys only price (demo checkout). */
+  BOOKING_LIVE: z.string().optional(),
   /** Uber price estimates. Used only when UBER_ENV is "production": sandbox prices are made up. */
   UBER_CLIENT_ID: z.string().optional(),
   UBER_CLIENT_SECRET: z.string().optional(),
@@ -174,6 +177,7 @@ export function createContext(env: Record<string, string | undefined>, opts: { l
     e.VAPI_PHONE_NUMBER_ID,
     e.LITEAPI_API_KEY?.slice(0, 5),
     e.DUFFEL_API_KEY?.slice(0, 12),
+    e.BOOKING_LIVE,
     e.UBER_CLIENT_ID?.slice(0, 8),
     e.UBER_ENV,
   ]);
@@ -188,8 +192,9 @@ export function createContext(env: Record<string, string | undefined>, opts: { l
       email: e.RESEND_API_KEY && e.ACTIONS_FROM_EMAIL ? new ResendSender({ apiKey: e.RESEND_API_KEY, from: e.ACTIONS_FROM_EMAIL }) : null,
       calls: e.VAPI_API_KEY && e.VAPI_PHONE_NUMBER_ID ? new VapiCaller({ apiKey: e.VAPI_API_KEY, phoneNumberId: e.VAPI_PHONE_NUMBER_ID, model: e.VAPI_MODEL }) : null,
       osm: e.MAPS === "off" ? null : new OsmClient({ userAgent: e.OSM_USER_AGENT, email: e.OSM_CONTACT_EMAIL }),
-      hotels: e.LITEAPI_API_KEY ? new LiteApiProvider({ apiKey: e.LITEAPI_API_KEY }) : null,
-      flights: e.DUFFEL_API_KEY ? new DuffelClient({ token: e.DUFFEL_API_KEY }) : null,
+      // Live keys give real fares and rates; real tickets and rooms are only bought with BOOKING_LIVE=1.
+      hotels: e.LITEAPI_API_KEY ? (e.BOOKING_LIVE === "1" || e.LITEAPI_API_KEY.startsWith("sand_") ? new LiteApiProvider({ apiKey: e.LITEAPI_API_KEY }) : new PriceOnlyLiteApi({ apiKey: e.LITEAPI_API_KEY })) : null,
+      flights: e.DUFFEL_API_KEY ? (e.BOOKING_LIVE === "1" || e.DUFFEL_API_KEY.startsWith("duffel_test_") ? new DuffelClient({ token: e.DUFFEL_API_KEY }) : new PriceOnlyDuffel({ token: e.DUFFEL_API_KEY })) : null,
       uber: e.UBER_CLIENT_ID && e.UBER_CLIENT_SECRET && e.UBER_ENV === "production" ? new UberClient({ clientId: e.UBER_CLIENT_ID, clientSecret: e.UBER_CLIENT_SECRET, scope: e.UBER_SCOPE }) : null,
     };
   }

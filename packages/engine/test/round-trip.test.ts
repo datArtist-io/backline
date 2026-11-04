@@ -91,9 +91,9 @@ describe("the rest of the planned spend", () => {
     { item: "Food and drinks", amount: 300, currency: "USD", basis: "" },
     { item: "Taxis", amount: 80, currency: "EUR", basis: "" },
   ] } as never;
-  it("sets aside what no booking covers, without counting reserved meals twice", () => {
+  it("sets aside food only (computed, never a model's guess), without counting reserved meals twice", () => {
     const out = plannedActions(plan, [{ total: 70, currency: "USD" }, { total: 70, currency: "USD" }], { pay: true });
-    expect(out.map((x) => [x.placeName, x.price?.total])).toEqual([["Museum tickets", 60], ["Food and drinks", 160]]);
+    expect(out.map((x) => [x.placeName, x.price?.total])).toEqual([["Food and drinks", 160]]);
   });
 });
 

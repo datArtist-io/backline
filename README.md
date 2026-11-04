@@ -72,7 +72,7 @@ npm run dev                                  # http://localhost:3000
 | Command | What it does |
 |---|---|
 | `npm run dev` | Start the web app |
-| `npm test` | Engine and web unit tests (synthetic data, no network): 423 + 45 |
+| `npm test` | Engine and web unit tests (synthetic data, no network): 424 + 45 |
 | `npm run typecheck` | Type-check every workspace |
 | `npm run check` | Verify API keys and Qloo capabilities |
 | `npm run check:locations` | Venue coverage across 24 locations worldwide |
@@ -89,6 +89,7 @@ npm run dev                                  # http://localhost:3000
 | `TRAVEL_DOCS_KEY` | Encrypts saved passports (AES-256-GCM); `openssl rand -base64 32` |
 | `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Accounts: Google and email sign-in, saved details, trips and memory (run migrations `0003`–`0006`; see `docs/SETUP-AUTH.md`) |
 | `ANTHROPIC_API_KEY`, `CLAUDE_SEARCH_MODEL` | Web research and listed hotel prices; Tavily also supported, with Wikivoyage as a free fallback |
+| `BOOKING_LIVE` | `1` lets live Duffel and LiteAPI keys buy real tickets and rooms; unset, live keys only price (demo checkout) |
 | `DUFFEL_API_KEY` | Flight search, booking and payment (a `duffel_test_` token uses Duffel's test airline) |
 | `LITEAPI_API_KEY` | Live hotel rates, booking and payment (a `sand_` key simulates payment) |
 | `RESEND_API_KEY`, `ACTIONS_FROM_EMAIL` | Emails the agent sends for you (plans, confirmations, restaurant requests); sender must be on a domain verified in Resend |
