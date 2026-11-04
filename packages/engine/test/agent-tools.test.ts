@@ -100,3 +100,14 @@ describe("one lookup per run", () => {
     expect(tripKey("travel", trip())).not.toBe(tripKey("travel", trip({ endDate: "2026-11-28" })));
   });
 });
+
+describe("its self-check", () => {
+  it("sends a finish back once when it hasn't looked at getting there", async () => {
+    const { checkFinish } = await import("../src/skills/trip-agent");
+    const inp = input();
+    const s = createState(inp, inp.trip!, TODAY);
+    s.searched = new Set(["stay", "dine", "venue", "activity"]);
+    expect(checkFinish({}, s)).toMatch(/coming from Lagos, Nigeria: call find_travel/);
+    expect(checkFinish({}, s) ?? "").not.toMatch(/find_travel/);
+  });
+});

@@ -31,7 +31,7 @@ Research and choosing is one agent loop, not a fixed pipeline ([agent/runtime.ts
 | `find_events` | Concerts, matches, festivals on the dates, ranked by taste |
 | `research` / `read_document` | The web, and the person's attached files |
 
-It checks itself: a finish that misses something (no hotel, over budget, arrival station not on the map) is sent back once. Model output is untrusted: tool names and arguments are validated, repeated calls are answered from memory. If the model stops answering, an autopilot finishes with the same tools. The steps after the agent (plan, routes, payment slip) reuse what it found, and prices always come from code, never from the model. Every run's full trace (thought, tool, arguments, result) is under "How the agent worked".
+It checks itself: a finish that misses something (no hotel, over budget, fares never checked, arrival station not on the map) is sent back once. Model output is untrusted: tool names and arguments are validated, repeated calls are answered from memory. If the model stops answering, an autopilot finishes with the same tools. The steps after the agent (plan, routes, payment slip) reuse what it found, and prices always come from code, never from the model. Every run's full trace (thought, tool, arguments, result) is under "How the agent worked".
 
 ## Talk to it
 
@@ -88,7 +88,7 @@ npm run dev                                  # http://localhost:3000
 | Command | What it does |
 |---|---|
 | `npm run dev` | Start the web app |
-| `npm test` | Engine and web unit tests (synthetic data, no network): 439 + 47 |
+| `npm test` | Engine and web unit tests (synthetic data, no network): 440 + 47 |
 | `npm run typecheck` | Type-check every workspace |
 | `npm run check` | Verify API keys and Qloo capabilities |
 | `npm run check:locations` | Venue coverage across 24 locations worldwide |

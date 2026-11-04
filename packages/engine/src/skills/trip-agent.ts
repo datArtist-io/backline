@@ -875,12 +875,7 @@ export function tripTools(ctx: SkillContext, s: TripAgentState): AnyTool<TripAge
 
 
   const muted = { ...ctx, progress: undefined };
-  const originOf = () => {
-    const tr = t();
-    if (tr.selfArranged.some((x) => /transport|travel|flight/i.test(x))) return null;
-    const o = (tr.origin ?? s.input.profile?.homeCity ?? "").trim();
-    return o && foldText(o.split(",")[0]) !== foldText(tr.destination.split(",")[0]) ? o : null;
-  };
+  const originOf = () => travelOrigin(s);
   const fmtWhen = (d: string | null) => (d ? new Date(`${d}T12:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "UTC" }) : "");
 
   const travelTool = defineTool<TripAgentState, Record<string, never>>({
@@ -969,6 +964,14 @@ export const FINISH_SHAPE =
   '{"summary": "2-3 sentences written to the user as you: what you found and what you recommend, with distances and prices you know; use place names, never ids", "stays": [{"id": "s1", "why": "short reason"}], "dines": [{"id": "d2", "why": "…"}], "venues": [], "activities": [], "facts": ["r1"], "questions": []} (pick 1-3 per thing the user needs, best first; facts: research ids worth showing; questions: only what the user alone can decide)';
 
 /** Problems with a finish worth sending back to the model, or null to accept it. */
+/** Where they're travelling from, when getting there is part of the job (not self-arranged, another city). Pure. */
+export function travelOrigin(s: Pick<TripAgentState, "trip" | "input">): string | null {
+  const tr = s.trip;
+  if (tr.selfArranged.some((x) => /transport|travel|flight/i.test(x))) return null;
+  const o = (tr.origin ?? s.input.profile?.homeCity ?? "").trim();
+  return o && foldText(o.split(",")[0]) !== foldText(tr.destination.split(",")[0]) ? o : null;
+}
+
 export function checkFinish(f: AgentFinish, s: TripAgentState): string | null {
   const all = [...(f.stays ?? []), ...(f.dines ?? []), ...(f.venues ?? []), ...(f.activities ?? [])];
   const unknown = all.filter((p) => !resolveRef(s, p.id)).map((p) => p.id);
@@ -983,6 +986,10 @@ export function checkFinish(f: AgentFinish, s: TripAgentState): string | null {
   if (mode && s.city && !hasArrival(s) && !s.arrivalNudged) {
     s.arrivalNudged = true;
     return `They're arriving by ${mode}: locate the ${ARRIVAL_WORD[mode]} they'll most likely use (role place, no kind) so the plan and its map include the journey. Research which one if you're unsure, then finish.`;
+  }
+  if (!s.travel && travelOrigin(s) && !s.reviewed.has("travel")) {
+    s.reviewed.add("travel");
+    return `They're coming from ${travelOrigin(s)}: call find_travel for the real fares, weigh them against the budget, then finish.`;
   }
   return reviewPicks(f, s);
 }

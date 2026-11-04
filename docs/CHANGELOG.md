@@ -10,7 +10,9 @@
 - The model keeps control to the end. Live, the backup model on Groq sometimes wrote a native tool call instead of plain JSON; Groq refuses that with a 400 ("Tool choice is none, but model called a tool") and the autopilot took over after two. The call it meant is in the error, so it's now recovered and run as that turn's decision. That 400 is no longer mistaken for "model not available".
 - Turns where the model "waits for results" are gone: it's told tool results are never pending.
 - The model finishes its own work: with two more tools it needed more room (10 turns, 24 calls), and when its turns run out it gets one last finish-only turn before the autopilot is considered. Namespaced tool names some models write ("repo_browser.search_places") are read as the tool.
-- Tests: the agent's fare reasoning, reuse by the fixed steps, the model choosing the tool, autopilot, per-run sharing, switching off a failing tool, recovering refused tool calls, the last finishing turn (engine 439).
+- Its self-check sends a finish back once when it never looked at getting there, so it always weighs the real fare against the budget itself.
+- Live: Rome from Lagos and Tokyo from London both ran as "agent" (the model chose every step and finished itself), 36 to 41 s.
+- Tests: the agent's fare reasoning, reuse by the fixed steps, the model choosing the tool, autopilot, per-run sharing, switching off a failing tool, recovering refused tool calls, the last finishing turn, the travel self-check (engine 440).
 
 ### Flight prices are real or not charged
 - Fares come from Google Flights (through SerpApi, `SERPAPI_API_KEY`): the actual price for this route, these dates and this many travellers, out and back priced separately, from every airport in the city. Among flights within 40% of the quickest journey, the cheapest is picked, so a 30-hour detour never wins on price.
