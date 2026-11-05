@@ -12,10 +12,7 @@ const KEY = VAPI_KEY;
 
 type Trip = { code: string; destination: string | null; days: number | null; travellers: number | null; loves: string | null; url: string | null };
 type State = "idle" | "connecting" | "live" | "ended" | "error";
-type VapiLike = { on: (e: string, f: (x: never) => void) => unknown; start: (a: unknown) => Promise<{ id?: string } | null>; stop: () => void; say: (message: string) => void };
-
-/** Seconds of quiet before the agent greets, so a screen recording can start first. */
-const GREET_AFTER_MS = 4000;
+type VapiLike = { on: (e: string, f: (x: never) => void) => unknown; start: (a: unknown) => Promise<{ id?: string } | null>; stop: () => void };
 
 const local = (url: string) => url.replace(/^https?:\/\/[^/]+/, "");
 
@@ -62,25 +59,14 @@ export default function TalkInBrowser() {
       const [{ default: Vapi }, cfg] = await Promise.all([import("@vapi-ai/web"), fetch("/api/vapi/assistant", { cache: "no-store" }).then((r) => r.json())]);
       const v = new Vapi(KEY) as unknown as VapiLike;
       vapi.current = v;
-      // The agent waits a few seconds before its greeting (time to press record); if the caller
-      // speaks first, it simply answers them instead.
-      const { firstMessage: greeting, ...rest } = cfg.assistant as { firstMessage?: string } & Record<string, unknown>;
-      const assistant = { ...rest, firstMessageMode: "assistant-waits-for-user" };
-      let greet: number | undefined;
-      const cancelGreet = () => window.clearTimeout(greet);
-      v.on("call-start", () => {
-        setState("live");
-        if (greeting) greet = window.setTimeout(() => v.say(greeting), GREET_AFTER_MS);
-      });
+      v.on("call-start", () => setState("live"));
       v.on("speech-start", () => setSpeaking(true));
       v.on("speech-end", () => setSpeaking(false));
       v.on("volume-level", ((x: number) => setLevel(x)) as never);
       v.on("message", ((m: { type?: string; transcriptType?: string; role?: string; transcript?: string }) => {
-        if (m.type === "transcript" && m.role !== "assistant") cancelGreet();
         if (m.type === "transcript" && m.transcriptType === "final" && m.transcript) setLine({ who: m.role === "assistant" ? "agent" : "you", text: m.transcript });
       }) as never);
       v.on("call-end", () => {
-        cancelGreet();
         setState("ended");
         setSpeaking(false);
         setLevel(0);
@@ -93,7 +79,7 @@ export default function TalkInBrowser() {
         setState((s) => (s === "live" ? "ended" : "error"));
         setError("The call couldn't connect. Check your microphone and try again.");
       }) as never);
-      const call = await v.start(assistant);
+      const call = await v.start(cfg.assistant);
       if (call?.id) setCallId(call.id);
     } catch (e) {
       console.warn("[talk] start failed", e);
