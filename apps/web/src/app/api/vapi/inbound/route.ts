@@ -67,7 +67,8 @@ export async function POST(req: Request) {
   if (type === "assistant-request") return Response.json({ assistant: inboundAssistant() });
 
   if (type === "tool-calls") {
-    const call = (m?.call ?? {}) as { id?: string };
+    const call = (m?.call ?? {}) as { id?: string; type?: string };
+    const web = call.type === "webCall";
     const list = ((m?.toolCallList ?? (m?.toolWithToolCallList as { toolCall?: ToolCall }[] | undefined)?.map((x) => x.toolCall)) ?? []) as ToolCall[];
     // Only a real call to the Backline number can list a trip or send an email.
     const real = await realInboundCall(call.id);
@@ -82,10 +83,14 @@ export async function POST(req: Request) {
         const digits = code.split("").join(" ");
         return {
           toolCallId: tc.id ?? "",
+          // Written as what to say next, so the agent always speaks after the tool instead of going quiet.
           result: [
-            `Trip started: ${goalOf(trip)}.`,
-            `Trip code: ${digits}. It's on the Backline website in the "Call Backline" section, being built now.`,
-            mail === "sent" ? `The link was emailed to ${trip.email}.` : mail === "failed" ? "The email couldn't be sent, so point them to the website and the code instead." : "",
+            `Done: the trip "${goalOf(trip)}" is being planned right now.`,
+            web
+              ? `Now tell the caller, warmly, that their trip is opening on their screen right now, with the taste match, the plan on a 3D map and the bookings.`
+              : `Now tell the caller, warmly, that it's ready to open: their trip code is ${digits}. Say the code slowly, then once more. They go to the Backline website, tap "Call Backline" and enter it, and the whole trip is there.`,
+            mail === "sent" ? `Also mention the link was emailed to ${trip.email}.` : "",
+            `Then ask if there's anything else, and finish with "Have an amazing trip. Bye!"`,
           ]
             .filter(Boolean)
             .join(" "),

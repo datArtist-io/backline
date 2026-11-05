@@ -154,16 +154,20 @@ export function inboundAssistant(kind: CallKind = "inbound") {
       ],
     },
     transcriber: { provider: "deepgram", model: "nova-3", language: "en" },
+    // A chosen voice (e.g. VAPI_VOICE_PROVIDER=vapi, VAPI_VOICE_ID=<a voice from Vapi's dashboard>);
+    // without both, Vapi's default voice.
+    ...(process.env.VAPI_VOICE_PROVIDER && process.env.VAPI_VOICE_ID ? { voice: { provider: process.env.VAPI_VOICE_PROVIDER, voiceId: process.env.VAPI_VOICE_ID } } : {}),
     // Quick, polite turn-taking, the same as Backline's outbound calls: it answers promptly and stops
     // when the caller starts talking.
     startSpeakingPlan: { waitSeconds: 0.4 },
     stopSpeakingPlan: { numWords: 1, voiceSeconds: 0.2, backoffSeconds: 0.8 },
-    // The call ends when the agent says its goodbye line, after it has finished saying it, so it never
-    // hangs up mid-sentence or leaves the caller in silence.
+    // The call ends only when the agent has said its goodbye line, after it has finished saying it.
+    // The end-call tool is off: gpt-4o-mini would call it straight after plan_trip, without a word,
+    // so callers heard "give me a second" and then the line went dead.
     endCallPhrases: ["have an amazing trip"],
-    endCallFunctionEnabled: true,
+    endCallFunctionEnabled: false,
     maxDurationSeconds: 300,
-    silenceTimeoutSeconds: 30,
+    silenceTimeoutSeconds: 20,
     metadata: { app: "backline", kind },
   };
 }

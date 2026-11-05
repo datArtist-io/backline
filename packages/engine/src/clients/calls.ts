@@ -18,7 +18,7 @@ const GOODBYE_KEY = "have a lovely day";
 export const SPOKEN = [
   "Sound like a friendly, capable person, not a script: contractions, plain words, short sentences, a natural \"great\" or \"perfect\" when they answer. Never use lists, symbols or markdown, and don't repeat yourself.",
   "Never ask for an email address, card, bank, ID or passport details.",
-  "When the call is done, end with exactly: \"Thanks so much, have a lovely day. Bye!\" and say nothing after it.",
+  "When the call is done (booked, declined, wrong number or voicemail), end with exactly: \"Thanks so much, have a lovely day. Bye!\" and say nothing after it.",
 ].join("\n");
 
 export type CallOutcome = "live" | "talked" | "no_answer" | "busy" | "voicemail" | "no_audio" | "failed";
@@ -123,8 +123,9 @@ export class VapiCaller implements CallPlacer {
       firstMessage: call.firstMessage,
       model: { provider: "openai", model: this.config.model || "gpt-4o-mini", temperature: 0.5, maxTokens: 160, messages: [{ role: "system", content: `${call.instructions}\n${SPOKEN}` }] },
       // The call ends once the agent has said its goodbye, never mid-sentence or into silence.
+      // The end-call tool is off: the model would hang up without a word. The goodbye ends the call.
       endCallPhrases: [GOODBYE_KEY],
-      endCallFunctionEnabled: true,
+      endCallFunctionEnabled: false,
       maxDurationSeconds: Math.min(600, Math.max(30, call.maxSeconds ?? 300)),
       metadata: { app: "backline", owner: call.owner ?? null },
     };
