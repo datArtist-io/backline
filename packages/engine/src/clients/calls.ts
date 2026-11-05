@@ -13,6 +13,14 @@ export type CallRequest = {
   /** Hang up after this long (seconds); 300 by default. */
   maxSeconds?: number;
 };
+/** How every outbound call sounds and ends: like a person, with one clear goodbye. */
+const GOODBYE_KEY = "have a lovely day";
+export const SPOKEN = [
+  "Sound like a friendly, capable person, not a script: contractions, plain words, short sentences, a natural \"great\" or \"perfect\" when they answer. Never use lists, symbols or markdown, and don't repeat yourself.",
+  "Never ask for an email address, card, bank, ID or passport details.",
+  "When the call is done, end with exactly: \"Thanks so much, have a lovely day. Bye!\" and say nothing after it.",
+].join("\n");
+
 export type CallOutcome = "live" | "talked" | "no_answer" | "busy" | "voicemail" | "no_audio" | "failed";
 export type CallStatus = {
   id: string;
@@ -113,7 +121,9 @@ export class VapiCaller implements CallPlacer {
     if (!E164_RE.test(call.to)) throw new UpstreamError("calls", 400, "Invalid number", "That phone number doesn't look right.");
     const base = {
       firstMessage: call.firstMessage,
-      model: { provider: "openai", model: this.config.model || "gpt-4o-mini", temperature: 0.3, maxTokens: 160, messages: [{ role: "system", content: call.instructions }] },
+      model: { provider: "openai", model: this.config.model || "gpt-4o-mini", temperature: 0.5, maxTokens: 160, messages: [{ role: "system", content: `${call.instructions}\n${SPOKEN}` }] },
+      // The call ends once the agent has said its goodbye, never mid-sentence or into silence.
+      endCallPhrases: [GOODBYE_KEY],
       endCallFunctionEnabled: true,
       maxDurationSeconds: Math.min(600, Math.max(30, call.maxSeconds ?? 300)),
       metadata: { app: "backline", owner: call.owner ?? null },
