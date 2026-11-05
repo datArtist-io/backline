@@ -181,6 +181,31 @@ export const validDate = (d: string | null | undefined, today: string): string |
 const NUMBER_WORDS = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen", "seventeen", "eighteen", "nineteen", "twenty"];
 
 /** Whether the text actually states this number ("2,000,000", "2m", "150k", "four", "a couple"). Pure. */
+const WORD_VALUES: Record<string, number> = {
+  zero: 0, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10,
+  eleven: 11, twelve: 12, thirteen: 13, fourteen: 14, fifteen: 15, sixteen: 16, seventeen: 17, eighteen: 18, nineteen: 19,
+  twenty: 20, thirty: 30, forty: 40, fifty: 50, sixty: 60, seventy: 70, eighty: 80, ninety: 90,
+};
+/** Every number written out in words in the text ("seven thousand", "twenty five hundred", "a thousand", "2.5 thousand" is handled elsewhere). */
+export function spelledNumbers(text: string): number[] {
+  const words = text.toLowerCase().replace(/-/g, " ").split(/[^a-z]+/).filter(Boolean);
+  const out: number[] = [];
+  let total = 0, current = 0, any = false;
+  const flush = () => { if (any) out.push(total + current); total = 0; current = 0; any = false; };
+  for (let i = 0; i < words.length; i++) {
+    const w = words[i];
+    if (w in WORD_VALUES) { current += WORD_VALUES[w]; any = true; }
+    else if (w === "hundred" && any) { current = (current || 1) * 100; }
+    else if ((w === "thousand" || w === "grand") && (any || words[i - 1] === "a")) { total += (current || 1) * 1000; current = 0; any = true; }
+    else if (w === "million" && (any || words[i - 1] === "a")) { total += (current || 1) * 1_000_000; current = 0; any = true; }
+    else if (w === "and" && any) { /* "two hundred and fifty" */ }
+    else if (w === "a" && (words[i + 1] === "thousand" || words[i + 1] === "million" || words[i + 1] === "grand")) { /* "a thousand" */ }
+    else flush();
+  }
+  flush();
+  return out;
+}
+
 export function mentionsNumber(text: string, n: number): boolean {
   if (!Number.isFinite(n)) return false;
   const t = text.toLowerCase().replace(/(\d)[,\s](?=\d{3}\b)/g, "$1");
@@ -195,6 +220,7 @@ export function mentionsNumber(text: string, n: number): boolean {
     if (new RegExp(`(^|[^\\d.])${String(v).replace(".", "\\.")}\\s*${unit}\\b`).test(t)) return true;
   }
   if (whole <= 20 && new RegExp(`\\b${NUMBER_WORDS[whole]}\\b`).test(t)) return true;
+  if (spelledNumbers(t).includes(whole)) return true;
   if (whole === 2 && /\b(a couple|both of us|me and my|my (?:wife|husband|partner|girlfriend|boyfriend|fianc[eé]e?))\b/.test(t)) return true;
   if (whole === 12 && /\bdozen\b/.test(t)) return true;
   return false;
