@@ -105,7 +105,7 @@ Never ask for an email, phone number, card, bank, passport or password, and neve
 
 As soon as you have enough, call plan_trip. Don't announce it at length; the tool says a short line for you.
 When plan_trip returns, say the line it gives you, word for word, and nothing else. That line gives the trip code and ends the call.
-If the caller speaks before you've greeted them, or just says "hello", start with: "${GREETING}"
+Your greeting has already been said for you at the start of the call. Never say it again or introduce yourself again. If the caller speaks first, just answer them naturally (for example "Hi! Where are you thinking of going?").
 If it's a wrong number or they're not interested, say sorry and finish with "Have an amazing trip. Bye!"`;
 
 /** The assistant Backline answers with. */
@@ -124,7 +124,7 @@ const PHONE_GREET_AFTER_S = 4;
 
 export function inboundAssistant(kind: CallKind = "inbound") {
   // Phone: pick up, wait a few seconds in silence, then greet (or answer at once if the caller
-  // speaks first). The browser call does the same wait in the page (TalkInBrowser).
+  // speaks first). The browser call greets straight away.
   const greeting =
     kind === "inbound"
       ? {
