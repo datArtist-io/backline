@@ -31,9 +31,21 @@ describe("Call Backline", () => {
   it("answers as an AI agent that never takes payment details", () => {
     const a = inboundAssistant();
     const prompt = a.model.messages[0].content;
-    expect(prompt).toMatch(/you're an AI agent/);
-    expect(prompt).toMatch(/Never ask for card/);
+    expect(prompt).toMatch(/I'm your Backline agent, an AI/);
+    expect(prompt).toMatch(/Never ask for an email, phone number, card/);
     expect(a.model.tools[0].function.name).toBe("plan_trip");
     expect(a.metadata).toEqual({ app: "backline", kind: "inbound" });
+    // Phone: silent until the caller speaks, then one greeting; the call ends on the goodbye, not a tool.
+    expect(a.firstMessageMode).toBe("assistant-waits-for-user");
+    expect("firstMessage" in a).toBe(false);
+    expect(a.endCallFunctionEnabled).toBe(false);
+    expect(a.endCallPhrases).toEqual(["have an amazing trip"]);
+  });
+
+  it("greets straight away in the browser", () => {
+    const a = inboundAssistant("web");
+    expect(a.firstMessageMode).toBe("assistant-speaks-first");
+    expect((a as { firstMessage?: string }).firstMessage).toMatch(/^Hey! I'm your Backline agent/);
+    expect(a.model.messages[0].content).toMatch(/Never greet or introduce yourself again/);
   });
 });

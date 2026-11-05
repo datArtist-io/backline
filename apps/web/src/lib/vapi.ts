@@ -95,6 +95,12 @@ export function tripFromCall(call: Record<string, unknown>): CallTrip | null {
 
 export const GREETING = "Hey! I'm your Backline agent, an AI that plans and books your whole trip. Where are you thinking of going?";
 
+/** How the agent opens: on the phone it waits for the caller's first words; in the browser it greets first. */
+const OPENING = {
+  inbound: `The call starts in silence. When the caller first speaks (usually "hello"), your first reply is exactly: "${GREETING}" If their first words already say where they want to go, greet them in one short line instead and carry on from what they said. Never greet or introduce yourself a second time.`,
+  web: `You've already greeted the caller with: "${GREETING}" Never greet or introduce yourself again.`,
+};
+
 const SYSTEM = `You are Backline, an AI travel agent on a phone call. You plan trips around what people love, using Qloo's taste data.
 
 How you talk: like a friendly, switched-on person at a great travel agency, not a form. Short spoken sentences, contractions, plain words. React to what they say ("Oh, Lisbon in spring, lovely."). One question at a time, then stop and listen. Never list options, never use bullet points, symbols or markdown, never read back everything they said. Say numbers the way people say them ("four days", "two of you"). You mentioned you're an AI in your greeting, so don't say it again unless asked.
@@ -105,7 +111,7 @@ Never ask for an email, phone number, card, bank, passport or password, and neve
 
 As soon as you have enough, call plan_trip. Don't announce it at length; the tool says a short line for you.
 When plan_trip returns, say the line it gives you, word for word, and nothing else. That line gives the trip code and ends the call.
-Your greeting has already been said for you at the start of the call. Never say it again or introduce yourself again. If the caller speaks first, just answer them naturally (for example "Hi! Where are you thinking of going?").
+If plan_trip fails or gives no line, say: "Sorry, I couldn't start that one. Give it another try in a minute. Have an amazing trip. Bye!"
 If it's a wrong number or they're not interested, say sorry and finish with "Have an amazing trip. Bye!"`;
 
 /** The assistant Backline answers with. */
@@ -119,26 +125,12 @@ export const isBacklineCall = (c: Record<string, unknown> | null | undefined): b
   return Boolean(c && meta.app === "backline" && ((c.type === "inboundPhoneCall" && meta.kind === "inbound") || (c.type === "webCall" && meta.kind === "web")));
 };
 
-/** On the phone line the agent stays quiet this long after picking up, so a demo recording can start. */
-const PHONE_GREET_AFTER_S = 4;
-
 export function inboundAssistant(kind: CallKind = "inbound") {
-  // Phone: pick up, wait a few seconds in silence, then greet (or answer at once if the caller
-  // speaks first). The browser call greets straight away.
-  const greeting =
-    kind === "inbound"
-      ? {
-          firstMessageMode: "assistant-waits-for-user",
-          hooks: [
-            {
-              on: "customer.speech.timeout",
-              options: { timeoutSeconds: PHONE_GREET_AFTER_S, triggerMaxCount: 1, triggerResetMode: "never" },
-              do: [{ type: "say", exact: GREETING }],
-              name: "greet_after_pause",
-            },
-          ],
-        }
-      : { firstMessage: GREETING, firstMessageMode: "assistant-speaks-first" };
+  // Phone: pick up in silence and let the caller speak first (time to press record). The agent's
+  // first reply is the greeting, written by the model, so it's in the conversation and never repeated.
+  // (A timed greeting from a hook isn't in the model's history, and its timer can fire mid-call.)
+  // The browser call greets straight away.
+  const greeting = kind === "inbound" ? { firstMessageMode: "assistant-waits-for-user" } : { firstMessage: GREETING, firstMessageMode: "assistant-speaks-first" };
   return {
     name: "Backline",
     ...greeting,
@@ -147,7 +139,7 @@ export function inboundAssistant(kind: CallKind = "inbound") {
       model: process.env.VAPI_MODEL || "gpt-4o-mini",
       temperature: 0.7,
       maxTokens: 220,
-      messages: [{ role: "system", content: kind === "web" ? `${SYSTEM}\n${WEB}` : SYSTEM }],
+      messages: [{ role: "system", content: kind === "web" ? `${SYSTEM}\n${OPENING.web}\n${WEB}` : `${SYSTEM}\n${OPENING.inbound}` }],
       tools: [
         {
           type: "function",
