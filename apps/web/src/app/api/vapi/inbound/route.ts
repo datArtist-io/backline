@@ -79,20 +79,16 @@ export async function POST(req: Request) {
         if (!trip || !call.id) return { toolCallId: tc.id ?? "", result: "I need at least the destination to plan the trip." };
         const code = tripCode(call.id);
         if (real) remember(call.id, trip);
-        const mail = await emailLink(call.id, trip, code, real);
+        await emailLink(call.id, trip, code, real);
         const digits = code.split("").join(" ");
         return {
           toolCallId: tc.id ?? "",
-          // Written as what to say next, so the agent always speaks after the tool instead of going quiet.
+          // The exact line the agent says: the code, where to use it, goodbye. Its goodbye ends the call.
           result: [
-            `Done: the trip "${goalOf(trip)}" is being planned right now.`,
             web
-              ? `Now tell the caller, warmly, that their trip is opening on their screen right now, with the taste match, the plan on a 3D map and the bookings.`
-              : `Now tell the caller, warmly, that it's ready to open: their trip code is ${digits}. Say the code slowly, then once more. They go to the Backline website, tap "Call Backline" and enter it, and the whole trip is there.`,
-            mail === "sent" ? `Also mention the link was emailed to ${trip.email}.` : "",
-            `Then ask if there's anything else, and finish with "Have an amazing trip. Bye!"`,
+              ? `Say exactly: "Done! Your trip is opening on your screen now. I'm your Backline agent, so when you're happy with it, I can book and pay for the whole trip in one tap. Have an amazing trip. Bye!"`
+              : `Say exactly: "Done! Your trip code is ${digits}. That's ${digits}. Head to the Backline website, tap Call Backline and enter it. I'm your Backline agent, so when you're happy with it, I can book and pay for the whole trip in one tap. Have an amazing trip. Bye!"`,
           ]
-            .filter(Boolean)
             .join(" "),
         };
       })
