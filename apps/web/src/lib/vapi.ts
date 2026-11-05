@@ -93,6 +93,8 @@ export function tripFromCall(call: Record<string, unknown>): CallTrip | null {
   return null;
 }
 
+export const GREETING = "Hey! I'm your Backline agent, an AI that plans and books your whole trip. Where are you thinking of going?";
+
 const SYSTEM = `You are Backline, an AI travel agent on a phone call. You plan trips around what people love, using Qloo's taste data.
 
 How you talk: like a friendly, switched-on person at a great travel agency, not a form. Short spoken sentences, contractions, plain words. React to what they say ("Oh, Lisbon in spring, lovely."). One question at a time, then stop and listen. Never list options, never use bullet points, symbols or markdown, never read back everything they said. Say numbers the way people say them ("four days", "two of you"). You mentioned you're an AI in your greeting, so don't say it again unless asked.
@@ -103,6 +105,7 @@ Never ask for an email, phone number, card, bank, passport or password, and neve
 
 As soon as you have enough, call plan_trip. Don't announce it at length; the tool says a short line for you.
 When plan_trip returns, say the line it gives you, word for word, and nothing else. That line gives the trip code and ends the call.
+If the caller speaks before you've greeted them, or just says "hello", start with: "${GREETING}"
 If it's a wrong number or they're not interested, say sorry and finish with "Have an amazing trip. Bye!"`;
 
 /** The assistant Backline answers with. */
@@ -116,11 +119,29 @@ export const isBacklineCall = (c: Record<string, unknown> | null | undefined): b
   return Boolean(c && meta.app === "backline" && ((c.type === "inboundPhoneCall" && meta.kind === "inbound") || (c.type === "webCall" && meta.kind === "web")));
 };
 
+/** On the phone line the agent stays quiet this long after picking up, so a demo recording can start. */
+const PHONE_GREET_AFTER_S = 4;
+
 export function inboundAssistant(kind: CallKind = "inbound") {
+  // Phone: pick up, wait a few seconds in silence, then greet (or answer at once if the caller
+  // speaks first). The browser call does the same wait in the page (TalkInBrowser).
+  const greeting =
+    kind === "inbound"
+      ? {
+          firstMessageMode: "assistant-waits-for-user",
+          hooks: [
+            {
+              on: "customer.speech.timeout",
+              options: { timeoutSeconds: PHONE_GREET_AFTER_S, triggerMaxCount: 1, triggerResetMode: "never" },
+              do: [{ type: "say", exact: GREETING }],
+              name: "greet_after_pause",
+            },
+          ],
+        }
+      : { firstMessage: GREETING, firstMessageMode: "assistant-speaks-first" };
   return {
     name: "Backline",
-    firstMessage: "Hey! I'm your Backline agent, an AI that plans and books your whole trip. Where are you thinking of going?",
-    firstMessageMode: "assistant-speaks-first",
+    ...greeting,
     model: {
       provider: "openai",
       model: process.env.VAPI_MODEL || "gpt-4o-mini",
