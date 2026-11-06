@@ -42,7 +42,7 @@ import type {
   TripTravelOutput,
   TripHomeOutput,
 } from "@backline/engine";
-import { ActionsCheckpoint, AgentSummary, PlacesSection, PlanSection, ResultsSection, tripChips } from "./trip";
+import { ActionsCheckpoint, AgentSummary, PlacesSection, PlanSection, ResultsSection, ShareLinkContext, tripChips } from "./trip";
 import AgentActivity from "./AgentActivity";
 import TasteCard from "./Taste";
 import AgentTrace from "./AgentTrace";
@@ -92,7 +92,7 @@ type Autonomy = "check" | "auto";
 
 const LABELS: Record<MissionType, string> = { plan: "Plan and book", brand_deal: "Brand deal", tour: "Tour", grow: "Growth", content: "Content", compare: "Compare", brief: "Full strategy" };
 
-export default function MissionView(props: { goal?: string; artist?: string; mission?: MissionType; autonomy: Autonomy; docs?: string; debug?: boolean }) {
+export default function MissionView(props: { goal?: string; artist?: string; mission?: MissionType; autonomy: Autonomy; docs?: string; share?: string; debug?: boolean }) {
   // Every price on the page is shown in the chosen currency; changing it re-renders them all.
   useDisplayCurrency();
   const [autonomy, setAutonomy] = useState<Autonomy>(props.autonomy);
@@ -106,6 +106,8 @@ export default function MissionView(props: { goal?: string; artist?: string; mis
   const sealRef = useRef<{ runId: string; seal: string } | null>(null);
   const [status, setStatus] = useState<Status>("planning");
   const [error, setError] = useState<string | null>(null);
+  /** Opened from a shared link: the trip is shown as it was saved, and only its owner can book it. */
+  const [shared, setShared] = useState(false);
   const [needs, setNeeds] = useState<{ field: string; message: string; plan: Plan; preview: string[] } | null>(null);
   const [prefsOpen, setPrefsOpen] = useState(false);
   const [view, setView] = useState<"game" | "classic">("game");
@@ -201,24 +203,77 @@ export default function MissionView(props: { goal?: string; artist?: string; mis
   // Coming back to a trip (from Account, a receipt…) picks up where it was, without planning again.
   type Snap = { planned: Planned; steps: StepState[]; results: Record<string, StepResult>; checkpoints: CheckpointRequest[]; status: Status; seal: { runId: string; seal: string } | null; adjusted: boolean };
   const here = () => (typeof window === "undefined" ? "" : `${location.pathname}${location.search}`);
+  const apply = useCallback((snap: Snap, opts: { shared?: boolean } = {}) => {
+    plannedRef.current = snap.planned;
+    sealRef.current = opts.shared ? null : snap.seal;
+    askedFor.current = snap.planned.runId;
+    setPlanned(snap.planned);
+    setSteps(snap.steps);
+    setResults(snap.results);
+    setCheckpoints(snap.checkpoints ?? []);
+    setAdjusted(Boolean(snap.adjusted));
+    setStatus(snap.status);
+  }, []);
   useEffect(() => {
     docsRef.current = loadDocs(props.docs);
+    // A shared link: load the saved trip as it was, never plan it again.
+    if (props.share) {
+      const own = readTrip<Snap>(here());
+      if (own?.planned) {
+        setShared(true);
+        apply(own, { shared: true });
+        return;
+      }
+      let live = true;
+      setStatus("running");
+      fetch(`/api/share/trip?id=${encodeURIComponent(props.share)}`)
+        .then(async (res) => ({ res, body: (await res.json().catch(() => ({}))) as { ok?: boolean; snap?: Snap; reason?: string } }))
+        .then(({ res, body }) => {
+          if (!live) return;
+          if (!res.ok || !body.ok || !body.snap?.planned) {
+            setError(body.reason ?? "This trip couldn't be loaded.");
+            setStatus("error");
+            return;
+          }
+          setShared(true);
+          apply(body.snap, { shared: true });
+        })
+        .catch(() => {
+          if (!live) return;
+          setError("This trip couldn't be loaded. Check your connection and try again.");
+          setStatus("error");
+        });
+      return () => {
+        live = false;
+      };
+    }
     const snap = readTrip<Snap>(here());
     if (snap?.planned && (snap.status === "done" || snap.status === "waiting") && !snap.steps.some((s) => s.status === "failed")) {
-      plannedRef.current = snap.planned;
-      sealRef.current = snap.seal;
-      askedFor.current = snap.planned.runId;
-      setPlanned(snap.planned);
-      setSteps(snap.steps);
-      setResults(snap.results);
-      setCheckpoints(snap.checkpoints);
-      setAdjusted(snap.adjusted);
-      setStatus(snap.status);
+      apply(snap);
       return;
     }
     start({ goal: props.goal, artist: props.artist, mission: props.mission, autonomy: props.autonomy });
     return () => ctrl.current?.abort();
-  }, [start, props.goal, props.artist, props.mission, props.autonomy, props.docs]);
+  }, [start, apply, props.goal, props.artist, props.mission, props.autonomy, props.docs, props.share]);
+  // Make a link that opens this exact trip for anyone (saved once per trip).
+  const shareLinkRef = useRef<{ runId: string; url: string } | null>(null);
+  const makeShareLink = useCallback(async (): Promise<{ url: string } | { error: string }> => {
+    if (props.share && typeof window !== "undefined") return { url: window.location.href };
+    const p = plannedRef.current;
+    if (!p || (status !== "done" && status !== "waiting")) return { error: "The trip is still being planned." };
+    const made = shareLinkRef.current;
+    if (made && made.runId === p.runId) return { url: made.url };
+    const snap: Snap = { planned: p, steps, results, checkpoints, status, seal: null, adjusted };
+    try {
+      const res = await fetch("/api/share/trip", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ goal: p.goal || props.goal || "", snap }) });
+      const body = (await res.json().catch(() => ({}))) as { ok?: boolean; url?: string; reason?: string };
+      if (!res.ok || !body.ok || !body.url) return { error: body.reason ?? "The link couldn't be made." };
+      shareLinkRef.current = { runId: p.runId, url: body.url };
+      return { url: body.url };
+    } catch {
+      return { error: "The link couldn't be made. Check your connection." };
+    }
+  }, [props.share, props.goal, status, steps, results, checkpoints, adjusted]);
   // Keep the trip as it is whenever it settles, so stepping away never costs the person their trip.
   useEffect(() => {
     if (!planned || (status !== "done" && status !== "waiting")) return;
@@ -345,7 +400,10 @@ export default function MissionView(props: { goal?: string; artist?: string; mis
   /** Plan it again. Only "Run again" (bookAgain) skips the guard against paying twice; "Try again" after an error never does. */
   const rerun = (mode: Autonomy = autonomy, bookAgain = false) => {
     const p = plannedRef.current?.plan;
+    // A shared link that didn't load: try loading it again rather than planning nothing.
+    if (!p && props.share) return void window.location.reload();
     rebookRef.current = bookAgain;
+    setShared(false);
     start({ goal: p?.goal ?? props.goal, artist: p?.artist ?? props.artist, mission: p?.mission ?? props.mission, location: p?.location ?? undefined, autonomy: mode, rebook: bookAgain || undefined });
   };
 
@@ -440,6 +498,7 @@ export default function MissionView(props: { goal?: string; artist?: string; mis
                   budget={r<TripActionsOutput>("trip.actions")!.data.budget ?? null}
                   profile={loadProfile()}
                   busy={running}
+                  shared={shared ? { goal: planned?.goal ?? props.goal ?? "" } : null}
                   onConfirm={(ids, profile) => resume(cp.id, ids, profile)}
                   onLook={() => setBookOpen(false)}
                 />
@@ -469,7 +528,7 @@ export default function MissionView(props: { goal?: string; artist?: string; mis
   const tripBroken = !running && status === "done" ? steps.filter((s) => ["trip.agent", "trip.plan", "trip.routes"].includes(s.id) && (s.status === "failed" || s.status === "skipped")).map((s) => s.title.toLowerCase()).join(", ") : "";
   if (tripMission && view === "game") {
     return (
-      <>
+      <ShareLinkContext.Provider value={makeShareLink}>
         <TripGame
           runKey={planned?.runId ?? null}
           signedIn={Boolean(me)}
@@ -551,12 +610,12 @@ export default function MissionView(props: { goal?: string; artist?: string; mis
             Writing days {writingWeek.from + 1}–{writingWeek.to} of {writingWeek.total}…
           </p>
         )}
-      </>
+      </ShareLinkContext.Provider>
     );
   }
 
   return (
-    <>
+    <ShareLinkContext.Provider value={makeShareLink}>
       <div className="brief">
         <header className="brief-top">
           <Link href="/" className="wordmark" aria-label={`${BRAND.name} home`}>
@@ -780,7 +839,7 @@ export default function MissionView(props: { goal?: string; artist?: string; mis
         {pitchToPrint && <OnePager pitch={pitchToPrint} artistName={artistName} matches={r<BrandMatchesOutput>("brand.matches")?.data} />}
       </div>
       <Preferences open={prefsOpen} onClose={() => setPrefsOpen(false)} />
-    </>
+    </ShareLinkContext.Provider>
   );
 }
 

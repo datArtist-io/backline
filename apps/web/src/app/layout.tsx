@@ -19,14 +19,14 @@ export const viewport: Viewport = {
   themeColor: "#eef1f8",
 };
 
-const THEME_SCRIPT = `try{var t=localStorage.getItem("bl.theme");if(t!=="dark"&&t!=="light")t=matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light";document.documentElement.setAttribute("data-bl-theme",t)}catch(e){}`;
+const THEME_SCRIPT = `try{var t=localStorage.getItem("bl.theme");if(t!=="dark"&&t!=="light")t="dark";document.documentElement.setAttribute("data-bl-theme",t)}catch(e){document.documentElement.setAttribute("data-bl-theme","dark")}`;
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     // suppressHydrationWarning: browser extensions add attributes to <html>/<body> before React loads.
     <html lang="en" className={`${display.variable} ${body.variable}`} suppressHydrationWarning>
       <head>
-        {/* The theme before the first paint: the one they picked, else the system's. Without it the page
+        {/* The theme before the first paint: the one they picked, else dark for everyone. Without it the page
             showed in light for the seconds it took the scripts to load. */}
         <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
       </head>

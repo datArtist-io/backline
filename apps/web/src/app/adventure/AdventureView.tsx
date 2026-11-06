@@ -4,7 +4,7 @@
 // is the terrain. Each day is a route you can fly. Everything else lives in the field guide and
 // the trip book, one tap away.
 import dynamic from "next/dynamic";
-import { Component, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Component, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { StepProgress } from "@backline/engine";
 import { Vector3 } from "three";
 import type { Shared } from "./World";
@@ -15,6 +15,7 @@ import { KIND_COLOR, KIND_LABEL, KIND_NOUN, hoursOf, type AdventureModel, type D
 import Codex from "./Codex";
 import Space from "./Space";
 import "./adventure.css";
+import { ShareLinkContext, copyTripLink } from "../mission/trip";
 
 const Earth = dynamic(() => import("./Earth"), { ssr: false });
 const World = dynamic(() => import("./World"), { ssr: false });
@@ -179,7 +180,7 @@ export default function AdventureView({
   const [scrub, setScrub] = useState<number | null>(null);
   const [timeOpen, setTimeOpen] = useState(false);
   const [viewOpen, setViewOpen] = useState(false);
-  // Light or dark: the system's choice until someone picks, then theirs (remembered on this device).
+  // Light or dark: dark for everyone until someone picks, then theirs (remembered on this device).
   // Null until the page's script runs: the server can't know it, and the theme set on <html> before the
   // first paint (layout.tsx) styles the page meanwhile.
   const [theme, setTheme] = useState<"light" | "dark" | null>(null);
@@ -190,7 +191,8 @@ export default function AdventureView({
     } catch {
       /* storage can be off */
     }
-    setTheme(saved === "dark" || saved === "light" ? saved : window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+    // Everyone sees the same trip: dark unless they picked light themselves (not their computer's setting).
+    setTheme(saved === "dark" || saved === "light" ? saved : "dark");
   }, []);
   const pickTheme = (t: "light" | "dark") => {
     setTheme(t);
@@ -232,6 +234,7 @@ export default function AdventureView({
   const progress = useRef({ day: -1, t: 0 });
   const labels = useRef(new Map<string, HTMLElement>());
   const toastId = useRef(0);
+  const makeShareLink = useContext(ShareLinkContext);
   const shared = useRef<Shared>({ drone: { pos: new Vector3(), heading: 0 }, focusUntil: 0, homeUntil: 0, follow: false, hours: 21 });
 
   const selected = useMemo(() => model?.nodes.find((n) => n.id === selectedId) ?? null, [model, selectedId]);
@@ -529,7 +532,7 @@ export default function AdventureView({
         <div className="eq-top">
           {model && model.stats.places > 0 && (
             <div className="eq-score">
-              <svg viewBox="0 0 44 44" className="eq-dial" role="img" aria-label={matchPct != null ? `Average Qloo affinity of your picks: ${matchPct} out of 100` : "No Qloo scores yet"}>
+              <svg viewBox="0 0 44 44" className="eq-dial" role="img" aria-label={matchPct != null ? `Average Qloo affinity of your picks: ${matchPct} out of 100` : `${model.stats.picked} places picked with Qloo`}>
                 <defs>
                   <linearGradient id="eq-grad" x1="0" y1="0" x2="1" y2="1">
                     <stop offset="0" stopColor="#ff4fa3" />
@@ -539,11 +542,11 @@ export default function AdventureView({
                 </defs>
                 <circle cx="22" cy="22" r="19" className="track" />
                 <circle cx="22" cy="22" r="19" className="val" style={{ strokeDasharray: `${((matchPct ?? 0) / 100) * 119.4} 200` }} />
-                <text x="22" y="23.5" textAnchor="middle" dominantBaseline="middle">{shownMatch ?? "–"}</text>
+                <text x="22" y="23.5" textAnchor="middle" dominantBaseline="middle">{matchPct != null ? (shownMatch ?? "–") : model.stats.picked}</text>
               </svg>
               <div className="eq-score-txt">
-                <b>Qloo affinity</b>
-                {narrow && model.taste?.signals.length ? <span className="eq-because">{model.taste.because}</span> : null}
+                <b>{matchPct != null ? "Qloo affinity" : "Qloo picks"}</b>
+                {matchPct == null ? <span className="eq-because">Popular with travellers. Say what you love for a taste score.</span> : narrow && model.taste?.signals.length ? <span className="eq-because">{model.taste.because}</span> : null}
                 <span>{model.stats.picked} places · {model.stats.days ? `${model.stats.days} days` : "plan coming"}{model.stats.km ? ` · ${Math.round(model.stats.km)} km` : ""}</span>
               </div>
             </div>
@@ -778,6 +781,7 @@ export default function AdventureView({
                       <button type="button" role="menuitemcheckbox" aria-checked={traffic} className={traffic ? "on" : ""} onClick={() => { setTraffic((t) => !t); if (!traffic && look === "photoreal") setLook("real"); }}>Live traffic</button>
                     )}
                     <button type="button" role="menuitemradio" aria-checked={mode === "taste"} className={mode === "taste" ? "on" : ""} onClick={() => setMode((m) => (m === "earth" ? "taste" : "earth"))}>Taste map</button>
+                    {makeShareLink && <button type="button" role="menuitem" onClick={() => void copyTripLink(makeShareLink, (m) => toast(m))}>Copy link to this trip</button>}
                     <button type="button" role="menuitem" onClick={() => pickTheme(theme === "dark" ? "light" : "dark")}>{theme === "dark" ? "Light mode" : "Dark mode"}</button>
                     {onClassic && <button type="button" role="menuitem" onClick={onClassic}>Classic view</button>}
                   </div>

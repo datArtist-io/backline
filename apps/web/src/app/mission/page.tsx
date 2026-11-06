@@ -8,7 +8,7 @@ export const metadata: Metadata = { title: "Mission", robots: { index: false } }
 const MISSIONS = ["plan", "brand_deal", "tour", "grow", "content", "compare", "brief"] as const;
 type M = (typeof MISSIONS)[number];
 
-export default async function MissionPage({ searchParams }: { searchParams: Promise<{ goal?: string; artist?: string; m?: string; mode?: string; docs?: string; debug?: string }> }) {
+export default async function MissionPage({ searchParams }: { searchParams: Promise<{ goal?: string; artist?: string; m?: string; mode?: string; docs?: string; debug?: string; share?: string }> }) {
   const sp = await searchParams;
   const goal = sp.goal?.trim().slice(0, 2000) || undefined;
   const artist = sp.artist?.trim().slice(0, 120) || undefined;
@@ -17,8 +17,10 @@ export default async function MissionPage({ searchParams }: { searchParams: Prom
   const autonomy = sp.mode === "check" ? "check" : "auto";
   // Attached files are kept in this tab; the URL only carries a short key to find them.
   const docs = sp.docs && /^[a-z0-9]{4,32}$/.test(sp.docs) ? sp.docs : undefined;
+  // A shared trip link: the saved trip opens exactly as it was planned, for anyone.
+  const share = sp.share && /^[A-Za-z0-9]{10,24}$/.test(sp.share) ? sp.share : undefined;
 
-  if (!goal && !artist && !docs) {
+  if (!goal && !artist && !docs && !share) {
     return (
       <main className="holding">
         <GlassFilter />
@@ -36,7 +38,7 @@ export default async function MissionPage({ searchParams }: { searchParams: Prom
   return (
     <>
       <GlassFilter />
-      <MissionView key={`${goal}|${artist}|${mission}|${autonomy}|${docs}`} goal={goal} artist={artist} mission={mission} autonomy={autonomy} docs={docs} debug={sp.debug === "1"} />
+      <MissionView key={`${goal}|${artist}|${mission}|${autonomy}|${docs}|${share}`} goal={goal} artist={artist} mission={share ? "plan" : mission} autonomy={autonomy} docs={docs} share={share} debug={sp.debug === "1"} />
     </>
   );
 }

@@ -53,12 +53,12 @@ const bodySchema = z.object({
   runId: z.string().optional(),
   /** The sealed plan and results from phase 1, so "Do it" runs exactly the plan that was shown. */
   seal: z.string().max(3_000_000).optional(),
-  selections: z.record(z.array(z.string().max(80)).max(12)).optional(),
+  selections: z.record(z.array(z.string().max(80)).max(100)).optional(),
   /** Changes after reviewing the plan: re-plans from the plan step on, keeping the research. */
   edits: z
     .object({
-      remove: z.array(z.string().max(80)).max(20).default([]),
-      swap: z.array(z.object({ from: z.string().max(80), to: z.string().max(80) })).max(20).default([]),
+      remove: z.array(z.string().max(80)).max(100).default([]),
+      swap: z.array(z.object({ from: z.string().max(80), to: z.string().max(80) })).max(100).default([]),
       note: z.string().max(500).nullable().default(null),
     })
     .optional(),

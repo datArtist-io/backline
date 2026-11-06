@@ -1664,6 +1664,8 @@ a { color: inherit; text-decoration: none; }
 .footer a { color: inherit; }
 .ck-secure { display: flex; align-items: center; gap: 8px; margin: 10px 0 0; font-size: 12.5px; color: var(--ink-soft, #5b5f77); }
 .ck-secure svg { flex: none; color: #2e9d6a; }
+.ck-shared { margin: 10px 0 0; padding: 10px 12px; border-radius: 12px; font-size: 13px; line-height: 1.4; color: #3d27a8; background: rgba(123, 92, 255, 0.1); }
+a.go { display: inline-flex; align-items: center; justify-content: center; text-decoration: none; }
 .ck-secure a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
 .account-acts { display: flex; gap: 8px; flex-wrap: wrap; }
 .acc-cur { gap: 6px; cursor: default; }

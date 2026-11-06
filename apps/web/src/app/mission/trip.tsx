@@ -1,7 +1,7 @@
 "use client";
 // The planning agent's screens: what it found and why, the plan with travel between stops, the
 // places it picked, what it's about to do, and what it did.
-import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import { useWallet, walletMoney } from "./Wallet";
 import TripMap, { DAY_COLORS, type MapDay, type TasteLayer } from "./TripMap";
@@ -449,7 +449,26 @@ function CalendarMenu({ trip, name, dated, flash }: { trip: ExportTrip; name: st
 }
 
 /** Send the whole plan to WhatsApp, Telegram or your inbox, ready to keep or pass on. */
+/** Makes a link that opens this exact trip for anyone (provided by the trip page). */
+export type ShareLinkMaker = () => Promise<{ url: string } | { error: string }>;
+export const ShareLinkContext = createContext<ShareLinkMaker | null>(null);
+
+/** Copies a link to this exact trip, so whoever opens it sees the same plan. */
+export async function copyTripLink(make: ShareLinkMaker | null, flash: (msg: string) => void): Promise<void> {
+  if (!make) return flash("Links aren't available here");
+  flash("Making a link…");
+  const r = await make();
+  if ("error" in r) return flash(r.error);
+  try {
+    await navigator.clipboard.writeText(r.url);
+    flash("Link copied. Anyone who opens it sees this exact trip.");
+  } catch {
+    window.prompt("Copy this link", r.url);
+  }
+}
+
 function SendPlan({ trip, flash }: { trip: ExportTrip; flash: (msg: string) => void }) {
+  const makeLink = useContext(ShareLinkContext);
   const [sending, setSending] = useState(false);
   const site = typeof window === "undefined" ? "" : window.location.origin;
   const share = (): ShareTrip => {
@@ -492,6 +511,11 @@ function SendPlan({ trip, flash }: { trip: ExportTrip; flash: (msg: string) => v
         {sending ? "Sending…" : "Send"} <span aria-hidden="true" className="send-caret">▾</span>
       </summary>
       <div className="send-menu" role="menu">
+        {makeLink && (
+          <button type="button" role="menuitem" onClick={pick(() => void copyTripLink(makeLink, flash))}>
+            Copy link to this trip
+          </button>
+        )}
         <button type="button" role="menuitem" onClick={pick(() => open(whatsappUrl(tripMessage(share(), site))))}>
           WhatsApp
         </button>
@@ -579,10 +603,13 @@ export function ActionsCheckpoint({
   demoLine = null,
   profile,
   busy,
+  shared = null,
   onConfirm,
   onLook,
 }: {
   actions: TripAction[];
+  /** Opened from a shared link: show the slip, but only the person who planned it can book it. */
+  shared?: { goal: string } | null;
   /** The trip's total budget, so the slip says whether what's ticked fits. */
   budget?: { amount: number; currency: string } | null;
   /** "Take a look first": back to the trip to vet it before paying. */
@@ -605,15 +632,17 @@ export function ActionsCheckpoint({
   // The phone they used last time on this browser fills in too.
   const [me, setMe] = useState<Profile>({ name: profile.name, email: profile.email, phone: profile.phone || loadProfile().phone });
   const signedIn = useRef(false);
+  // Signed out: say plainly what Approve does for them (links to book themselves), and offer sign-in.
+  const [signedOut, setSignedOut] = useState(false);
   // Signed in: their account's name, email and phone fill any gaps, so they never type what we already know.
   useEffect(() => {
-    if (me.name?.trim() && me.email?.trim() && me.phone?.trim()) return;
     let live = true;
     fetch("/api/account", { cache: "no-store" })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d: { user?: { name?: string | null; email?: string | null }; profile?: Profile } | null) => {
+      .then((r) => (r.ok ? r.json() : r.status === 401 ? { user: null } : null))
+      .then((d: { user?: { name?: string | null; email?: string | null } | null; profile?: Profile } | null) => {
         if (!live || !d) return;
         signedIn.current = Boolean(d.user);
+        setSignedOut(!d.user);
         setMe((m) => ({
           ...m,
           name: m.name?.trim() || d.profile?.name || d.user?.name || m.name,
@@ -779,12 +808,22 @@ export function ActionsCheckpoint({
             </div>
           )}
         </div>
+        {shared && <p className="ck-shared">This is a shared trip. Only the person who planned it can book it, or plan it for yourself.</p>}
+        {!shared && signedOut && (
+          <p className="ck-shared">
+            You're not signed in, so Backline can't book or pay for you. Approve to get every booking link to finish yourself, or{" "}
+            <a href={`/signin?next=${encodeURIComponent(typeof window !== "undefined" ? window.location.pathname + window.location.search : "/")}`}>sign in</a> to have it all booked.
+          </p>
+        )}
         <p className="ck-secure">
           <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M8 1.5 2.5 3.6v4c0 3.3 2.3 5.9 5.5 6.9 3.2-1 5.5-3.6 5.5-6.9v-4L8 1.5Zm-1 9.3L4.6 8.4l1-1L7 8.8l3.4-3.4 1 1L7 10.8Z" fill="currentColor"/></svg>
           <span>Nothing is charged until you approve. Payments are held and only taken once the booking is confirmed. <a href="/security" target="_blank" rel="noreferrer">How it's protected</a></span>
         </p>
         <footer className="cp-foot ck-foot">
           <button type="button" className="ck-look" onClick={() => (onLook ? onLook() : setLook((v) => !v))}>Take a look first</button>
+          {shared ? (
+            <a className="go" href={`/mission?${new URLSearchParams({ goal: shared.goal, mode: "check" })}`}>Plan this trip for yourself</a>
+          ) : (
           <button type="button" className="go" disabled={busy || picked.length === 0 || missing || Boolean(short)} onClick={() => {
             // Kept on the account, so the next slip (on any device) already has the number.
             const phone = me.phone?.trim();
@@ -793,6 +832,7 @@ export function ActionsCheckpoint({
           }}>
             {busy ? "Paying…" : paid.length ? `Approve & pay${w?.ready ? ` ${walletMoney(w)(totalUsdCents)}` : ""}` : "Approve"}
           </button>
+          )}
         </footer>
       </section>
     </div>
