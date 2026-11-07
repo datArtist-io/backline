@@ -18,7 +18,7 @@
     "check:places": "node scripts/check-places.mjs",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "prepare": "husky",
+    "prepare": "husky || true",
     "check:secrets": "node scripts/check-secrets.mjs"
   },
   "engines": {
