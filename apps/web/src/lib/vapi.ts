@@ -6,7 +6,7 @@
 import { createHash } from "node:crypto";
 
 const BASE = "https://api.vapi.ai";
-export const SITE = (process.env.NEXT_PUBLIC_SITE_URL || "https://backline-beta-one.vercel.app").replace(/\/$/, "");
+export const SITE = (process.env.NEXT_PUBLIC_SITE_URL || "https://backline.travel").replace(/\/$/, "");
 export const INBOUND_PATH = "/api/vapi/inbound";
 
 export const vapiReady = () => Boolean(process.env.VAPI_API_KEY);

@@ -17,8 +17,8 @@ Backline accounts run on Supabase: Supabase Auth for sign-in, and Postgres table
    - `NEXT_PUBLIC_SUPABASE_ANON_KEY`: the `anon` / publishable key (safe in the browser)
    - `TRAVEL_DOCS_KEY`: 32 random bytes for encrypting passports. Make one with `openssl rand -base64 32`. Keep it secret and never change it, or saved passports can no longer be read.
 3. **URLs.** Supabase → Authentication → URL Configuration:
-   - **Site URL:** `https://backline-beta-one.vercel.app`
-   - **Redirect URLs:** `https://backline-beta-one.vercel.app/auth/callback`, `http://localhost:3000/auth/callback`
+   - **Site URL:** `https://backline.travel`
+   - **Redirect URLs:** `https://backline.travel/auth/callback`, `http://localhost:3000/auth/callback`
 4. **Email.** Authentication → Providers → Email is on by default. The built-in sender is rate limited (a few emails an hour); for real use add custom SMTP (for example Resend) under Authentication → Emails → SMTP settings.
 5. **Google.** Google Cloud Console → APIs & Services → Credentials → Create OAuth client ID (Web application). Authorised redirect URI: `https://<project-ref>.supabase.co/auth/v1/callback`. Paste the client ID and secret into Supabase → Authentication → Providers → Google and enable it.
 6. **Vercel.** Add the same four variables in Vercel → Project → Settings → Environment Variables, then redeploy. `NEXT_PUBLIC_` values are baked in at build time, so a redeploy is needed after changing them.

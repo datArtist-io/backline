@@ -4,7 +4,7 @@
 
 One sentence in ("a weekend in Lisbon for two, we love fado"). Out comes a taste-matched trip, researched from cited sources, flown through in 3D, and — on one tap of approval — booked: real AI phone calls to hotels and restaurants, payments, and confirmation numbers, live on screen.
 
-Built for the [Qloo Agentic Hackathon](https://qloo.devpost.com/). Live at **[backline-beta-one.vercel.app](https://backline-beta-one.vercel.app)**.
+Built for the [Qloo Agentic Hackathon](https://qloo.devpost.com/). Live at **[backline.travel](https://backline.travel)**.
 
 ## The core loop
 
@@ -145,7 +145,7 @@ npm run dev                                  # http://localhost:3000
 - [Changelog](docs/CHANGELOG.md)
 
 **Policies**
-- [Security](SECURITY.md) · [Privacy notice](https://backline-beta-one.vercel.app/privacy) · [Terms of use](https://backline-beta-one.vercel.app/terms)
+- [Security](SECURITY.md) · [Privacy notice](https://backline.travel/privacy) · [Terms of use](https://backline.travel/terms)
 - [Contributing](CONTRIBUTING.md) · [Code of conduct](CODE_OF_CONDUCT.md) · [License](LICENSE)
 
 ## Credits and data

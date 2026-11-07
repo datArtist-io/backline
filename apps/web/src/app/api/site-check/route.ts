@@ -41,7 +41,7 @@ export async function GET(req: Request) {
     // Follow redirects by hand so every hop is checked against private addresses.
     let res: Response | null = null;
     for (let hop = 0; hop < 5; hop++) {
-      res = await fetch(url, { redirect: "manual", headers: { "User-Agent": "Mozilla/5.0 (compatible; BacklineSiteCheck/1.0; +https://backline-beta-one.vercel.app)", Accept: "text/html,*/*" }, signal: AbortSignal.timeout(8000) });
+      res = await fetch(url, { redirect: "manual", headers: { "User-Agent": "Mozilla/5.0 (compatible; BacklineSiteCheck/1.0; +https://backline.travel)", Accept: "text/html,*/*" }, signal: AbortSignal.timeout(8000) });
       const loc = res.status >= 300 && res.status < 400 ? res.headers.get("location") : null;
       if (!loc) break;
       const next = await safeUrl(new URL(loc, url).toString());

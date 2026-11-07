@@ -1,5 +1,5 @@
 // Google sign-in through Backline's own address. With GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET set,
-// Google's screen says "continue to backline-…vercel.app" (or the app name, once Google verifies the
+// Google's screen says "continue to backline.travel" (or the app name, once Google verifies the
 // brand) instead of the Supabase project's address; Supabase still issues the session, from Google's
 // ID token. Without them, this hands over to Supabase's own Google sign-in, as before.
 import { randomBytes } from "node:crypto";
