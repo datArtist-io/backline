@@ -251,6 +251,14 @@ export async function googleFare(ctx: SkillContext, input: BriefInput, origin: s
   ]);
   ctx.usage.add("flights", t.endDate ? 2 : 1);
   if (!out) return null;
+  // A provider answer that is not a sane positive amount is treated as no fare: it must never become
+  // a live price on the slip (invariant M4). A one-way fare over $20,000 a head is a parse error, not a ticket.
+  const sane = (f: { total: number } | null) => f != null && Number.isFinite(f.total) && f.total > 0 && f.total / people <= 20_000;
+  if (!sane(out)) {
+    ctx.log.warn("google flights returned an unusable fare", { total: out.total });
+    return null;
+  }
+  const backOk = sane(back) ? back : null;
   const each = Math.round(out.total / people);
   return {
     mode: "flight",
@@ -265,7 +273,7 @@ export async function googleFare(ctx: SkillContext, input: BriefInput, origin: s
     verified: true,
     best: true,
     live: true,
-    returnPrice: back ? Math.round(back.total / people) : null,
+    returnPrice: backOk ? Math.round(backOk.total / people) : null,
   };
 }
 

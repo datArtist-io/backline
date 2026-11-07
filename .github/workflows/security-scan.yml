@@ -1,0 +1,30 @@
+name: Security scan
+
+# A DAST scan of the live site with HawkScan, weekly and on demand. Needs the HAWK_API_KEY secret;
+# without it the job explains and stops, so the workflow never fails for a missing key.
+on:
+  schedule:
+    - cron: "23 4 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  dast:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check for the key
+        id: key
+        run: |
+          if [ -z "${{ secrets.HAWK_API_KEY }}" ]; then echo "HAWK_API_KEY is not set; add it under Settings → Secrets to run the scan."; echo "run=false" >> "$GITHUB_OUTPUT"; else echo "run=true" >> "$GITHUB_OUTPUT"; fi
+      - name: HawkScan
+        if: steps.key.outputs.run == 'true'
+        uses: stackhawk/hawkscan-action@v2
+        with:
+          apiKey: ${{ secrets.HAWK_API_KEY }}
+          configurationFiles: stackhawk.yml
+        env:
+          APP_HOST: ${{ vars.SITE_URL || 'https://backline.travel' }}

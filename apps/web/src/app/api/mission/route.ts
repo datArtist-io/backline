@@ -1,6 +1,7 @@
 // Runs a mission and streams the agent's work to the browser as Server-Sent Events.
 // Phase 1 plans the goal and runs until the first unanswered checkpoint ("check with me" mode).
 // Phase 2 (same runId + selections) reuses phase-1 results and finishes the mission.
+import { readJson } from "@/lib/body";
 import { z } from "zod";
 import {
   MISSIONS,
@@ -89,7 +90,7 @@ export async function POST(req: Request) {
 
   let body: z.infer<typeof bodySchema>;
   try {
-    const parsed = bodySchema.safeParse(await req.json());
+    const parsed = bodySchema.safeParse(await readJson(req));
     if (!parsed.success) return fail(400, "Check your request and try again.");
     body = parsed.data;
   } catch {

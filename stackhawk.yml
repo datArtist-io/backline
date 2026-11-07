@@ -1,0 +1,17 @@
+# HawkScan (DAST) against a preview or the live site: `hawk scan` with HAWK_API_KEY set, or the
+# "Security scan" workflow. It crawls the pages and probes every API route for injection, auth and
+# header issues, the way an outside attacker would.
+app:
+  applicationId: ${APP_ID:backline}
+  env: ${APP_ENV:preview}
+  host: ${APP_HOST:https://backline.travel}
+  excludePaths:
+    - "/api/vapi/.*"      # a webhook for Vapi only
+    - "/api/mission"      # spends model and fare credits per request
+    - "/api/calls.*"      # would ring a phone
+    - "/api/demo-call"
+hawk:
+  spider:
+    base: true
+    maxDurationMinutes: 5
+  failureThreshold: high

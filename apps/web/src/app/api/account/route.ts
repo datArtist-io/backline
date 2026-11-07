@@ -1,4 +1,5 @@
 // The signed-in person's account: details, memories and trips (GET), and saving details (PUT).
+import { readJson } from "@/lib/body";
 import { cleanProfile } from "@backline/engine";
 import { getSession } from "@/lib/session";
 import { loadAccount, saveAccountProfile } from "@/lib/account";
@@ -20,7 +21,7 @@ export async function GET() {
 export async function PUT(req: Request) {
   const s = await getSession();
   if (!s) return Response.json({ error: "Sign in to save your details." }, { status: 401 });
-  const body = (await req.json().catch(() => ({}))) as { profile?: unknown };
+  const body = (await readJson(req).catch(() => ({}))) as { profile?: unknown };
   const profile = cleanProfile(body.profile ?? {});
   try {
     await saveAccountProfile(s, profile);

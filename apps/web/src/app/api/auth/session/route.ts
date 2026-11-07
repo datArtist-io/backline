@@ -1,5 +1,6 @@
 // Sign-in sessions. POST takes the tokens Supabase returned after Google or an email link,
 // verifies them and stores them in httpOnly cookies. GET says who's signed in. DELETE signs out.
+import { readJson } from "@/lib/body";
 import { z } from "zod";
 import { clearSession, getSession, setSession } from "@/lib/session";
 import { enabledProviders, signOutEverywhere, supabaseConfig, userFor } from "@/lib/supabase";
@@ -21,7 +22,7 @@ export async function POST(req: Request) {
   if (rateLimited(clientIp(req))) return Response.json({ error: "Too many attempts. Wait a minute." }, { status: 429 });
   const cfg = supabaseConfig();
   if (!cfg) return Response.json({ error: "Sign-in isn't set up yet." }, { status: 503 });
-  const parsed = bodySchema.safeParse(await req.json().catch(() => ({})));
+  const parsed = bodySchema.safeParse(await readJson(req).catch(() => ({})));
   if (!parsed.success) return Response.json({ error: "That sign-in link didn't work. Try again." }, { status: 400 });
   const user = await userFor(cfg, parsed.data.accessToken);
   if (!user) return Response.json({ error: "That sign-in has expired. Try again." }, { status: 401 });

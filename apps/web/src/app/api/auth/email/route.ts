@@ -1,4 +1,5 @@
 // Email sign-in: sends a one-tap link that brings the person back signed in.
+import { readJson } from "@/lib/body";
 import { z } from "zod";
 import { EMAIL_RE } from "@backline/engine";
 import { sendSignInLink, supabaseConfig } from "@/lib/supabase";
@@ -14,7 +15,7 @@ export async function POST(req: Request) {
   if (rateLimited(clientIp(req))) return Response.json({ error: "Too many links sent. Try again in a few minutes." }, { status: 429 });
   const cfg = supabaseConfig();
   if (!cfg) return Response.json({ error: "Email sign-in isn't set up yet." }, { status: 503 });
-  const parsed = bodySchema.safeParse(await req.json().catch(() => ({})));
+  const parsed = bodySchema.safeParse(await readJson(req).catch(() => ({})));
   if (!parsed.success) return Response.json({ error: "Check your email address." }, { status: 400 });
   const origin = new URL(req.url).origin;
   const ok = await sendSignInLink(cfg, parsed.data.email, `${origin}/auth/callback`).catch(() => false);

@@ -1,4 +1,5 @@
 // The signed-in person's identity check (Persona): status (GET), and recording a finished inquiry (POST).
+import { readJson } from "@/lib/body";
 import { z } from "zod";
 import { clientIp, rateLimiter } from "@/lib/rate-limit";
 import { getSession } from "@/lib/session";
@@ -21,7 +22,7 @@ export async function POST(req: Request) {
   if (rateLimited(clientIp(req))) return Response.json({ error: "Too many tries. Wait a moment." }, { status: 429 });
   const s = await getSession().catch(() => null);
   if (!s) return Response.json({ error: "Sign in first." }, { status: 401 });
-  const parsed = z.object({ inquiryId: z.string().regex(/^inq_[A-Za-z0-9]{6,64}$/) }).safeParse(await req.json().catch(() => null));
+  const parsed = z.object({ inquiryId: z.string().regex(/^inq_[A-Za-z0-9]{6,64}$/) }).safeParse(await readJson(req).catch(() => null));
   if (!parsed.success) return Response.json({ error: "That verification id isn't valid." }, { status: 400 });
   try {
     return Response.json(await recordInquiry(s, parsed.data.inquiryId), { headers: { "Cache-Control": "no-store" } });

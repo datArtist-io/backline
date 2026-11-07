@@ -27,6 +27,7 @@ jobs:
       - run: npm run typecheck
       - run: npm run lint
       - run: node scripts/check-secrets.mjs $(git ls-files)
+      - run: node scripts/audit.mjs
       - run: npm test
       - run: npm run evals -w @backline/engine
 
@@ -53,6 +54,12 @@ jobs:
         env:
           CI: "1"
           E2E_LITE: "1"
+      - name: Hostile user at the HTTP layer
+        working-directory: apps/web
+        run: |
+          npx next start -p 3100 > /tmp/server.log 2>&1 &
+          for i in $(seq 1 30); do curl -sf http://127.0.0.1:3100/ > /dev/null && break; sleep 2; done
+          node ../../scripts/abuse.mjs --base http://127.0.0.1:3100
       - uses: actions/upload-artifact@v4
         if: failure()
         with:

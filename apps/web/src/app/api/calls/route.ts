@@ -1,5 +1,6 @@
 // Places a booking call for the next place when one didn't connect, so a booking never dead-ends.
 // Demo mode (the default) rings the signed-in person's own phone; real businesses only with CALLS_LIVE=1.
+import { readJson } from "@/lib/body";
 import { z } from "zod";
 import { callInstructions, createContext, toE164 } from "@backline/engine";
 import { clientIp, rateLimiter } from "@/lib/rate-limit";
@@ -37,7 +38,7 @@ export async function POST(req: Request) {
   if (rateLimited(clientIp(req))) return Response.json({ error: "Too many calls. Wait a moment." }, { status: 429 });
   const session = await getSession().catch(() => null);
   if (!session) return Response.json({ error: "Sign in to place calls." }, { status: 401 });
-  const parsed = body.safeParse(await req.json().catch(() => null));
+  const parsed = body.safeParse(await readJson(req).catch(() => null));
   if (!parsed.success) return Response.json({ error: "That call request isn't complete." }, { status: 400 });
   const b = parsed.data;
   const ctx = createContext(process.env, { signal: req.signal });

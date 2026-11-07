@@ -43,3 +43,15 @@ The React Compiler rules (`react-hooks/refs`, `immutability`, `set-state-in-effe
 ## Property tests
 
 `packages/engine/test/properties/` states the money and parser laws and lets fast-check try hundreds of inputs each, shrinking a failure to its smallest case: estimates are whole, monotonic and never charged; a live fare always wins; fitting a budget never unticks a flight; the parser never throws and never invents a number, a date or a diet.
+
+## Security checks
+
+| Check | What it does | Where |
+| --- | --- | --- |
+| Dependency audit | Fails CI on a high or critical advisory in code that ships; dev-only tooling is reported; every accepted finding carries a reason and an expiry date | `node scripts/audit.mjs` |
+| Hostile user, HTTP layer | Wrong methods, oversized and malformed bodies, injection strings, unauthenticated writes, path games against every API route: a 5xx or a leaked internal is a finding | `node scripts/abuse.mjs --base <url>` (CI runs it on the built app) |
+| Hostile user and hostile world, agent layer | Requests that try to skip approval, spend, call or email strangers, or steer the model; services that return poisoned names, negative fares, HTML, 10,000 results or errors | `npm run evals -w @backline/engine` (`evals/adversarial.test.ts`) |
+| DAST | HawkScan crawls the live site and probes it like an attacker, weekly | `.github/workflows/security-scan.yml` (needs `HAWK_API_KEY`) |
+| Request bodies | Every JSON body is capped at 64 KB before parsing (`lib/body.ts`) | all API routes |
+
+Found by these on their first run and fixed: a fare of zero or below from the provider would have been accepted as a live price; a forged Vapi webhook got a trip code back (now refused unless Vapi confirms the call).

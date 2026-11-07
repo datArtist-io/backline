@@ -1,4 +1,5 @@
 // Follow-up questions on a mission the user just ran. Answers only from that run's results.
+import { readJson } from "@/lib/body";
 import { z } from "zod";
 import { answerFollowUp, createContext } from "@backline/engine";
 import { getRun, isRunId } from "@/lib/run-store";
@@ -20,7 +21,7 @@ export async function POST(req: Request) {
   if (rateLimited(ip)) return fail(429, "Too many questions at once. Wait a moment.");
   let body: z.infer<typeof bodySchema>;
   try {
-    const parsed = bodySchema.safeParse(await req.json());
+    const parsed = bodySchema.safeParse(await readJson(req));
     if (!parsed.success) return fail(400, parsed.error.issues[0]?.message ?? "Check your question.");
     body = parsed.data;
   } catch {

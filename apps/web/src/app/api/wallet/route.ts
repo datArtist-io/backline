@@ -1,4 +1,5 @@
 // The signed-in person's Backline Wallet (test funds): balance and ledger (GET), add test funds (POST).
+import { readJson } from "@/lib/body";
 import { z } from "zod";
 import { clientIp, rateLimiter } from "@/lib/rate-limit";
 import { getSession } from "@/lib/session";
@@ -39,7 +40,7 @@ export async function POST(req: Request) {
   if (rateLimited(clientIp(req))) return Response.json({ error: "Too many tries. Wait a moment." }, { status: 429 });
   const s = await getSession().catch(() => null);
   if (!s) return Response.json({ error: "Sign in to add funds." }, { status: 401 });
-  const parsed = body.safeParse(await req.json().catch(() => null));
+  const parsed = body.safeParse(await readJson(req).catch(() => null));
   if (!parsed.success) return Response.json({ error: "Choose an amount from $1 to $1,000." }, { status: 400 });
   try {
     await topUp(s, parsed.data.dollars * 100);

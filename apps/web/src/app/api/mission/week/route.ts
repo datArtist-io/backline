@@ -1,6 +1,7 @@
 // One more week of a long trip. The first pass writes as many weeks as time allows and leaves the rest
 // as drafts from the places it found; the browser then asks for each remaining week here, so a trip of
 // any length (a month, a year) ends up planned day by day by the model. Answers only from the run's results.
+import { readJson } from "@/lib/body";
 import { z } from "zod";
 import { createContext, routeDays, writePlanWeek, type BriefInput, type Place, type TripAgentOutput, type TripPlanOutput } from "@backline/engine";
 import { getRun, isRunId } from "@/lib/run-store";
@@ -24,7 +25,7 @@ const fail = (status: number, error: string) => Response.json({ error }, { statu
 
 export async function POST(req: Request) {
   if (rateLimited(clientIp(req))) return fail(429, "Writing too fast. Wait a moment.");
-  const parsed = bodySchema.safeParse(await req.json().catch(() => null));
+  const parsed = bodySchema.safeParse(await readJson(req).catch(() => null));
   if (!parsed.success) return fail(400, "That request isn't complete.");
   const body = parsed.data;
   const run = isRunId(body.runId) ? (getRun(body.runId) ?? openRun(body.seal, body.runId)) : null;

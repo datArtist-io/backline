@@ -1,5 +1,6 @@
 // Travel documents. GET returns a masked summary only; PUT saves a passport (with consent);
 // DELETE removes it. The full passport never leaves the server.
+import { readJson } from "@/lib/body";
 import { z } from "zod";
 import type { PassportDetails } from "@backline/engine";
 import { getSession } from "@/lib/session";
@@ -29,7 +30,7 @@ export async function PUT(req: Request) {
   const s = await getSession();
   if (!s) return Response.json({ error: "Sign in first." }, { status: 401 });
   if (!vaultReady()) return Response.json({ error: "Secure document storage isn't switched on yet." }, { status: 503 });
-  const parsed = putSchema.safeParse(await req.json().catch(() => ({})));
+  const parsed = putSchema.safeParse(await readJson(req).catch(() => ({})));
   if (!parsed.success) return Response.json({ error: parsed.error.issues[0]?.message ?? "Check the details and try again." }, { status: 400 });
   try {
     return Response.json({ passport: await savePassport(s, parsed.data.passport as PassportDetails) });

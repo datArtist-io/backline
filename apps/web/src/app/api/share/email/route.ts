@@ -1,5 +1,6 @@
 // "Email it to me": sends the plan to the signed-in person's own address, and only theirs, so this can't
 // be used to send mail to anyone else. Limited per person and per day across the site.
+import { readJson } from "@/lib/body";
 import { z } from "zod";
 import { createContext } from "@backline/engine";
 import { getSession } from "@/lib/session";
@@ -23,7 +24,7 @@ export async function POST(req: Request) {
   const session = await getSession();
   const to = session?.user.email;
   if (!session || !to) return json(401, { ok: false, reason: "Sign in to have the plan emailed to you." });
-  const parsed = Body.safeParse(await req.json().catch(() => null));
+  const parsed = Body.safeParse(await readJson(req).catch(() => null));
   if (!parsed.success) return json(400, { ok: false, reason: "That plan couldn't be read." });
 
   const day = new Date().toISOString().slice(0, 10);

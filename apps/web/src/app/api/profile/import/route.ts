@@ -1,5 +1,6 @@
 // Turns what another assistant knows about you (pasted in) into your preferences.
 // Nothing is stored on the server: the result goes back to the browser.
+import { readJson } from "@/lib/body";
 import { z } from "zod";
 import { createContext, extractProfile } from "@backline/engine";
 import { clientIp, rateLimiter } from "@/lib/rate-limit";
@@ -14,7 +15,7 @@ const rateLimited = rateLimiter(6);
 export async function POST(req: Request) {
   const ip = clientIp(req);
   if (rateLimited(ip)) return Response.json({ error: "Too many imports. Wait a minute." }, { status: 429 });
-  const parsed = bodySchema.safeParse(await req.json().catch(() => ({})));
+  const parsed = bodySchema.safeParse(await readJson(req).catch(() => ({})));
   if (!parsed.success) return Response.json({ error: parsed.error.issues[0]?.message ?? "Check what you pasted." }, { status: 400 });
   try {
     const ctx = createContext(process.env, { signal: req.signal });

@@ -1,6 +1,7 @@
 // The concierge call: once the whole trip is booked and paid, Backline rings the traveller (their own
 // saved phone, never anyone else) and talks them through it: flights, hotel, tables, what's next.
 // The agent only states what's in the briefing it was given. GET follows the call's state.
+import { readJson } from "@/lib/body";
 import { z } from "zod";
 import { createContext, toE164 } from "@backline/engine";
 import { getSession } from "@/lib/session";
@@ -38,7 +39,7 @@ export async function POST(req: Request) {
   if (rateLimited(clientIp(req))) return Response.json({ error: "Too many calls. Wait a moment." }, { status: 429 });
   const session = await getSession().catch(() => null);
   if (!session) return Response.json({ error: "Sign in to get a briefing call." }, { status: 401 });
-  const p = body.safeParse(await req.json().catch(() => null));
+  const p = body.safeParse(await readJson(req).catch(() => null));
   if (!p.success) return Response.json({ error: "There's nothing booked to brief you on yet." }, { status: 400 });
   const ctx = createContext(process.env, { signal: req.signal });
   if (!ctx.calls) return Response.json({ error: "Calling isn't connected right now." }, { status: 503 });

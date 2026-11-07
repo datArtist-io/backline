@@ -1,6 +1,7 @@
 // "Call me now": a visitor types their own number and Backline's AI agent calls it within seconds,
 // to show the calls are real. Opt-in only (a consent tick), short (2 minutes at most), and limited per
 // visitor, per number and per day, so it can't be used to bother anyone. GET follows the call's state.
+import { readJson } from "@/lib/body";
 import { z } from "zod";
 import { createContext, toE164 } from "@backline/engine";
 import { clientIp } from "@/lib/rate-limit";
@@ -41,7 +42,7 @@ const INSTRUCTIONS = (name: string | null) => [
 ].join("\n");
 
 export async function POST(req: Request) {
-  const p = body.safeParse(await req.json().catch(() => null));
+  const p = body.safeParse(await readJson(req).catch(() => null));
   if (!p.success) return Response.json({ error: "Add your number and tick the box to agree to the call." }, { status: 400 });
   const ctx = createContext(process.env, { signal: req.signal });
   if (!ctx.calls) return Response.json({ error: "Calling isn't connected right now." }, { status: 503 });

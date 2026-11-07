@@ -1,5 +1,6 @@
 // Pays one approved booking from the signed-in person's wallet (used when a booking is picked back up,
 // e.g. after adding a phone number). Held and captured in the database, with a receipt's details.
+import { readJson } from "@/lib/body";
 import { z } from "zod";
 import { getSession } from "@/lib/session";
 import { clientIp, rateLimiter } from "@/lib/rate-limit";
@@ -23,7 +24,7 @@ export async function POST(req: Request) {
   if (rateLimited(clientIp(req))) return Response.json({ error: "Too many tries. Wait a moment." }, { status: 429 });
   const s = await getSession().catch(() => null);
   if (!s) return Response.json({ error: "Sign in first." }, { status: 401 });
-  const p = body.safeParse(await req.json().catch(() => null));
+  const p = body.safeParse(await readJson(req).catch(() => null));
   if (!p.success) return Response.json({ error: "That payment isn't complete." }, { status: 400 });
   const w = walletFor(s);
   let h: Awaited<ReturnType<typeof w.hold>>;

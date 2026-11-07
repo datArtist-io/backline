@@ -3,6 +3,7 @@
 // - tool-calls (plan_trip): the caller said where and what they love, so hand back the trip's code
 //   and, if they asked, email them the link. The call is checked with Vapi first, so this endpoint
 //   can't be used to send emails from outside a real call.
+import { readJson } from "@/lib/body";
 import { createContext } from "@backline/engine";
 import { goalOf, inboundAssistant, isBacklineCall, SITE, tripArgs, tripCode, tripUrl, vapi, vapiReady, type CallTrip } from "@/lib/vapi";
 import { remember } from "@/lib/call-trips";
@@ -10,6 +11,7 @@ import { remember } from "@/lib/call-trips";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+let warnedSecret = false;
 const emailed = new Set<string>();
 const sentToday = { day: "", n: 0 };
 
@@ -60,7 +62,11 @@ export async function POST(req: Request) {
   // With VAPI_WEBHOOK_SECRET set (and the same secret as the Server URL secret in Vapi), only Vapi can call this.
   const secret = process.env.VAPI_WEBHOOK_SECRET;
   if (secret && req.headers.get("x-vapi-secret") !== secret) return new Response("unauthorized", { status: 401 });
-  const body = (await req.json().catch(() => null)) as { message?: Record<string, unknown> } | null;
+  if (!secret && process.env.NODE_ENV === "production" && !warnedSecret) {
+    warnedSecret = true;
+    console.warn(JSON.stringify({ bl: "config", warning: "VAPI_WEBHOOK_SECRET is not set: the Vapi webhook accepts unsigned requests (each is still checked against Vapi's call records)" }));
+  }
+  const body = (await readJson(req).catch(() => null)) as { message?: Record<string, unknown> } | null;
   const m = body?.message;
   const type = m?.type;
 
@@ -77,8 +83,11 @@ export async function POST(req: Request) {
         if (tc?.function?.name !== "plan_trip") return { toolCallId: tc?.id ?? "", result: "Unknown tool." };
         const trip = tripArgs(tc.function.arguments);
         if (!trip || !call.id) return { toolCallId: tc.id ?? "", result: "I need at least the destination to plan the trip." };
+        // A request Vapi cannot confirm (a forged webhook, or the secret unset) gets no code: nothing
+        // would be remembered for it, so a code would only be a lie.
+        if (!real) return { toolCallId: tc.id ?? "", result: "Say exactly: \"I couldn't confirm this call, so I can't plan the trip from here. Please call the Backline number again.\"" };
         const code = tripCode(call.id);
-        if (real) remember(call.id, trip);
+        remember(call.id, trip);
         await emailLink(call.id, trip, code, real);
         const digits = code.split("").join(" ");
         return {
