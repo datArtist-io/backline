@@ -6,7 +6,7 @@ import { memo, useEffect, useMemo, useRef, type MutableRefObject } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
-import { KIND_COLOR, hoursOf, pathIndex, pointAt, type AdventureModel, type DayRoute, type QuestNode } from "./model";
+import { KIND_COLOR, hoursOf, type AdventureModel, type DayRoute, type QuestNode } from "./model";
 
 export type Shared = {
   /** The drone's position and heading, read by the camera when following it. */

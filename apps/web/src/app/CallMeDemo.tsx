@@ -40,7 +40,7 @@ export default function CallMeDemo() {
       if (d?.state === "ended" && d.outcome && d.outcome !== "talked") setMsg(OUTCOME[d.outcome as string] ?? null);
       if (d?.state !== "ended" && ++n < 80) setTimeout(tick, 2500);
     };
-    tick();
+    void tick();
     return () => {
       stop = true;
     };
@@ -63,7 +63,7 @@ export default function CallMeDemo() {
 
   const busy = state === "placing" || state === "ringing" || state === "talking";
   return (
-    <form className="callme-form" onSubmit={(e) => { e.preventDefault(); if (valid && !busy) call(); }}>
+    <form className="callme-form" onSubmit={(e) => { e.preventDefault(); if (valid && !busy) void call(); }}>
       <input className="callme-phone" type="tel" inputMode="tel" autoComplete="tel" placeholder="Your phone, with country code" value={phone} onChange={(e) => setPhone(e.target.value)} aria-label="Your phone number" maxLength={30} disabled={busy} />
       <label className="callme-consent">
         <input type="checkbox" checked={ok} onChange={(e) => setOk(e.target.checked)} disabled={busy} />

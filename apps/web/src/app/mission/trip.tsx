@@ -968,7 +968,7 @@ export function CallTracker({ id }: { id: string }) {
       // Every 4 s for about 10 minutes.
       if (++n < 150) setTimeout(tick, 4000);
     };
-    tick();
+    void tick();
     return () => {
       stop = true;
     };

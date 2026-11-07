@@ -125,6 +125,7 @@ export default function TripMap({
   const hasTaste = Boolean(taste && taste.heat.length);
   const [showTaste, setShowTaste] = useState(true);
   const drag = useRef<{ x: number; y: number; cx: number; cy: number; id: number } | null>(null);
+  const hasBounds = routes.bounds !== null;
 
   useEffect(() => {
     const el = box.current;
@@ -134,7 +135,7 @@ export default function TripMap({
     const ro = new ResizeObserver(measure);
     ro.observe(el);
     return () => ro.disconnect();
-  }, [routes.bounds === null]);
+  }, [hasBounds]);
 
   const day = typeof active === "number" ? (routes.days.find((d) => d.index === active) ?? null) : null;
   const journey = routes.journey ?? null;

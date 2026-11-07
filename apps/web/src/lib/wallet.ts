@@ -26,7 +26,8 @@ export async function loadWallet(s: Session, currency = "USD"): Promise<Wallet> 
         rpc<number>(s, "wallet_balance"),
         rest<WalletEntry[]>(s.cfg, s.accessToken, "wallet_entries?select=id,kind,status,amount_minor,original_amount,original_currency,label,ref,details,created_at&order=created_at.desc&limit=50"),
       ]);
-    let [[balance, entries], rates] = await Promise.all([ledger(), usdRates()]);
+    const [first, rates] = await Promise.all([ledger(), usdRates()]);
+    let [balance, entries] = first;
     // First open: the $20,000 welcome balance (granted once, in the database), then read again.
     if (!entries.length) {
       await rpc<number>(s, "wallet_welcome").catch(() => undefined);

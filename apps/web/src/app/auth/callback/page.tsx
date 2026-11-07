@@ -12,7 +12,10 @@ export default function AuthCallback() {
   useEffect(() => {
     if (once.current) return;
     once.current = true;
-    completeSignIn().then((r) => ("next" in r ? router.replace(r.next) : setError(r.error)));
+    completeSignIn()
+      .then((r) => ("next" in r ? router.replace(r.next) : setError(r.error)))
+      // A thrown error used to leave this page spinning forever with no words.
+      .catch(() => setError("Sign-in didn't complete. Go back and try again."));
   }, [router]);
   return (
     <main className="signin signin-wait">

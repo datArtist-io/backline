@@ -20,7 +20,7 @@ export default function Verify({ compact = false, always = false }: { compact?: 
   const [msg, setMsg] = useState<string | null>(null);
   const load = useCallback(() => fetch("/api/kyc", { cache: "no-store" }).then((r) => (r.ok ? r.json() : null)).then(setK).catch(() => setK(null)), []);
   useEffect(() => {
-    load();
+    void load();
   }, [load]);
   if (!k?.configured) {
     if (!always) return null;

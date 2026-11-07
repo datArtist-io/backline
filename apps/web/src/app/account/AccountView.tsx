@@ -177,14 +177,14 @@ export default function AccountView() {
         </div>
       </section>
 
-      <nav className="account-tabs" role="tablist" aria-label="Your account">
+      <div className="account-tabs" role="tablist" aria-label="Your account">
         {TABS.map((t) => (
           <button key={t.id} type="button" role="tab" aria-selected={tab === t.id} className={tab === t.id ? "on" : ""} onClick={() => { setTab(t.id); setShowAll(false); }}>
             {t.label}
             {t.id === "trips" && trips.length > 0 && <em>{trips.length}</em>}
           </button>
         ))}
-      </nav>
+      </div>
 
       {tab === "details" && <section className="lg account-card account-pane">
         <h2 className="account-h">Your details</h2>

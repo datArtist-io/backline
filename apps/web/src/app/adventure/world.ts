@@ -237,8 +237,6 @@ export function dusk(kind: Sky, hour: number, lat: number): number {
   return Math.min(0.72, (1 - s.day) * 0.66 + w.cloud * 0.12);
 }
 
-const REAL_BUILDINGS = ["#ece6da", "#ddd5c6", "#d2c8b6", "#e6dac4", "#c9c2b6", "#efe8dc", "#d9cbb3", "#c4beb2"];
-
 /** The realistic look: satellite imagery underneath, with real 3D buildings, roads and names on top. */
 export const REAL_LAYERS: LayerSpecification[] = [
   // A light tint deepens the satellite's water so seas and rivers read clearly.

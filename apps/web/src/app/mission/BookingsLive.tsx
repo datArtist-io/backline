@@ -170,7 +170,7 @@ function LiveCall({
       if (st?.ended && (st.booking || st.outcome !== "talked" || ++after > 6)) return;
       if (++n < 150) setTimeout(tick, 3000);
     };
-    tick();
+    void tick();
     return () => {
       stop = true;
     };
@@ -387,7 +387,7 @@ function Briefing({ runKey, where, lines }: { runKey: string | null; where: stri
       if (d?.state === "ended" && d.outcome && d.outcome !== "talked") setMsg(d.outcome === "no_answer" ? "No answer this time. Call again when you're free." : d.outcome === "voicemail" ? "It went to voicemail." : "The call didn't connect.");
       if (d?.state !== "ended" && ++n < 90) window.setTimeout(tick, 2500);
     };
-    tick();
+    void tick();
     return () => {
       stop = true;
     };

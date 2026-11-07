@@ -146,7 +146,7 @@ export default function MissionView(props: { goal?: string; artist?: string; mis
     }
     const remembered = rememberedArtist();
     setWorkingFor(remembered);
-    streamMission(
+    void streamMission(
       // The remembered artist only matters for music missions; the server ignores it for trips.
       {
         ...req,
@@ -509,7 +509,6 @@ export default function MissionView(props: { goal?: string; artist?: string; mis
 
     </>
   );
-  const hasPrompt = Boolean(error || needs || reply || checkpoints.length);
   const readyToBook = checkpoints.some((c) => c.id === "actions") && Boolean(r<TripActionsOutput>("trip.actions"));
   useEffect(() => {
     const key = planned?.runId ?? null;
@@ -899,7 +898,6 @@ function TripView({
   const intel = r<TripIntelOutput>("trip.intel")?.data ?? null;
   const intelStep = steps.find((s) => s.id === "trip.intel");
   const travel = r<TripTravelOutput>("trip.travel")?.data ?? null;
-  const working = steps.some((s) => s.id.startsWith("trip.") && (s.status === "pending" || s.status === "running"));
   const anchor = a?.where.landmark?.name ?? a?.where.zone?.name ?? a?.where.city?.name ?? null;
   const landmarkId = a?.stops.find((s) => s.kind === "landmark")?.id ?? (a?.where.landmark ? a.stops[0]?.id : null) ?? null;
   return (

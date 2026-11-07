@@ -370,21 +370,7 @@ export default function AdventureView({
   }, [play, routes.length, start, stop]);
 
   // Kept for the stylised taste map's internal scoring; never shown.
-  const xp = useMemo(() => {
-    if (!model) return 0;
-    let total = 0;
-    for (const key of visited) total += model.nodes.find((n) => n.id === key.split(":")[1])?.xp ?? 0;
-    return total;
-  }, [visited, model]);
-
   const topPicks = useMemo(() => (["stay", "dine", "venue", "activity"] as NodeKind[]).flatMap((k) => (model?.nodes ?? []).filter((n) => n.kind === k && n.picked && n.affinity != null).sort((a, b) => b.affinity! - a.affinity!).slice(0, 1)), [model]);
-  const matchByKind = useMemo(() => {
-    const kinds: NodeKind[] = ["stay", "dine", "venue", "activity", "landmark"];
-    return kinds.map((k) => {
-      const ms = (model?.nodes ?? []).filter((n) => n.kind === k && n.picked && n.match != null).map((n) => n.match as number);
-      return { k, v: ms.length ? ms.reduce((a, b) => a + b, 0) / ms.length : 0, n: ms.length };
-    });
-  }, [model]);
 
   const weatherDay = useMemo(() => {
     const days = model?.intel?.weather.days ?? [];
@@ -770,7 +756,7 @@ export default function AdventureView({
                   View
                 </button>
                 {viewOpen && (
-                  <div className="eq-menu" role="menu" onClick={() => setViewOpen(false)}>
+                  <div className="eq-menu" role="menu" tabIndex={-1} onClick={() => setViewOpen(false)} onKeyDown={(e) => e.key === "Escape" && setViewOpen(false)}>
                     <button type="button" role="menuitem" onClick={home}>Whole trip</button>
                     <button type="button" role="menuitem" onClick={() => setIntroKey((k) => k + 1)}>Fly in again</button>
                     {mode === "earth" && looks().map((l) => (
@@ -850,7 +836,6 @@ type Look = "photoreal" | "real" | "painted";
 /** Photoreal is offered only while Google's tiles actually load (the key can exist before billing is live). */
 let photoOk = Boolean(GOOGLE_KEY);
 const looks = (): Look[] => (photoOk ? ["photoreal", "real", "painted"] : ["real", "painted"]);
-const nextLook = (l: Look): Look => looks()[(looks().indexOf(l) + 1) % looks().length];
 const LOOK_LABEL: Record<Look, string> = { photoreal: "Photoreal 3D", real: "Satellite", painted: "Painted map" };
 
 /** A temperature for the hour from the day's low (around dawn) and high (mid-afternoon). Pure. */
@@ -914,11 +899,6 @@ function WxIcon({ kind, night }: { kind: Sky; night: boolean }) {
       {kind === "snow" && <g>{cloud}<circle cx="9" cy="21.5" r="1" fill="currentColor" /><circle cx="13" cy="21.5" r="1" fill="currentColor" /><circle cx="17" cy="21.5" r="1" fill="currentColor" /></g>}
     </svg>
   );
-}
-
-function ring(i: number, n: number, r: number): string {
-  const a = -Math.PI / 2 + (i / n) * Math.PI * 2;
-  return `${(Math.cos(a) * r).toFixed(1)},${(Math.sin(a) * r).toFixed(1)}`;
 }
 
 function PlaceCard({ node, onClose, city, review = null, others = [] }: { node: QuestNode; onClose: () => void; city: string | null; review?: ReviewApi | null; others?: QuestNode[] }) {

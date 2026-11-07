@@ -203,7 +203,7 @@ export default function PromptBar({ onSubmit, placeholder: fullPlaceholder = "Wh
         setError("That was too short. Tap the mic, speak, then tap again.");
         return;
       }
-      transcribe(blob);
+      void transcribe(blob);
     };
     recRef.current = rec;
     startedRef.current = Date.now();
@@ -373,7 +373,7 @@ export default function PromptBar({ onSubmit, placeholder: fullPlaceholder = "Wh
             e.currentTarget.setPointerCapture(e.pointerId);
             pressedRef.current = true;
             downAtRef.current = Date.now();
-            start();
+            void start();
           }}
           onPointerUp={() => {
             if (latchedRef.current) return;
@@ -395,7 +395,7 @@ export default function PromptBar({ onSubmit, placeholder: fullPlaceholder = "Wh
               else {
                 pressedRef.current = false;
                 latchedRef.current = true;
-                start();
+                void start();
               }
             }
           }}

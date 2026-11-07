@@ -542,6 +542,7 @@ export default function Earth(props: EarthProps) {
   // Create the map once.
   useEffect(() => {
     if (!box.current) return;
+    const marks = markers.current;
     const map = new maplibregl.Map({
       container: box.current,
       style: style(),
@@ -688,7 +689,7 @@ export default function Earth(props: EarthProps) {
       cancelAnimationFrame(s.raf);
       map.remove();
       mapRef.current = null;
-      markers.current.clear();
+      marks.clear();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -707,7 +708,11 @@ export default function Earth(props: EarthProps) {
     photoRef.current?.setRoutes?.(ribbonRoutes(model));
     // Markers: one per place, styled by CSS; the picks carry their name.
     const want = new Set((model?.nodes ?? []).map((n) => n.id));
-    for (const [id, m] of markers.current) if (!want.has(id)) (m.m.remove(), markers.current.delete(id));
+    for (const [id, m] of markers.current) {
+      if (want.has(id)) continue;
+      m.m.remove();
+      markers.current.delete(id);
+    }
     for (const n of model?.nodes ?? []) {
       let m = markers.current.get(n.id);
       if (!m) {
@@ -979,7 +984,8 @@ export default function Earth(props: EarthProps) {
         const x = Math.max(0, Math.min(1, u)) * (pts.length - 1);
         const k = Math.min(pts.length - 2, Math.floor(x));
         const t = x - k;
-        let lon0 = pts[k][0], lon1 = pts[k + 1][0];
+        const lon0 = pts[k][0];
+        let lon1 = pts[k + 1][0];
         if (Math.abs(lon1 - lon0) > 180) lon1 += lon1 < lon0 ? 360 : -360;
         return [lon0 + (lon1 - lon0) * t, pts[k][1] + (pts[k + 1][1] - pts[k][1]) * t];
       };
@@ -1132,7 +1138,7 @@ export default function Earth(props: EarthProps) {
     const start = () => {
       if (live.current.selectedId === n.id && !s.user) s.orbit = true;
     };
-    map.once("moveend", start);
+    void map.once("moveend", start);
     return () => {
       map.off("moveend", start);
       s.orbit = false;

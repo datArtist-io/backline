@@ -22,3 +22,16 @@ Unit and integration tests run offline on synthetic data (Qloo's data may not be
 - No network: stub clients (`test/helpers.ts`: `stubQloo`, `stubLlm`, `ctxWith`).
 - No real Qloo responses in fixtures.
 - When a live run finds a bug, add the case that reproduces it before fixing.
+
+## Gates on every commit
+
+A pre-commit hook (Husky + lint-staged) runs ESLint on the changed files, a secrets scan on everything staged, and the type check. CI repeats them on every push, then runs the unit tests and the design tests.
+
+| Gate | What it catches | Where |
+| --- | --- | --- |
+| TypeScript strict | Nulls and wrong shapes | `npm run typecheck` |
+| ESLint, type-aware | An unawaited tool call that would fail silently (`no-floating-promises`), a hook with a stale dependency, a control without a name, a price typed outside the money code | `npm run lint` |
+| Secrets scan | A key pasted into a file | `npm run check:secrets` |
+| Design tests (Playwright) | Overflow, clipped text, small tap targets, contrast, missing labels, a state with no words, a flow that breaks | `npm run e2e` in `apps/web` (`E2E_VISUAL=1` adds screenshot comparison; `E2E_LITE=1` skips the WebGL interactions on a machine with no GPU) |
+
+The React Compiler rules (`react-hooks/refs`, `immutability`, `set-state-in-effect`, `purity`) report as warnings: the 3D map mutates refs on purpose, and they are reviewed rather than blocking until that code is reworked.

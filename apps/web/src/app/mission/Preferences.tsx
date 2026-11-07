@@ -95,7 +95,7 @@ export default function Preferences({ open, onClose, onSaved }: { open: boolean;
   );
 
   return (
-    <div className="pref-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+    <div className="pref-backdrop" role="presentation" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
       <div className="lg pref-panel" role="dialog" aria-modal="true" aria-labelledby="pref-title" tabIndex={-1} ref={panel}>
         <div className="pref-head">
           <h2 id="pref-title" className="cp-title">

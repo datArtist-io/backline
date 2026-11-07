@@ -15,9 +15,31 @@
     "typecheck": "npm run typecheck --workspaces --if-present",
     "check": "node scripts/check.mjs",
     "check:locations": "node scripts/check-locations.mjs",
-    "check:places": "node scripts/check-places.mjs"
+    "check:places": "node scripts/check-places.mjs",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "prepare": "husky",
+    "check:secrets": "node scripts/check-secrets.mjs"
   },
   "engines": {
     "node": ">=20.3"
+  },
+  "devDependencies": {
+    "@next/eslint-plugin-next": "^16.4.5",
+    "eslint": "^9.39.5",
+    "eslint-plugin-jsx-a11y": "^6.10.2",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^17.14.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.6.0",
+    "typescript-eslint": "^8.72.1"
+  },
+  "lint-staged": {
+    "*.{ts,tsx}": [
+      "eslint --max-warnings=1000"
+    ],
+    "*": [
+      "node scripts/check-secrets.mjs"
+    ]
   }
 }

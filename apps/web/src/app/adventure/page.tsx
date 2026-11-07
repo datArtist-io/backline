@@ -3,21 +3,11 @@
 // can be tried without running a mission. Add ?live=1 to watch the agent "scan" and the world build.
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import type { StepProgress } from "@backline/engine";
 import AdventureView, { type MissionStep } from "./AdventureView";
 import { buildAdventure } from "./model";
 import { sampleSource } from "./sample";
 
 const STEPS = ["trip.taste", "trip.flights", "trip.agent", "trip.plan", "trip.routes", "trip.intel"];
-const FEED: StepProgress[] = [
-  { kind: "think", text: "Fado and jazz: look around Alfama and Bairro Alto." },
-  { kind: "act", id: "1", tool: "locate", text: "Locating Lisbon" },
-  { kind: "saw", id: "1", text: "Lisbon, Portugal · 38.71°N 9.14°W", ok: true },
-  { kind: "act", id: "2", tool: "search_places", text: "Searching Qloo for venues" },
-  { kind: "saw", id: "2", text: "14 places, Tasca do Chico matches 96%", ok: true },
-  { kind: "act", id: "3", tool: "research", text: "Reading the web for entry rules and guides" },
-  { kind: "saw", id: "3", text: "7 sources read", ok: true },
-];
 
 export default function Page() {
   const [live, setLive] = useState(false);

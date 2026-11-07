@@ -72,9 +72,9 @@ export function useWallet() {
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Couldn't load your wallet.");
     }
-  }, []);
+  }, [setW]);
   useEffect(() => {
-    load();
+    void load();
   }, [load]);
   // One currency choice for the whole page: the top bar and the wallet's own switch stay in step.
   useEffect(
@@ -102,7 +102,7 @@ export default function WalletPanel() {
   useEffect(() => {
     if (!live) return;
     const t = setInterval(() => {
-      if (document.visibilityState === "visible") load();
+      if (document.visibilityState === "visible") void load();
     }, 8000);
     return () => clearInterval(t);
   }, [load, live]);
@@ -193,7 +193,7 @@ export default function WalletPanel() {
                 </button>
               ))}
             </div>
-            <form className="wl-custom" onSubmit={(e) => { e.preventDefault(); if (customOk) add(typedUsd, "custom"); }}>
+            <form className="wl-custom" onSubmit={(e) => { e.preventDefault(); if (customOk) void add(typedUsd, "custom"); }}>
               <input inputMode="decimal" placeholder={`Other amount in ${w.currency}`} value={custom} onChange={(e) => setCustom(e.target.value)} aria-label={`Amount in ${w.currency}`} />
               <button type="submit" disabled={!customOk || busy != null}>{busy === "custom" ? "Adding…" : "Add"}</button>
             </form>

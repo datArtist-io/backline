@@ -42,7 +42,7 @@ export default function TalkInBrowser() {
       if (d?.trip?.url) setTrip(d.trip);
       else if (++n < 150) window.setTimeout(tick, 2000);
     };
-    tick();
+    void tick();
     return () => {
       stop = true;
     };
