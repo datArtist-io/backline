@@ -19,3 +19,4 @@ _to_delete/
 # Playwright
 apps/web/test-results/
 apps/web/playwright-report/
+evals/out/

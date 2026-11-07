@@ -14,7 +14,8 @@
   "scripts": {
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "tsc --noEmit -p ."
+    "typecheck": "tsc --noEmit -p .",
+    "evals": "vitest run -c vitest.evals.config.ts"
   },
   "dependencies": {
     "zod": "^3.24.0"
