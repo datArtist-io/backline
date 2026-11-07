@@ -8,7 +8,10 @@
     "build": "next build",
     "start": "next start",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit -p ."
+    "typecheck": "tsc --noEmit -p .",
+    "e2e": "playwright test",
+    "e2e:update": "E2E_VISUAL=1 playwright test --update-snapshots",
+    "e2e:visual": "E2E_VISUAL=1 playwright test"
   },
   "dependencies": {
     "@backline/engine": "*",
@@ -24,6 +27,8 @@
     "zod": "^3.24.0"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.14.0",
+    "@playwright/test": "^1.63.0",
     "@types/node": "^22.0.0",
     "@types/react": "^19.1.0",
     "@types/react-dom": "^19.1.0",

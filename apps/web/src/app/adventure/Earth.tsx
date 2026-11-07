@@ -754,8 +754,10 @@ export default function Earth(props: EarthProps) {
     const keep = [...el.classList].filter((c) => c.startsWith("maplibregl-") || c === "sel" || c === "hov" || c === "off" || c === "quiet");
     el.className = [...keep, "eq-pin", `k-${n.kind}`, ...(n.picked ? ["picked"] : [])].join(" ");
     el.style.setProperty("--c", KIND_COLOR[n.kind]);
-    el.setAttribute("aria-label", n.name);
-    el.innerHTML = `<i></i><span>${escapeHtml(n.name)}${n.rank && n.picked ? `<b>#${n.rank.n}</b>` : ""}</span>`;
+    // The visible name is the accessible name (a separate aria-label that differs from the visible words
+    // fails WCAG 2.5.3 and confuses voice control). The stop number is decoration.
+    el.removeAttribute("aria-label");
+    el.innerHTML = `<i></i><span>${escapeHtml(n.name)}${n.rank && n.picked ? `<b aria-hidden="true">#${n.rank.n}</b>` : ""}</span>`;
   };
 
   // Selection, hover, the active day and the taste toggle.

@@ -103,7 +103,7 @@ a { color: inherit; text-decoration: none; }
   justify-content: space-between;
   padding: 20px clamp(16px, 4vw, 40px);
 }
-.wordmark { display: inline-flex; color: var(--ink); }
+.wordmark { display: inline-flex; align-items: center; min-height: 44px; margin: -9px 0; color: var(--ink); }
 .logo { display: inline-flex; align-items: center; gap: 9px; color: var(--ink); }
 .logo-word { font-family: var(--font-display); font-weight: 500; font-size: 19px; letter-spacing: -0.03em; line-height: 1; }
 .footer .logo-word { font-size: 15px; }
@@ -1661,7 +1661,8 @@ a { color: inherit; text-decoration: none; }
 .sec-list p { margin: 3px 0 0; font-size: 14px; line-height: 1.5; }
 .sec-tick { width: 22px; height: 22px; margin-top: 1px; border-radius: 50%; background: linear-gradient(135deg, #5a3ee6, #b0369a); position: relative; }
 .sec-tick::after { content: ""; position: absolute; left: 7px; top: 4px; width: 5px; height: 10px; border: solid #fff; border-width: 0 2px 2px 0; transform: rotate(45deg); }
-.footer a { color: inherit; }
+/* Footer links look the same but take a 44px tap target on touch screens (WCAG 2.5.8). */
+.footer a { color: inherit; display: inline-flex; align-items: center; min-height: 44px; margin: -14px 0; vertical-align: middle; }
 .ck-secure { display: flex; align-items: center; gap: 8px; margin: 10px 0 0; font-size: 12.5px; color: var(--ink-soft, #5b5f77); }
 .ck-secure svg { flex: none; color: #2e9d6a; }
 .ck-shared { margin: 10px 0 0; padding: 10px 12px; border-radius: 12px; font-size: 13px; line-height: 1.4; color: #3d27a8; background: rgba(123, 92, 255, 0.1); }

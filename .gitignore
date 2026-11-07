@@ -15,3 +15,7 @@ evals/results
 # Local scratch
 .tmp-transfer/
 _to_delete/
+
+# Playwright
+apps/web/test-results/
+apps/web/playwright-report/

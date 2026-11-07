@@ -42,7 +42,7 @@ export default function Page() {
   return (
     <main style={{ minHeight: "100svh", padding: "18px clamp(12px, 3vw, 36px) 48px", background: "var(--mist, #eef1f8)" }}>
       <p style={{ margin: "0 0 12px" }}>
-        <Link href="/">← Backline</Link>
+        <Link href="/" style={{ display: "inline-flex", alignItems: "center", minHeight: 44 }}>← Backline</Link>
       </p>
       <AdventureView fullscreen model={model} steps={steps} scanning={stage < 8} intelPending={stage < 7} note="Illustrative sample trip. Run a real plan to see your own." />
     </main>
