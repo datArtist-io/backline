@@ -20,6 +20,9 @@ const nextConfig: NextConfig = {
   // The engine is shipped as TypeScript source inside the monorepo.
   transpilePackages: ["@backline/engine"],
   poweredByHeader: false,
+  // Lint runs on every commit (pre-commit) and in CI with the type-aware config at the repo root; a
+  // third run inside the production build only adds time and a way for a deploy to fail.
+  eslint: { ignoreDuringBuilds: true },
   // The waitlist became sign-in; old /join links land on it.
   async redirects() {
     return [{ source: "/join", destination: "/signin", permanent: true }];
