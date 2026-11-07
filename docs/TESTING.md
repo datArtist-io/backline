@@ -35,3 +35,11 @@ A pre-commit hook (Husky + lint-staged) runs ESLint on the changed files, a secr
 | Design tests (Playwright) | Overflow, clipped text, small tap targets, contrast, missing labels, a state with no words, a flow that breaks | `npm run e2e` in `apps/web` (`E2E_VISUAL=1` adds screenshot comparison; `E2E_LITE=1` skips the WebGL interactions on a machine with no GPU) |
 
 The React Compiler rules (`react-hooks/refs`, `immutability`, `set-state-in-effect`, `purity`) report as warnings: the 3D map mutates refs on purpose, and they are reviewed rather than blocking until that code is reworked.
+
+## Agent evals
+
+`npm run evals -w @backline/engine` runs the 30-case corpus (`packages/engine/evals/corpus.json`: easy, underspecified, odd and hostile requests) through the real trip agent on a synthetic world, and the code judges in `evals/judges.ts` check the invariants: every place grounded in a tool result, travel checked when there is an origin, the limits held, the dates and budget respected, diets respected, hostile text in a page or a request ignored, no unsourced prices, an empty city reported honestly. Without keys it runs the autopilot (deterministic, in CI on every push). `EVAL_MODEL=1` runs the live model chain (nightly in `.github/workflows/evals.yml`) and writes the scorecard to `evals/out/last-run.json`. Every bug found in the agent adds its request to the corpus.
+
+## Property tests
+
+`packages/engine/test/properties/` states the money and parser laws and lets fast-check try hundreds of inputs each, shrinking a failure to its smallest case: estimates are whole, monotonic and never charged; a live fare always wins; fitting a budget never unticks a flight; the parser never throws and never invents a number, a date or a diet.

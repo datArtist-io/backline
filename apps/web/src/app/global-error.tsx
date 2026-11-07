@@ -1,6 +1,12 @@
 "use client";
 // Last resort when the root layout itself fails: a plain page with a way back.
-export default function GlobalError({ reset }: { error: Error & { digest?: string }; reset: () => void }) {
+import { useEffect } from "react";
+import { report } from "@/lib/errors";
+
+export default function GlobalError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
+  useEffect(() => {
+    report("global", error, { digest: error.digest });
+  }, [error]);
   return (
     <html lang="en">
       <body style={{ fontFamily: "system-ui, sans-serif", minHeight: "100vh", display: "grid", placeItems: "center", margin: 0, background: "#f6f6fb", color: "#10132b" }}>

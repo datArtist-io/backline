@@ -36,3 +36,26 @@ What to check and do when something goes wrong, and before a live demo.
 2. Rotate any key that may have leaked, in the provider and in Vercel, then redeploy.
 3. If personal data may have been exposed, note what, whose and when, and tell the people affected and the data protection authority within 72 hours.
 4. Write down what happened and the fix in [VERIFICATION.md](VERIFICATION.md).
+
+## Watching production
+
+Three instruments, all free of personal data:
+
+- **One record per planning run.** The mission route writes one JSON line per run (`{"bl":"run", ...}`): the city and length, which model answered and how many times it failed, turns, tool calls with their failures and timings, whether the autopilot took over, whether a finish was sent back, where the flight and hotel prices came from (live, listed, estimate), and the outcome. Read them in Vercel → Logs, or add a log drain (Axiom, Logtail, Datadog) under Vercel → Settings → Log Drains and query there.
+- **Browser errors.** Uncaught errors, unhandled promise rejections and render errors are posted to `/api/client-error` and written as `{"bl":"client-error", ...}` lines, scrubbed of emails, numbers and keys, capped at 10 a session and 30 a minute per address.
+- **Synthetic monitor.** `.github/workflows/synthetic.yml` runs `scripts/synthetic.mjs` against backline.travel every 30 minutes (health, landing, trip view, mission page, privacy) and plans a real trip every 6 hours. A failure fails the workflow, and GitHub emails the owner. Run it by hand: `node scripts/synthetic.mjs --plan`.
+
+### Alerts worth setting on the run log
+
+| Alert | Rule | Meaning |
+| --- | --- | --- |
+| Autopilot rate | `autopilot = true` in more than 5% of runs in an hour | The model chain is failing |
+| Tool failures | any tool with `fail >= 2` in a run, more than twice a day | A provider is down or changed shape |
+| Estimates where live expected | `prices.flight = "estimate"` while `/api/health` shows SerpApi ok | A fare lookup fails silently |
+| Slow runs | p95 `elapsed_ms` over 75,000 in an hour | Near the 90 s limit |
+| Model failovers | `model.failovers > 0` in more than 10% of runs | The first provider is unreliable |
+| Client errors | a new `message` seen more than 10 times in an hour | Something shipped broken |
+
+### Error budget
+
+Target: 97% of user runs a week with `outcome = "succeeded"`, not all prices estimates, and no client error in the session. Under target for a week means the next week is fixes only.

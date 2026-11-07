@@ -1,0 +1,29 @@
+name: Synthetic monitor
+
+# Checks backline.travel every 30 minutes the way a person uses it, and plans a real trip every 6 hours.
+# A failing run fails the workflow, which GitHub reports by email to the repository owner.
+on:
+  schedule:
+    - cron: "*/30 * * * *"
+    - cron: "17 */6 * * *"
+  workflow_dispatch:
+    inputs:
+      plan:
+        description: "Also plan a trip end to end"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Check the live site
+        run: node scripts/synthetic.mjs --base "${{ vars.SITE_URL || 'https://backline.travel' }}" ${{ (github.event.schedule == '17 */6 * * *' || inputs.plan) && '--plan' || '' }}

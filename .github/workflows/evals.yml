@@ -1,0 +1,38 @@
+name: Agent evals (live model)
+
+# Nightly: the 30-case corpus through the real agent on the synthetic world, with the live model chain.
+# Needs the LLM_* secrets. The autopilot baseline runs in CI on every push without keys.
+on:
+  schedule:
+    - cron: "41 2 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  evals:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run evals -w @backline/engine
+        env:
+          EVAL_MODEL: "1"
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+          LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}
+          LLM_MODEL: ${{ secrets.LLM_MODEL }}
+          LLM_MODEL_FAST: ${{ secrets.LLM_MODEL_FAST }}
+          LLM2_API_KEY: ${{ secrets.LLM2_API_KEY }}
+          LLM2_BASE_URL: ${{ secrets.LLM2_BASE_URL }}
+          LLM2_MODEL: ${{ secrets.LLM2_MODEL }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: eval-scorecard
+          path: packages/engine/evals/out/last-run.json

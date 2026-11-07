@@ -23,7 +23,7 @@ const g = globalThis as unknown as { __ops?: Store };
 export const ops: Store = (g.__ops ??= { runs: [], logs: [], started: Date.now(), counts: { missions: 0, failed: 0 } });
 
 const SECRETISH = /(sk-|gsk_|sand_|prod_|duffel_(?:test|live)_|eyJ[\w-]{10,}|Bearer\s+\S+|api[_-]?key\S*)/gi;
-const scrub = (s: string) => s.replace(SECRETISH, "[hidden]").replace(/[\w.+-]+@[\w-]+\.[\w.]+/g, "[email]").replace(/\+?\d[\d\s-]{8,}\d/g, "[number]");
+export const scrub = (s: string) => s.replace(SECRETISH, "[hidden]").replace(/[\w.+-]+@[\w-]+\.[\w.]+/g, "[email]").replace(/\+?\d[\d\s-]{8,}\d/g, "[number]");
 
 export function recordRun(r: Omit<OpsRun, "at" | "goal"> & { goal: string }): void {
   ops.counts.missions += 1;
@@ -89,4 +89,99 @@ export function configSummary(): { name: string; set: boolean; note?: string }[]
     { name: "Usage counts (Supabase secret key)", set: Boolean(e.SUPABASE_SECRET_KEY || e.SUPABASE_SERVICE_ROLE_KEY) },
     { name: "Google 3D city tiles", set: Boolean(e.NEXT_PUBLIC_GOOGLE_MAPS_KEY) },
   ];
+}
+
+// ---------- one structured record per planning run ----------
+// Written to stdout as one JSON line (Vercel keeps it; a log drain can send it to Axiom, Logtail or a
+// table). It holds what a query needs to find a sick run (the bug-finding book, section 8.2) and
+// nothing personal: no request text, no names, no email, no phone.
+
+export type RunRecord = {
+  bl: "run";
+  run_id: string;
+  at: string;
+  source: "web" | "voice" | "share" | "synthetic";
+  request: { city: string | null; origin: string | null; days: number | null; travellers: number | null; budget: number | null; currency: string | null };
+  model: { used: string | null; calls: number; failed: number; failovers: number };
+  turns: number | null;
+  calls: number | null;
+  elapsed_ms: number;
+  tools: Record<string, { calls: number; fail: number; ms: number }>;
+  autopilot: boolean;
+  method: string | null;
+  stop: string | null;
+  finish_sent_back: number;
+  prices: { flight: "live" | "listed" | "estimate" | "none"; hotel: "live" | "listed" | "estimate" | "test" | "none" };
+  steps: { failed: string[]; skipped: string[] };
+  outcome: string;
+  signed_in: boolean;
+  country: string | null;
+};
+
+type AgentStats = { turns: number; calls: number; stop: string; trace?: { by: string; note?: string; calls: { tool: string; ok: boolean; ms: number }[] }[] };
+type Results = Record<string, { data?: unknown } | undefined>;
+
+/** Builds the record from a finished run's results. Pure, and tolerant of missing steps. */
+export function runRecord(p: {
+  runId: string;
+  source: RunRecord["source"];
+  results: Results;
+  steps: Record<string, { status?: string }>;
+  status: string;
+  ms: number;
+  llmCalls: { model: string; ok: boolean }[];
+  signedIn: boolean;
+  country: string | null;
+}): RunRecord {
+  const agent = p.results["trip.agent"]?.data as { trip?: { destination?: string; origin?: string | null; startDate?: string | null; endDate?: string | null; adults?: number; budget?: { amount: number | null; currency: string } }; method?: string; stats?: AgentStats } | undefined;
+  const trip = agent?.trip;
+  const days = trip?.startDate && trip?.endDate ? Math.round((Date.parse(trip.endDate) - Date.parse(trip.startDate)) / 864e5) + 1 : null;
+  const tools: RunRecord["tools"] = {};
+  let sentBack = 0;
+  for (const t of agent?.stats?.trace ?? []) {
+    if (t.note && /sent back|check/i.test(t.note)) sentBack++;
+    for (const c of t.calls) {
+      const row = (tools[c.tool] ??= { calls: 0, fail: 0, ms: 0 });
+      row.calls++;
+      if (!c.ok) row.fail++;
+      row.ms += c.ms;
+    }
+  }
+  const actions = (p.results["trip.actions"]?.data as { actions?: { kind: string; subject?: string | null }[] } | undefined)?.actions ?? [];
+  const travel = actions.find((a) => a.kind === "book_travel" || a.kind === "book_flight");
+  const flight: RunRecord["prices"]["flight"] = !travel ? "none" : /estimated/i.test(travel.subject ?? "") ? "estimate" : /listed/i.test(travel.subject ?? "") ? "listed" : "live";
+  const budget = (p.results["trip.plan"]?.data as { budget?: { item: string; basis: string }[] } | undefined)?.budget ?? [];
+  const stayLine = budget.find((b) => /night/i.test(b.item));
+  const hotel: RunRecord["prices"]["hotel"] = !stayLine ? "none" : /live rate/i.test(stayLine.basis) ? "live" : /listed/i.test(stayLine.basis) ? "listed" : /test-mode/i.test(stayLine.basis) ? "test" : "estimate";
+  const used = [...p.llmCalls].reverse().find((c) => c.ok)?.model ?? null;
+  const models = new Set(p.llmCalls.filter((c) => c.ok).map((c) => c.model));
+  return {
+    bl: "run",
+    run_id: p.runId,
+    at: new Date().toISOString(),
+    source: p.source,
+    request: { city: trip?.destination?.split(",")[0]?.trim() ?? null, origin: trip?.origin?.split(",")[0]?.trim() ?? null, days, travellers: trip?.adults ?? null, budget: trip?.budget?.amount ?? null, currency: trip?.budget?.currency ?? null },
+    model: { used, calls: p.llmCalls.length, failed: p.llmCalls.filter((c) => !c.ok).length, failovers: Math.max(0, models.size - 1) },
+    turns: agent?.stats?.turns ?? null,
+    calls: agent?.stats?.calls ?? null,
+    elapsed_ms: p.ms,
+    tools,
+    autopilot: agent?.method === "autopilot",
+    method: agent?.method ?? null,
+    stop: agent?.stats?.stop ?? null,
+    finish_sent_back: sentBack,
+    prices: { flight, hotel },
+    steps: {
+      failed: Object.entries(p.steps).filter(([, s]) => s.status === "failed").map(([id]) => id),
+      skipped: Object.entries(p.steps).filter(([, s]) => s.status === "skipped").map(([id]) => id),
+    },
+    outcome: p.status === "failed" ? "failed" : agent?.method === "autopilot" ? "autopilot" : p.status,
+    signed_in: p.signedIn,
+    country: p.country,
+  };
+}
+
+/** Writes the record as one line, so a log drain can index it. */
+export function logRun(r: RunRecord): void {
+  console.log(JSON.stringify(r));
 }

@@ -28,6 +28,7 @@ jobs:
       - run: npm run lint
       - run: node scripts/check-secrets.mjs $(git ls-files)
       - run: npm test
+      - run: npm run evals -w @backline/engine
 
   design:
     name: Flows, layout and accessibility

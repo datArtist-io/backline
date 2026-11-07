@@ -2,10 +2,12 @@
 // Anything that throws while a page renders lands here instead of a blank screen.
 import Link from "next/link";
 import { useEffect } from "react";
+import { report } from "@/lib/errors";
 
 export default function Error({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   useEffect(() => {
     console.error("[page] render error", error.message);
+    report("render", error, { digest: error.digest });
   }, [error]);
   return (
     <main style={{ minHeight: "70vh", display: "grid", placeItems: "center", padding: 24, textAlign: "center" }}>

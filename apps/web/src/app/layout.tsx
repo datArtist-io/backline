@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { Hanken_Grotesk, Unbounded } from "next/font/google";
 import "./globals.css";
 import { BRAND } from "@/lib/brand";
+import ErrorWatch from "./ErrorWatch";
 
 const display = Unbounded({ subsets: ["latin"], variable: "--font-display", weight: ["300", "400", "500"] });
 const body = Hanken_Grotesk({ subsets: ["latin"], variable: "--font-body" });
@@ -30,7 +31,10 @@ export default function RootLayout({ children }: { children: ReactNode }) {
             showed in light for the seconds it took the scripts to load. */}
         <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
       </head>
-      <body suppressHydrationWarning>{children}</body>
+      <body suppressHydrationWarning>
+        <ErrorWatch />
+        {children}
+      </body>
     </html>
   );
 }
