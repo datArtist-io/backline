@@ -218,6 +218,12 @@ export function mentionsNumber(text: string, n: number): boolean {
     if (n < div) continue;
     const v = Math.round((n / div) * 100) / 100;
     if (new RegExp(`(^|[^\\d.])${String(v).replace(".", "\\.")}\\s*${unit}\\b`).test(t)) return true;
+    // "two and a half grand", "1 and a half million": a whole number plus a half of the unit.
+    if (v % 1 === 0.5) {
+      const whole = Math.floor(v);
+      const word = whole <= 20 ? NUMBER_WORDS[whole] : null;
+      if (new RegExp(`\\b(?:${whole}${word ? `|${word}` : ""}) and a half\\s*${unit}\\b`).test(t)) return true;
+    }
   }
   if (whole <= 20 && new RegExp(`\\b${NUMBER_WORDS[whole]}\\b`).test(t)) return true;
   if (spelledNumbers(t).includes(whole)) return true;
