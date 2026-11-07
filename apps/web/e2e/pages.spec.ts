@@ -1,7 +1,7 @@
 // Every page that renders without a planning run, in every project (width × theme): layout invariants,
 // accessibility, and a reference screenshot. Book section 7.2 to 7.4.
 import { test, expect } from "@playwright/test";
-import { stubWorld, freeze, expectLayoutClean, expectAccessible } from "./helpers";
+import { stubWorld, freeze, expectLayoutClean, expectAccessible, expectNoPageErrors } from "./helpers";
 
 const PAGES: { name: string; path: string; ready: string; mask?: string[] }[] = [
   { name: "landing", path: "/", ready: "main" },
@@ -17,6 +17,7 @@ const PAGES: { name: string; path: string; ready: string; mask?: string[] }[] = 
 
 for (const p of PAGES) {
   test(`${p.name}: layout, a11y, snapshot`, async ({ page }, info) => {
+    test.skip(p.name === "adventure-sample" && Boolean(process.env.E2E_LITE), "the globe needs a GPU");
     await stubWorld(page);
     await page.goto(p.path, { waitUntil: "domcontentloaded" });
     await page.locator(p.ready).first().waitFor({ state: "visible" });
@@ -24,6 +25,7 @@ for (const p of PAGES) {
     await freeze(page);
     await page.waitForTimeout(300);
 
+    expectNoPageErrors(page);
     await expectLayoutClean(page, info);
     await expectAccessible(page, info);
     // WebGL canvases animate on their own clock: hidden for the picture (a mask would cover the UI drawn

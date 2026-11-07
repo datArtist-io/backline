@@ -46,10 +46,13 @@ jobs:
       - run: npm run build
         env:
           NEXT_PUBLIC_SITE_URL: http://127.0.0.1:3100
+      # Runners have no GPU: the WebGL interactions (the globe) time out there, so they run on a
+      # developer machine (`npm run e2e` in apps/web). Everything else runs here.
       - run: npm run e2e
         working-directory: apps/web
         env:
           CI: "1"
+          E2E_LITE: "1"
       - uses: actions/upload-artifact@v4
         if: failure()
         with:

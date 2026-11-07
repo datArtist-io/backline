@@ -858,8 +858,19 @@ export default function Earth(props: EarthProps) {
     }
     const b = new maplibregl.LngLatBounds();
     for (const n of use) b.extend([n.lon, n.lat]);
-    const cam = map.cameraForBounds(b, { padding: padding(), maxZoom: 15.2 });
-    if (!cam) return;
+    // The globe's cameraForBounds throws (reading "center" of undefined) when the box has no area or
+    // the container has no size yet. Then the camera settles over the centre instead of crashing the page.
+    let cam: ReturnType<typeof map.cameraForBounds> | undefined;
+    const sized = (box.current?.clientWidth ?? 0) > 0 && (box.current?.clientHeight ?? 0) > 0;
+    try {
+      cam = sized ? map.cameraForBounds(b, { padding: padding(), maxZoom: 15.2 }) : undefined;
+    } catch {
+      cam = undefined;
+    }
+    if (!cam) {
+      map.flyTo({ center: [c.lon, c.lat], zoom: 11.2, pitch: 52, bearing: -16, duration: live.current.reduced ? 0 : duration, curve: 1.35, essential: true });
+      return;
+    }
     map.flyTo({ ...cam, zoom: Math.min(15.2, (cam.zoom ?? 13) - 0.15), pitch: 58, bearing: -16, duration: live.current.reduced ? 0 : duration, curve: 1.35, essential: true });
   };
 

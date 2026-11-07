@@ -3,8 +3,22 @@
 import { expect, type Page, type TestInfo } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 
+const errors = new WeakMap<Page, string[]>();
+
+/** Uncaught errors in the page since stubWorld: a crash a person would see as a frozen screen. */
+export function pageErrors(page: Page): string[] {
+  return errors.get(page) ?? [];
+}
+
+export function expectNoPageErrors(page: Page): void {
+  expect(pageErrors(page), "uncaught errors in the page").toEqual([]);
+}
+
 /** Outside hosts a page may call. Each is answered locally so nothing varies between runs. */
 export async function stubWorld(page: Page): Promise<void> {
+  const list: string[] = [];
+  errors.set(page, list);
+  page.on("pageerror", (e) => list.push(`${e.name}: ${e.message}`));
   await page.route(/https?:\/\/(?!127\.0\.0\.1|localhost)[^/]+\//, (route) => {
     const url = route.request().url();
     // Map tiles, 3D tiles and fonts: an empty answer keeps the page going.

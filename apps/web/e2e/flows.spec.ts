@@ -1,7 +1,7 @@
 // The flows a person actually takes, scripted in plain steps, with every step asserting something visible.
 // Book section 7.1. Outside services are stubbed, so each run is the same as the last.
 import { test, expect } from "@playwright/test";
-import { stubWorld, expectLayoutClean, expectAccessible } from "./helpers";
+import { stubWorld, expectLayoutClean, expectAccessible, expectNoPageErrors } from "./helpers";
 
 test.describe("typing a request", () => {
   test("goes to the mission page and, when the agent is unreachable, says so in plain words", async ({ page }, info) => {
@@ -16,6 +16,7 @@ test.describe("typing a request", () => {
     await expect(page.getByText("The agent is resting. Try again in a moment.")).toBeVisible();
     await expect(page.getByRole("button", { name: /try again/i }).or(page.getByRole("link", { name: /new trip/i })).first()).toBeVisible();
     await expectLayoutClean(page, info);
+    expectNoPageErrors(page);
   });
 
   test("a dropped connection is reported, never a blank screen", async ({ page }) => {
@@ -54,6 +55,7 @@ test.describe("the trip view", () => {
     await expect(dialog).toBeHidden();
     await expectAccessible(page, info);
     await expectLayoutClean(page, info);
+    expectNoPageErrors(page);
   });
 
   test("the whole trip view works from the keyboard", async ({ page }) => {
