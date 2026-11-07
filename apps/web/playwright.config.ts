@@ -10,6 +10,8 @@ export const BASE = process.env.E2E_BASE_URL || `http://127.0.0.1:${port}`;
 
 const themes = ["dark", "light"] as const;
 const sizes = {
+  // The smallest phone still in use: a column that grows to its content shows up here first.
+  narrow: { width: 320, height: 568 },
   phone: { width: 390, height: 844 },
   tablet: { width: 1024, height: 768 },
   laptop: { width: 1440, height: 900 },
@@ -32,7 +34,8 @@ export default defineConfig({
   },
   snapshotPathTemplate: "{testDir}/__screenshots__/{testFilePath}/{arg}-{projectName}-{platform}{ext}",
   projects: Object.entries(sizes).flatMap(([size, viewport]) =>
-    themes.map((theme) => ({
+    // The narrow size runs in one theme: it is a layout check, and the themes do not change layout.
+    (size === "narrow" ? (["dark"] as const) : themes).map((theme) => ({
       name: `${size}-${theme}`,
       use: { viewport, colorScheme: theme, storageState: { cookies: [], origins: [{ origin: BASE, localStorage: [{ name: "bl.theme", value: theme }] }] } },
     })),

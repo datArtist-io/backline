@@ -497,7 +497,10 @@ a { color: inherit; text-decoration: none; }
 
 @media (max-width: 860px) {
   .join.hero { padding-top: 96px; }
-  .join-grid { grid-template-columns: 1fr; gap: 28px; }
+  /* minmax(0, 1fr), not 1fr: a plain 1fr grows to its content's minimum, and the email row's input
+     pushed the whole column past the edge on small phones (320px). */
+  .join-grid { grid-template-columns: minmax(0, 1fr); gap: 28px; }
+  .join-card, .join-intro { min-width: 0; }
 }
 
 /* ---------- Plain documents (privacy) ---------- */
@@ -851,7 +854,7 @@ a { color: inherit; text-decoration: none; }
 .auth-btn.google:hover { box-shadow: 0 6px 18px -8px rgba(16, 19, 43, 0.25); }
 .or { display: flex; align-items: center; gap: 12px; font-size: 12px; color: var(--ink-faint); text-transform: uppercase; letter-spacing: 0.08em; }
 .or::before, .or::after { content: ""; flex: 1; height: 1px; background: rgba(16, 19, 43, 0.1); }
-.email-row { position: relative; display: flex; align-items: center; height: 50px; border-radius: 14px; background: rgba(255, 255, 255, 0.75); border: 1px solid rgba(16, 19, 43, 0.1); transition: border-color 0.2s, box-shadow 0.25s; }
+.email-row { position: relative; display: flex; align-items: center; min-width: 0; height: 50px; border-radius: 14px; background: rgba(255, 255, 255, 0.75); border: 1px solid rgba(16, 19, 43, 0.1); transition: border-color 0.2s, box-shadow 0.25s; }
 .email-row:focus-within { border-color: var(--violet); box-shadow: 0 0 0 4px rgba(123, 92, 255, 0.14); background: #fff; }
 .email-row input { flex: 1; min-width: 0; height: 100%; padding: 0 8px 0 16px; font: inherit; font-size: 15px; color: var(--ink); background: transparent; border: 0; outline: none; }
 .email-row input::placeholder { color: var(--ink-faint); }
