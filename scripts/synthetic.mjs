@@ -24,8 +24,17 @@ await check("health", async () => {
   const r = await get("/api/health");
   if (r.status !== 200) throw new Error(`status ${r.status}`);
   const h = await r.json();
-  const failing = (h.failing ?? []).filter((s) => !/^hotels|^flights/.test(s));
-  if (!h.ok && failing.length) throw new Error(`failing: ${failing.join(", ")}`);
+  // Down means a person can't plan a trip: Qloo is out, or every model is out. One backup provider
+  // failing (a research key, a flight sandbox) is reported in the log but doesn't fail the run.
+  const svc = h.services ?? [];
+  const models = svc.filter((s) => /^model/.test(s.service) && s.configured);
+  const qloo = svc.find((s) => s.service === "Qloo");
+  const down = [];
+  if (qloo && qloo.ok === false) down.push("Qloo");
+  if (models.length && models.every((s) => s.ok === false)) down.push("every model");
+  if (down.length) throw new Error(`down: ${down.join(", ")}`);
+  const degraded = (h.failing ?? []).filter((s) => !/^hotels|^flights/.test(s));
+  if (degraded.length) console.log(`note: degraded but usable: ${degraded.join(", ")}`);
   const serp = (h.services ?? []).find((s) => /SerpApi/.test(s.service));
   const left = serp?.detail?.match(/(\d+) searches left/);
   if (left && Number(left[1]) < 20) throw new Error(`SerpApi nearly out: ${serp.detail}`);

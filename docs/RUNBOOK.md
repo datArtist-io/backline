@@ -43,7 +43,7 @@ Three instruments, all free of personal data:
 
 - **One record per planning run.** The mission route writes one JSON line per run (`{"bl":"run", ...}`): the city and length, which model answered and how many times it failed, turns, tool calls with their failures and timings, whether the autopilot took over, whether a finish was sent back, where the flight and hotel prices came from (live, listed, estimate), and the outcome. Read them in Vercel → Logs, or add a log drain (Axiom, Logtail, Datadog) under Vercel → Settings → Log Drains and query there.
 - **Browser errors.** Uncaught errors, unhandled promise rejections and render errors are posted to `/api/client-error` and written as `{"bl":"client-error", ...}` lines, scrubbed of emails, numbers and keys, capped at 10 a session and 30 a minute per address.
-- **Synthetic monitor.** `.github/workflows/synthetic.yml` runs `scripts/synthetic.mjs` against backline.travel every 30 minutes (health, landing, trip view, mission page, privacy) and plans a real trip every 6 hours. A failure fails the workflow, and GitHub emails the owner. Run it by hand: `node scripts/synthetic.mjs --plan`.
+- **Synthetic monitor.** `.github/workflows/synthetic.yml` runs `scripts/synthetic.mjs` against backline.travel (health, landing, trip view, mission page, privacy, and optionally a real trip). It runs only when started by hand from the Actions tab, so it sends no routine emails. It fails only when a person couldn't plan a trip (the site is down, Qloo is down, or every model is down); a single backup provider failing is logged as degraded. Run it by hand: `node scripts/synthetic.mjs --plan`.
 
 ### Alerts worth setting on the run log
 
