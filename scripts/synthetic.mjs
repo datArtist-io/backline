@@ -21,9 +21,15 @@ const check = async (name, fn) => {
 const get = (path) => fetch(`${base}${path}`, { headers: ua, redirect: "manual", signal: AbortSignal.timeout(20_000) });
 
 await check("health", async () => {
-  const r = await get("/api/health");
+  // The per-service list needs HEALTH_TOKEN; without it the site only says up ({ ok, core }) or down.
+  const token = process.env.HEALTH_TOKEN;
+  const r = await fetch(`${base}/api/health`, { headers: { ...ua, ...(token ? { Authorization: `Bearer ${token}` } : {}) }, redirect: "manual", signal: AbortSignal.timeout(20_000) });
   if (r.status !== 200) throw new Error(`status ${r.status}`);
   const h = await r.json();
+  if (!h.services) {
+    if (h.core === false) throw new Error("down: a person can't plan a trip (set HEALTH_TOKEN to see which service)");
+    return h.ok ? "all services ok" : "degraded but usable (set HEALTH_TOKEN to see which service)";
+  }
   // Down means a person can't plan a trip: Qloo is out, or every model is out. One backup provider
   // failing (a research key, a flight sandbox) is reported in the log but doesn't fail the run.
   const svc = h.services ?? [];

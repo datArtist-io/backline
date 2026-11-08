@@ -24,4 +24,6 @@ jobs:
         with:
           node-version: 22
       - name: Check the live site
+        env:
+          HEALTH_TOKEN: ${{ secrets.HEALTH_TOKEN }}
         run: node scripts/synthetic.mjs --base "${{ vars.SITE_URL || 'https://backline.travel' }}" ${{ inputs.plan && '--plan' || '' }}

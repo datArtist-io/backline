@@ -63,7 +63,7 @@ Every route lives in `apps/web/src/app/api`. All are rate limited per IP, valida
 
 | Route | Method | Auth | What it does |
 |---|---|---|---|
-| `/api/health` | GET | None | Which outside services answer right now, with timings |
+| `/api/health` | GET | None for `{ ok, core, at }`; `HEALTH_TOKEN` bearer or `ADMIN_EMAILS` for the per-service list | Whether outside services answer right now; the private view adds each service with timings |
 | `/api/ops` | GET | `ADMIN_EMAILS` | Private monitoring feed for `/ops`; others get a 404 |
 
 ## Errors

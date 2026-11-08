@@ -4,7 +4,7 @@ What to check and do when something goes wrong, and before a live demo.
 
 ## Before a live demo (30–60 minutes ahead)
 
-1. Open `/api/health`: every AI model, Qloo and research should answer. Top up any provider that returns 402.
+1. Open `/api/health` signed in with an `ADMIN_EMAILS` account (or send `Authorization: Bearer $HEALTH_TOKEN`): every AI model, Qloo and research should answer. Signed out it only says `ok` and `core`. Top up any provider that returns 402.
 2. Top up the demo wallet (Account → Wallet) so it covers the whole trip you'll show.
 3. Check your phone is on your account (Account → Details → Phone) for the demo call.
 4. Run the trip you'll present once, end to end, on the machine and network you'll use.
