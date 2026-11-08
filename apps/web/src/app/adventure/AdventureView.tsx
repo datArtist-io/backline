@@ -7,7 +7,7 @@ import dynamic from "next/dynamic";
 import { Component, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { StepProgress } from "@backline/engine";
 import { Vector3 } from "three";
-import type { Shared } from "./World";
+import type { Shared } from "./WorldScene";
 import type { Spot } from "./Earth";
 import { GOOGLE_KEY, HAS_TRAFFIC } from "./Earth";
 import { skyKind, type Sky } from "./world";
@@ -18,7 +18,7 @@ import "./adventure.css";
 import { ShareLinkContext, copyTripLink } from "../mission/trip";
 
 const Earth = dynamic(() => import("./Earth"), { ssr: false });
-const World = dynamic(() => import("./World"), { ssr: false });
+const World = dynamic(() => import("./WorldScene"), { ssr: false });
 
 class Quiet extends Component<{ children: ReactNode; fallback: ReactNode }, { failed: boolean }> {
   state = { failed: false };
