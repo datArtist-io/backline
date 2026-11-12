@@ -1,9 +1,9 @@
 import type { MetadataRoute } from "next";
-import { BRAND } from "@/lib/brand";
 
 // Public pages only. Trips, account, mission, receipts and the API stay out of search.
 export default function sitemap(): MetadataRoute.Sitemap {
-  const base = BRAND.url.replace(/\/$/, "");
+  // the public address, fixed: the site URL setting can point at a preview domain
+  const base = "https://backline.travel";
   const now = new Date();
   return [
     { url: `${base}/`, lastModified: now, changeFrequency: "weekly", priority: 1 },
